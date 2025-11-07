@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 import { createBuildConfig } from './build-config.js';
 
 // Production build only
-console.log('� Building extension...\n');
+console.log('🔨 Building extension...\n');
 
 try {
   const config = createBuildConfig();

@@ -47,10 +47,12 @@
     "fibjs": ">=0.36.0"
   },
   "devDependencies": {
+    "d3-array": "^3.2.4",
     "esbuild": "^0.25.11",
     "html2canvas": "^1.4.1",
     "katex": "^0.16.25",
     "mermaid": "^11.12.1",
+    "rehype-highlight": "^7.0.2",
     "rehype-katex": "^7.0.1",
     "rehype-slug": "^6.0.0",
     "rehype-stringify": "^10.0.1",
@@ -59,7 +61,6 @@
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0",
-    "rehype-highlight": "^7.0.2"
+    "unist-util-visit": "^5.0.0"
   }
 }
