@@ -6,67 +6,6 @@
 /* Import highlight.js styles */
 @import '../node_modules/highlight.js/styles/github.css';
 
-/* Processing Overlay Styles */
-.processing-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  transition: opacity 0.3s ease;
-}
-
-.processing-content {
-  text-align: center;
-  padding: 40px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  max-width: 400px;
-  width: 90%;
-}
-
-.processing-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 20px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-#processing-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 4px;
-}
-
-#processing-status {
-  font-size: 14px;
-  color: #7f8c8d;
-  margin-bottom: 2px;
-  min-height: 16px;
-}
-
-#processing-progress {
-  font-size: 12px;
-  color: #95a5a6;
-  font-weight: 500;
-  min-height: 14px;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -372,4 +311,73 @@ body.toc-hidden #markdown-content {
   #markdown-content {
     padding: 20px;
   }
+}
+
+/* Async Processing Placeholder Styles */
+.async-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  margin: 20px 0;
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.async-placeholder:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
+}
+
+.async-loading {
+  text-align: center;
+  color: #6c757d;
+}
+
+.async-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f1f3f4;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: async-spin 1s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes async-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.async-text {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Specific placeholder styles for different content types */
+.mermaid-placeholder {
+  border-color: #17a2b8;
+}
+
+.mermaid-placeholder .async-spinner {
+  border-top-color: #17a2b8;
+}
+
+.html-placeholder {
+  border-color: #28a745;
+}
+
+.html-placeholder .async-spinner {
+  border-top-color: #28a745;
+}
+
+.svg-placeholder {
+  border-color: #ffc107;
+}
+
+.svg-placeholder .async-spinner {
+  border-top-color: #ffc107;
 }

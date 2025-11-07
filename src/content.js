@@ -27,11 +27,11 @@ class BackgroundCacheManagerProxy {
         operation: 'get',
         key: key
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       return response.result;
     } catch (error) {
       return null;
@@ -47,11 +47,11 @@ class BackgroundCacheManagerProxy {
         value: value,
         dataType: type
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       return response.success;
     } catch (error) {
       return false;
@@ -64,11 +64,11 @@ class BackgroundCacheManagerProxy {
         type: 'cacheOperation',
         operation: 'clear'
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       return response.success;
     } catch (error) {
       return false;
@@ -81,11 +81,11 @@ class BackgroundCacheManagerProxy {
         type: 'cacheOperation',
         operation: 'getStats'
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       return response.result;
     } catch (error) {
       return null;
@@ -112,41 +112,6 @@ class BackgroundCacheManagerProxy {
 }
 
 /**
- * Update processing status display
- * @param {string} title - Main status title
- * @param {string} status - Detailed status message
- * @param {string} progress - Progress information
- */
-function updateProcessingStatus(title, status, progress = '') {
-  const titleEl = document.getElementById('processing-title');
-  const statusEl = document.getElementById('processing-status');
-  const progressEl = document.getElementById('processing-progress');
-  
-  if (!titleEl || !statusEl || !progressEl) {
-    return;
-  }
-  
-  titleEl.textContent = title;
-  statusEl.textContent = status;
-  progressEl.textContent = progress;
-}
-
-/**
- * Hide processing overlay
- */
-function hideProcessingOverlay() {
-  const overlay = document.getElementById('processing-overlay');
-  if (!overlay) {
-    return;
-  }
-  
-  overlay.style.opacity = '0';
-  setTimeout(() => {
-    overlay.style.display = 'none';
-  }, 300);
-}
-
-/**
  * Restore scroll position after rendering
  * @param {number} scrollPosition - The saved scroll position to restore
  */
@@ -156,13 +121,13 @@ function restoreScrollPosition(scrollPosition) {
     const performScroll = () => {
       window.scrollTo(0, scrollPosition);
       const currentPosition = window.scrollY || window.pageYOffset;
-      
+
       // Clear saved scroll position from background script after successful restoration
       chrome.runtime.sendMessage({
         type: 'clearScrollPosition',
         url: document.location.href
       });
-      
+
       // If the position wasn't set correctly, try again after a short delay
       if (Math.abs(currentPosition - scrollPosition) > 10) {
         setTimeout(() => {
@@ -170,7 +135,7 @@ function restoreScrollPosition(scrollPosition) {
         }, 100);
       }
     };
-    
+
     // Use requestAnimationFrame to ensure DOM is fully rendered
     requestAnimationFrame(() => {
       // Check if there are images that might still be loading
@@ -186,7 +151,7 @@ function restoreScrollPosition(scrollPosition) {
           setTimeout(resolve, 3000);
         });
       });
-      
+
       if (imagePromises.length > 0) {
         Promise.all(imagePromises).then(() => {
           performScroll();
@@ -214,18 +179,18 @@ function normalizeListMarkers(markdown) {
   // Convert bullet points (•) to standard dashes
   // Handle Tab + bullet + Tab pattern (common in some editors)
   let normalized = markdown.replace(/^(\s*)\t*[•◦▪▫]\t*\s*/gm, '$1- ');
-  
+
   // Convert other common bullet symbols with various whitespace patterns
   normalized = normalized.replace(/^(\s*)\t*[▸▹►▷]\t*\s*/gm, '$1- ');
-  
+
   // Handle cases where there are only tabs (convert to 2 spaces per tab for proper indentation)
   normalized = normalized.replace(/^(\t+)/gm, (match, tabs) => {
     return '  '.repeat(tabs.length);
   });
-  
+
   // Convert numbered lists with various number formats
   normalized = normalized.replace(/^(\s*)([①②③④⑤⑥⑦⑧⑨⑩])\s+/gm, '$1$2. ');
-  
+
   return normalized;
 }
 
@@ -257,115 +222,149 @@ function normalizeMathBlocks(markdown) {
   return normalized;
 }
 
+// Global async task queue
+const asyncTaskQueue = [];
+let asyncTaskIdCounter = 0;
+
 /**
- * Remark plugin to convert Mermaid code blocks to PNG
+ * Generate unique ID for async tasks
+ */
+function generateAsyncId() {
+  return `async-placeholder-${++asyncTaskIdCounter}`;
+}
+
+/**
+ * Register async task for later execution
+ * @param {Function} callback - The async callback function
+ * @param {Object} data - Data to pass to callback
+ * @param {string} type - Type for placeholder styling ('mermaid', 'html', 'svg')
+ * @param {string} description - Optional description for placeholder
+ * @returns {Object} - HTML node object with placeholder content
+ */
+function asyncTask(callback, data = {}, type = 'unknown', description = '') {
+  const placeholderId = generateAsyncId();
+  asyncTaskQueue.push({ callback, data: { ...data, id: placeholderId } });
+  
+  return {
+    type: 'html',
+    value: createAsyncPlaceholder(placeholderId, type, description)
+  };
+}
+
+/**
+ * Create placeholder HTML for async content
+ */
+function createAsyncPlaceholder(id, type, description = '') {
+  const typeLabels = {
+    'mermaid': 'Mermaid 图表',
+    'html': 'HTML 图表', 
+    'svg': 'SVG 图像'
+  };
+  
+  return `<div id="${id}" class="async-placeholder ${type}-placeholder">
+    <div class="async-loading">
+      <div class="async-spinner"></div>
+      <div class="async-text">正在处理 ${typeLabels[type] || type}${description ? ': ' + description : ''}...</div>
+    </div>
+  </div>`;
+}
+
+/**
+ * Process all async tasks in queue sequentially (one by one)
+ */
+async function processAsyncTasks() {
+  // Process tasks one by one to avoid offscreen document conflicts
+  while (asyncTaskQueue.length > 0) {
+    const taskInfo = asyncTaskQueue.shift();
+    try {
+      if (typeof taskInfo === 'function') {
+        // Legacy support for direct function callbacks
+        await Promise.resolve().then(taskInfo);
+      } else {
+        // New format with data
+        await Promise.resolve().then(() => taskInfo.callback(taskInfo.data));
+      }
+    } catch (error) {
+      console.error('Async task error:', error);
+    }
+  }
+}/**
+ * Remark plugin to convert Mermaid code blocks to PNG (async callback version)
  */
 function remarkMermaidToPng(renderer) {
   return function() {
-    return async (tree) => {
-      const mermaidNodes = [];
-
+    return (tree) => {
       // Collect all mermaid code blocks
       visit(tree, 'code', (node, index, parent) => {
         if (node.lang === 'mermaid') {
-          mermaidNodes.push({ node, index, parent });
+          // Replace code block with async task placeholder immediately
+          parent.children[index] = asyncTask(async (data) => {
+            const { id, code } = data;
+            try {
+              const pngBase64 = await renderer.renderMermaidToPng(code);
+              const placeholder = document.getElementById(id);
+              if (placeholder) {
+                placeholder.outerHTML = `<div class="mermaid-diagram" style="text-align: center; margin: 20px 0;">
+                  <img src="data:image/png;base64,${pngBase64}" alt="Mermaid diagram" style="max-width: 100%; height: auto;" />
+                </div>`;
+              }
+            } catch (error) {
+              const placeholder = document.getElementById(id);
+              if (placeholder) {
+                placeholder.outerHTML = `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">Mermaid Error: ${escapeHtml(error.message)}</pre>`;
+              }
+            }
+          }, { code: node.value }, 'mermaid');
         }
       });
-
-      if (mermaidNodes.length === 0) {
-        return;
-      }
-
-      updateProcessingStatus('正在处理 Mermaid 图表', `发现 ${mermaidNodes.length} 个图表`, `0/${mermaidNodes.length} 已完成`);
-
-      // Convert each mermaid block
-      for (let i = 0; i < mermaidNodes.length; i++) {
-        const { node, index, parent } = mermaidNodes[i];
-        
-        try {
-          updateProcessingStatus('正在处理 Mermaid 图表', '', `${i}/${mermaidNodes.length} 已完成`);
-          
-          const pngBase64 = await renderer.renderMermaidToPng(node.value);
-          
-          // Replace code block with HTML image
-          parent.children[index] = {
-            type: 'html',
-            value: `<div class="mermaid-diagram" style="text-align: center; margin: 20px 0;"><img src="data:image/png;base64,${pngBase64}" alt="Mermaid diagram" style="max-width: 100%; height: auto;" /></div>`
-          };
-          
-          updateProcessingStatus('正在处理 Mermaid 图表', '', `${i + 1}/${mermaidNodes.length} 已完成`);
-        } catch (error) {
-          // Keep original code block on error
-          parent.children[index] = {
-            type: 'html',
-            value: `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">Mermaid Error: ${escapeHtml(error.message)}</pre>`
-          };
-        }
-      }
     };
   };
 }
 
 /**
- * Remark plugin to convert HTML blocks to PNG
+ * Remark plugin to convert HTML blocks to PNG (async callback version)
  */
 function remarkHtmlToPng(renderer) {
   return function() {
-    return async (tree) => {
-      const htmlNodes = [];
-      
+    return (tree) => {
       // Collect all significant HTML nodes
       visit(tree, 'html', (node, index, parent) => {
         const htmlContent = node.value.trim();
         
         // Check if it's a significant HTML block
-        // Relax the conditions to catch more HTML blocks
         if ((htmlContent.startsWith('<div') || htmlContent.startsWith('<table') || htmlContent.startsWith('<svg')) && htmlContent.length > 100) {
-          htmlNodes.push({ node, index, parent });
+          // Replace HTML node with async task placeholder immediately
+          parent.children[index] = asyncTask(async (data) => {
+            const { id, code } = data;
+            try {
+              const pngBase64 = await renderer.renderHtmlToPng(code);
+              const placeholder = document.getElementById(id);
+              if (placeholder) {
+                placeholder.outerHTML = `<div class="html-diagram" style="text-align: center; margin: 20px 0;">
+                  <img src="data:image/png;base64,${pngBase64}" alt="HTML diagram" style="max-width: 100%; height: auto;" />
+                </div>`;
+              }
+            } catch (error) {
+              const placeholder = document.getElementById(id);
+              if (placeholder) {
+                placeholder.outerHTML = `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">HTML转换错误: ${escapeHtml(error.message)}</pre>`;
+              }
+            }
+          }, { code: node.value }, 'html');
         }
       });
-      
-      if (htmlNodes.length === 0) {
-        return;
-      }
-      
-      updateProcessingStatus('正在处理 HTML 图表', `发现 ${htmlNodes.length} 个图表`, `0/${htmlNodes.length} 已完成`);
-      
-      for (let i = 0; i < htmlNodes.length; i++) {
-        const { node, index, parent } = htmlNodes[i];
-        
-        try {
-          updateProcessingStatus('正在处理 HTML 图表', '', `${i}/${htmlNodes.length} 已完成`);
-          
-          const pngBase64 = await renderer.renderHtmlToPng(node.value);
-          
-          // Replace HTML node with image
-          parent.children[index] = {
-            type: 'html',
-            value: `<div class="html-diagram" style="text-align: center; margin: 20px 0;"><img src="data:image/png;base64,${pngBase64}" alt="HTML diagram" style="max-width: 100%; height: auto;" /></div>`
-          };
-          
-          updateProcessingStatus('正在处理 HTML 图表', '', `${i + 1}/${htmlNodes.length} 已完成`);
-        } catch (error) {
-          // Keep original HTML on error but show error message
-          parent.children[index] = {
-            type: 'html',
-            value: `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">HTML转换错误: ${escapeHtml(error.message)}</pre>`
-          };
-        }
-      }
     };
   };
 }
 
 /**
- * Process HTML to convert SVG images to PNG
+ * Process HTML to convert SVG images to PNG (async callback version)
  */
 async function processSvgImages(html, renderer) {
   const imgRegex = /<img\s+[^>]*src="([^"]+\.svg)"[^>]*>/gi;
   const matches = [];
   let match;
-  
+
   // Collect all SVG image tags
   while ((match = imgRegex.exec(html)) !== null) {
     matches.push({
@@ -374,70 +373,68 @@ async function processSvgImages(html, renderer) {
       index: match.index
     });
   }
-  
+
   if (matches.length === 0) {
     return html;
   }
-  
-  updateProcessingStatus('正在处理 SVG 图像', `发现 ${matches.length} 个图像`, `0/${matches.length} 已完成`);
-  
-  // Process images in reverse order to preserve indices
+
+  // Replace SVG images with async placeholders (process in reverse order to preserve indices)
   for (let i = matches.length - 1; i >= 0; i--) {
     const { fullMatch, src } = matches[i];
-    const imageNum = matches.length - i;
+    const fileName = src.split('/').pop();
     
-    try {
-      updateProcessingStatus('正在处理 SVG 图像', `处理第 ${imageNum} 个图像`, `${imageNum - 1}/${matches.length} 已完成`);
-      // Fetch SVG content
-      let svgContent;
-      if (src.startsWith('http://') || src.startsWith('https://')) {
-        const response = await fetch(src);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        svgContent = await response.text();
-      } else {
-        // For local files, we need to use a different approach
-        // Since fetch is blocked by CORS, let's read the file via the extension background
+    // Create async task manually (since this is in HTML processing, not AST)
+    const placeholderId = generateAsyncId();
+    asyncTaskQueue.push({ 
+      callback: async (data) => {
+        const { id, src, originalTag } = data;
         try {
-          // Resolve the absolute file path
-          const baseUrl = window.location.href;
-          const absoluteUrl = new URL(src, baseUrl).href;
-          
-          // Send message to background script to read the file
-          const response = await chrome.runtime.sendMessage({
-            type: 'READ_LOCAL_FILE',
-            filePath: absoluteUrl
-          });
-          
-          if (response.error) {
-            throw new Error(response.error);
+          // Fetch SVG content
+          let svgContent;
+          if (src.startsWith('http://') || src.startsWith('https://')) {
+            const response = await fetch(src);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            svgContent = await response.text();
+          } else {
+            // For local files, use extension background
+            const baseUrl = window.location.href;
+            const absoluteUrl = new URL(src, baseUrl).href;
+            
+            const response = await chrome.runtime.sendMessage({
+              type: 'READ_LOCAL_FILE',
+              filePath: absoluteUrl
+            });
+            
+            if (response.error) {
+              throw new Error(response.error);
+            }
+            
+            svgContent = response.content;
           }
           
-          svgContent = response.content;
-        } catch (readError) {
-          throw new Error(`Cannot read local SVG file "${src}": ${readError.message}`);
+          const pngBase64 = await renderer.renderSvgToPng(svgContent);
+          const placeholder = document.getElementById(id);
+          if (placeholder) {
+            const newImgTag = originalTag.replace(/src="[^"]+"/, `src="data:image/png;base64,${pngBase64}"`);
+            placeholder.outerHTML = newImgTag;
+          }
+        } catch (error) {
+          const placeholder = document.getElementById(id);
+          if (placeholder) {
+            placeholder.outerHTML = `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">SVG Error: Cannot load file "${escapeHtml(src)}" - ${escapeHtml(error.message)}</pre>`;
+          }
         }
-      }
-      
-      const pngBase64 = await renderer.renderSvgToPng(svgContent);
-      const newSrc = `data:image/png;base64,${pngBase64}`;
-      
-      // Replace the src in the HTML
-      const newImgTag = fullMatch.replace(src, newSrc);
-      html = html.substring(0, matches[i].index) + newImgTag + html.substring(matches[i].index + fullMatch.length);
-      
-      updateProcessingStatus('正在处理 SVG 图像', '', `${imageNum}/${matches.length} 已完成`);
-    } catch (error) {
-      console.error(`Failed to convert SVG ${imageNum}/${matches.length}: ${error.message}`);
-      updateProcessingStatus('正在处理 SVG 图像', `第 ${imageNum} 个图像失败`, `${imageNum}/${matches.length} 已处理`);
-      
-      // Create error message with same styling as Mermaid errors
-      const errorHtml = `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">SVG Error: Cannot load file "${escapeHtml(src)}" - ${escapeHtml(error.message)}</pre>`;
-      
-      // Replace the image tag with error message
-      html = html.substring(0, matches[i].index) + errorHtml + html.substring(matches[i].index + fullMatch.length);
-    }
+      }, 
+      data: { id: placeholderId, src: src, originalTag: fullMatch }
+    });
+    
+    // Create placeholder
+    const placeholder = createAsyncPlaceholder(placeholderId, 'svg', fileName);
+    
+    // Replace the image tag with placeholder
+    html = html.substring(0, matches[i].index) + placeholder + html.substring(matches[i].index + fullMatch.length);
   }
   
   return html;
@@ -452,7 +449,7 @@ function processTablesForWordCompatibility(html) {
   // Wrap tables with centering div and add align attributes (same as convert.js)
   html = html.replace(/<table>/g, '<div align="center"><table align="center">');
   html = html.replace(/<\/table>/g, '</table></div>');
-  
+
   return html;
 }
 
@@ -500,7 +497,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return;
   }
-  
+
   if (message.type === 'clearCache') {
     if (window.extensionRenderer && window.extensionRenderer.cacheManager) {
       window.extensionRenderer.cacheManager.clear()
@@ -526,27 +523,27 @@ const isRemote = document.location.protocol !== 'file:';
 // Get scroll position from background script (avoids sandbox restrictions)
 async function getSavedScrollPosition() {
   let currentScrollPosition = 0;
-  
+
   try {
     currentScrollPosition = window.scrollY || window.pageYOffset || 0;
   } catch (e) {
     console.log('[Markdown Viewer] Window access blocked, using fallback');
   }
-  
+
   // Get saved scroll position from background script
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'getScrollPosition',
       url: document.location.href
     });
-    
+
     if (response && response.position > 0 && currentScrollPosition === 0) {
       return response.position;
     }
   } catch (e) {
     console.log('[Markdown Viewer] Failed to get saved scroll position');
   }
-  
+
   return currentScrollPosition;
 }
 
@@ -555,14 +552,6 @@ const rawMarkdown = document.body.textContent;
 
 // Create a new container for the rendered content
 document.body.innerHTML = `
-  <div id="processing-overlay" class="processing-overlay">
-    <div class="processing-content">
-      <div class="processing-spinner"></div>
-      <div id="processing-title">正在处理 Markdown 文档...</div>
-      <div id="processing-status">正在解析文档结构</div>
-      <div id="processing-progress"></div>
-    </div>
-  </div>
   <div id="table-of-contents">
     <div class="toc-header">目录</div>
   </div>
@@ -576,13 +565,13 @@ document.body.innerHTML = `
 setTimeout(async () => {
   // Get saved scroll position
   const savedScrollPosition = await getSavedScrollPosition();
-  
+
   // Parse and render markdown
   await renderMarkdown(rawMarkdown, savedScrollPosition);
-  
+
   // Setup TOC toggle (using keyboard shortcut)
   setupTocToggle();
-  
+
   // Setup responsive behavior
   setupResponsiveToc();
 }, 100);
@@ -613,27 +602,19 @@ try {
 }
 
 async function renderMarkdown(markdown, savedScrollPosition = 0) {
-  updateProcessingStatus('正在处理 Markdown 文档...', '解析文档结构');
-  
   const contentDiv = document.getElementById('markdown-content');
-  
+
   if (!contentDiv) {
     console.error('markdown-content div not found!');
-    updateProcessingStatus('处理失败', 'markdown-content 容器未找到');
     return;
   }
 
-  // Pre-process markdown to normalize math blocks and list markers BEFORE parsing
-  updateProcessingStatus('正在处理 Markdown 文档...', '处理数学公式');
+  // Pre-process markdown to normalize math blocks and list markers
   let normalizedMarkdown = normalizeMathBlocks(markdown);
-  
-  updateProcessingStatus('正在处理 Markdown 文档...', '标准化列表格式');
   normalizedMarkdown = normalizeListMarkers(normalizedMarkdown);
 
   try {
-    // First, process markdown without PNG conversion plugins
-    updateProcessingStatus('正在处理 Markdown 文档...', '设置 Markdown 处理器');
-    
+    // Setup markdown processor with async plugins
     const processor = unified()
       .use(remarkParse)
       .use(remarkGfm)
@@ -646,71 +627,63 @@ async function renderMarkdown(markdown, savedScrollPosition = 0) {
       .use(rehypeKatex)
       .use(rehypeStringify, { allowDangerousHtml: true });
 
-    updateProcessingStatus('正在处理 Markdown 文档...', '转换 Markdown 为 HTML');
     const file = await processor.process(normalizedMarkdown);
-    
     let htmlContent = String(file);
-    
-    // Process SVG images to PNG
-    updateProcessingStatus('正在处理 SVG 图像', '转换图像格式');
+
+    // Process SVG images (creates placeholders)
     htmlContent = await processSvgImages(htmlContent, renderer);
     
     // Add table centering for better Word compatibility
-    updateProcessingStatus('正在完成', '处理表格格式');
     htmlContent = processTablesForWordCompatibility(htmlContent);
-    
-    updateProcessingStatus('正在完成', '渲染最终内容');
+
     contentDiv.innerHTML = htmlContent;
     
     // Generate table of contents after rendering
-    updateProcessingStatus('正在完成', '生成目录');
     generateTOC();
+
+    // Restore scroll position immediately
+    restoreScrollPosition(savedScrollPosition);
     
-    // Hide processing overlay and restore scroll position
+    // Start processing async tasks in the background
     setTimeout(() => {
-      hideProcessingOverlay();
-      restoreScrollPosition(savedScrollPosition);
-    }, 200);
+      processAsyncTasks();
+    }, 100);
   } catch (error) {
     console.error('Markdown processing error:', error);
     console.error('Error stack:', error.stack);
-    updateProcessingStatus('处理失败', `错误: ${error.message}`);
     contentDiv.innerHTML = `<pre style="color: red; background: #fee; padding: 20px;">Error processing markdown: ${error.message}\n\nStack:\n${error.stack}</pre>`;
-    setTimeout(() => {
-      hideProcessingOverlay();
-      restoreScrollPosition(savedScrollPosition);
-    }, 2000);
+    restoreScrollPosition(savedScrollPosition);
   }
 }
 
 function generateTOC() {
   const contentDiv = document.getElementById('markdown-content');
   const tocDiv = document.getElementById('table-of-contents');
-  
+
   if (!contentDiv || !tocDiv) return;
-  
+
   const headings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  
+
   if (headings.length === 0) {
     tocDiv.style.display = 'none';
     return;
   }
-  
+
   let tocHTML = '<div class="toc-header">目录</div><ul class="toc-list">';
-  
+
   headings.forEach((heading, index) => {
     const level = parseInt(heading.tagName[1]);
     const text = heading.textContent;
     const id = heading.id || `heading-${index}`;
-    
+
     if (!heading.id) {
       heading.id = id;
     }
-    
+
     const indent = (level - 1) * 20;
     tocHTML += `<li style="margin-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
   });
-  
+
   tocHTML += '</ul>';
   tocDiv.innerHTML = tocHTML;
 }
@@ -718,15 +691,15 @@ function generateTOC() {
 function setupTocToggle() {
   const tocDiv = document.getElementById('table-of-contents');
   const overlayDiv = document.getElementById('toc-overlay');
-  
+
   if (!tocDiv || !overlayDiv) return;
-  
+
   const toggleToc = () => {
     tocDiv.classList.toggle('hidden');
     document.body.classList.toggle('toc-hidden');
     overlayDiv.classList.toggle('hidden');
   };
-  
+
   // Use keyboard shortcut (Ctrl+T or Cmd+T) to toggle TOC
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 't') {
@@ -734,16 +707,16 @@ function setupTocToggle() {
       toggleToc();
     }
   });
-  
+
   // Close TOC when clicking overlay (for mobile)
   overlayDiv.addEventListener('click', toggleToc);
 }
 
 function setupResponsiveToc() {
   const tocDiv = document.getElementById('table-of-contents');
-  
+
   if (!tocDiv) return;
-  
+
   const handleResize = () => {
     if (window.innerWidth <= 1024) {
       // On smaller screens, hide TOC by default
@@ -755,10 +728,10 @@ function setupResponsiveToc() {
       document.body.classList.remove('toc-hidden');
     }
   };
-  
+
   // Set initial state
   handleResize();
-  
+
   // Listen for window resize
   window.addEventListener('resize', handleResize);
 }
