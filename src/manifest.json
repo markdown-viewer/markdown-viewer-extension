@@ -7,7 +7,8 @@
     "storage",
     "unlimitedStorage",
     "offscreen",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "file:///*",

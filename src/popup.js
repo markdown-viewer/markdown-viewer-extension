@@ -102,6 +102,7 @@ class PopupManager {
     const clearBtn = document.getElementById('clear-cache');
     const saveBtn = document.getElementById('save-settings');
     const resetBtn = document.getElementById('reset-settings');
+    const demoBtn = document.getElementById('demo-link');
 
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => {
@@ -124,6 +125,12 @@ class PopupManager {
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         this.resetSettings();
+      });
+    }
+
+    if (demoBtn) {
+      demoBtn.addEventListener('click', () => {
+        this.openDemo();
       });
     }
   }
@@ -415,6 +422,24 @@ class PopupManager {
   showError(text) {
     console.error('Popup Error:', text);
     this.showMessage(`❌ ${text}`);
+  }
+
+  async openDemo() {
+    try {
+      const demoUrl = 'https://raw.githubusercontent.com/xicilion/markdown-viewer-extension/refs/heads/main/test/test.md';
+      
+      // Create a new tab with the demo URL
+      await chrome.tabs.create({
+        url: demoUrl,
+        active: true
+      });
+      
+      // Close the popup window after opening the demo
+      window.close();
+    } catch (error) {
+      console.error('Failed to open demo:', error);
+      this.showMessage('打开演示文档失败', 'error');
+    }
   }
 
   showManualCacheInfo() {
