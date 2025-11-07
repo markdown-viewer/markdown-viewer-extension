@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 380px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .header {
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .version {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+    
+    .icon {
+      font-size: 28px;
+    }
+    
+    .tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+    
+    .tab:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .tab.active {
+      background: rgba(255, 255, 255, 0.2);
+      border-bottom: 2px solid white;
+    }
+    
+    .tab-content {
+      padding: 20px;
+      min-height: 300px;
+    }
+    
+    .tab-panel {
+      display: none;
+    }
+    
+    .tab-panel.active {
+      display: block;
+    }
+    
+    .info-section {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .info-section h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    .info-section ul {
+      list-style: none;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    
+    .info-section li:before {
+      content: "✓ ";
+      margin-right: 5px;
+    }
+    
+    .cache-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .stat-item {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+    
+    .btn {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      margin: 5px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    
+    .btn.danger {
+      background: rgba(231, 76, 60, 0.3);
+      border-color: rgba(231, 76, 60, 0.5);
+    }
+    
+    .btn.danger:hover {
+      background: rgba(231, 76, 60, 0.5);
+    }
+    
+    .cache-items {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    
+    .cache-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      font-size: 11px;
+    }
+    
+    .cache-item-key {
+      font-family: monospace;
+      opacity: 0.8;
+      word-break: break-all;
+    }
+    
+    .cache-item-info {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 3px;
+      opacity: 0.7;
+    }
+    
+    .instructions {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 15px;
+    }
+    
+    .instructions strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 20px;
+      opacity: 0.7;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 15px;
+      font-size: 11px;
+      opacity: 0.7;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span class="icon">📝</span>Markdown Viewer</h1>
+    <div class="version">Version 1.0.0</div>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">概览</button>
+    <button class="tab" data-tab="cache">缓存管理</button>
+    <button class="tab" data-tab="settings">设置</button>
+  </div>
+  
+  <div class="tab-content">
+    <!-- 概览标签 -->
+    <div class="tab-panel active" id="overview">
+      <div class="info-section">
+        <h3>功能特性</h3>
+        <ul>
+          <li>实时渲染 Markdown</li>
+          <li>代码语法高亮</li>
+          <li>数学公式支持 (KaTeX)</li>
+          <li>亮色/暗色主题切换</li>
+          <li>自动生成目录</li>
+          <li>智能缓存系统</li>
+        </ul>
+      </div>
+      
+      <div class="instructions">
+        <strong>使用方法：</strong>
+        1. 在 Chrome 中打开 .md 或 .markdown 文件<br>
+        2. 插件会自动渲染文件内容
+      </div>
+      
+      <div class="instructions">
+        <strong>⚠️ 重要提示：</strong>
+        请确保在 Chrome 扩展管理页面中，为此扩展启用"允许访问文件网址"选项。
+      </div>
+    </div>
+    
+    <!-- 缓存管理标签 -->
+    <div class="tab-panel" id="cache">
+      <div class="loading" id="cache-loading">
+        正在加载缓存信息...
+      </div>
+      
+      <div id="cache-content" style="display: none;">
+        <div class="cache-stats" id="cache-stats">
+          <!-- 统计信息将通过 JavaScript 填充 -->
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 15px;">
+          <button class="btn" id="refresh-cache">刷新</button>
+          <button class="btn danger" id="clear-cache">清空缓存</button>
+        </div>
+        
+        <div class="info-section">
+          <h3>缓存项目 (最近访问的20项)</h3>
+          <div class="cache-items" id="cache-items">
+            <!-- 缓存项目将通过 JavaScript 填充 -->
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 设置标签 -->
+    <div class="tab-panel" id="settings">
+      <div class="info-section">
+        <h3>扩展设置</h3>
+        <div style="margin: 10px 0;">
+          <label style="display: block; margin-bottom: 5px; font-size: 12px;">
+            最大缓存项目数:
+          </label>
+          <input type="number" id="max-cache-items" min="100" max="5000" step="100" 
+                 style="width: 100%; padding: 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white;">
+        </div>
+        
+        <div style="margin: 15px 0;">
+          <button class="btn" id="save-settings">保存设置</button>
+          <button class="btn" id="reset-settings">重置为默认</button>
+        </div>
+      </div>
+      
+      <div class="info-section">
+        <h3>关于扩展</h3>
+        <div style="font-size: 12px; line-height: 1.6;">
+          <p><strong>开发者:</strong> AI Assistant</p>
+          <p><strong>版本:</strong> 1.0.0</p>
+          <p><strong>更新时间:</strong> 2025-11-07</p>
+          <p><strong>存储引擎:</strong> IndexedDB</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

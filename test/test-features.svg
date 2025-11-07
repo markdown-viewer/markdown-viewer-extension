@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <style>
+    .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; fill: #333; }
+    .subtitle { font-family: Arial, sans-serif; font-size: 16px; fill: #666; }
+    .chinese-text { font-family: 'Microsoft YaHei', SimHei, Arial, sans-serif; font-size: 14px; fill: #000; }
+    .code-text { font-family: 'Courier New', monospace; font-size: 12px; fill: #008000; }
+    .box { fill: #f0f8ff; stroke: #4169e1; stroke-width: 2; }
+    .error-box { fill: #ffe4e4; stroke: #ff0000; stroke-width: 2; }
+    .success-box { fill: #e8f5e8; stroke: #008000; stroke-width: 2; }
+  </style>
+  
+  <!-- Background -->
+  <rect width="600" height="400" fill="#fafafa" stroke="#ddd" stroke-width="1"/>
+  
+  <!-- Title Section -->
+  <text x="300" y="30" text-anchor="middle" class="title">SVG 功能测试图表</text>
+  <text x="300" y="55" text-anchor="middle" class="subtitle">Testing Various SVG Features and Text Rendering</text>
+  
+  <!-- Feature Boxes -->
+  <g id="features">
+    <!-- Feature 1: Basic Text -->
+    <rect x="20" y="80" width="160" height="80" class="box"/>
+    <text x="100" y="105" text-anchor="middle" class="chinese-text">基础文本渲染</text>
+    <text x="100" y="125" text-anchor="middle" class="code-text">console.log("test");</text>
+    <text x="100" y="145" text-anchor="middle" class="chinese-text">✅ 正常显示</text>
+    
+    <!-- Feature 2: Long Text -->
+    <rect x="200" y="80" width="160" height="80" class="success-box"/>
+    <text x="280" y="105" text-anchor="middle" class="chinese-text">长文本处理测试</text>
+    <text x="280" y="125" text-anchor="middle" class="chinese-text">这是一段很长的中文文本</text>
+    <text x="280" y="145" text-anchor="middle" class="chinese-text">用于测试文本溢出处理</text>
+    
+    <!-- Feature 3: Special Characters -->
+    <rect x="380" y="80" width="160" height="80" class="box"/>
+    <text x="460" y="105" text-anchor="middle" class="chinese-text">特殊字符测试</text>
+    <text x="460" y="125" text-anchor="middle" class="chinese-text">❌⚠️✅🔥💡📝</text>
+    <text x="460" y="145" text-anchor="middle" class="chinese-text">Symbols: @#$%^&*</text>
+    
+    <!-- Feature 4: foreignObject Test -->
+    <rect x="20" y="180" width="160" height="100" class="success-box"/>
+    <text x="100" y="205" text-anchor="middle" class="chinese-text">foreignObject 测试</text>
+    <foreignObject x="30" y="220" width="140" height="50">
+      <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 12px; padding: 5px; background: rgba(255,255,255,0.8);">
+        这是在 <strong>foreignObject</strong> 中的 HTML 内容，支持<em>丰富的格式</em>和中文字符：测试文本截断问题。
+      </div>
+    </foreignObject>
+    
+    <!-- Feature 5: Math Symbols -->
+    <rect x="200" y="180" width="160" height="100" class="box"/>
+    <text x="280" y="205" text-anchor="middle" class="chinese-text">数学符号测试</text>
+    <text x="280" y="230" text-anchor="middle" style="font-size: 16px;">E = mc²</text>
+    <text x="280" y="250" text-anchor="middle" style="font-size: 16px;">∑ ∫ √ π α β γ</text>
+    <text x="280" y="270" text-anchor="middle" class="chinese-text">几何: ∠ ∴ ∵ ⊥ ∥</text>
+    
+    <!-- Feature 6: Multilingual -->
+    <rect x="380" y="180" width="160" height="100" class="box"/>
+    <text x="460" y="205" text-anchor="middle" class="chinese-text">多语言测试</text>
+    <text x="460" y="225" text-anchor="middle" style="font-size: 12px;">English Text</text>
+    <text x="460" y="240" text-anchor="middle" style="font-size: 12px;">中文文本</text>
+    <text x="460" y="255" text-anchor="middle" style="font-size: 12px;">日本語テキスト</text>
+    <text x="460" y="270" text-anchor="middle" style="font-size: 12px;">한국어 텍스트</text>
+    
+    <!-- Feature 7: Code Block -->
+    <rect x="20" y="300" width="260" height="80" class="box"/>
+    <text x="150" y="320" text-anchor="middle" class="chinese-text">代码块渲染测试</text>
+    <text x="30" y="340" class="code-text">function processMarkdown(content) {</text>
+    <text x="30" y="355" class="code-text">  // 处理中文字符</text>
+    <text x="30" y="370" class="code-text">  return render(content);</text>
+    
+    <!-- Feature 8: Status Indicators -->
+    <rect x="300" y="300" width="260" height="80" class="success-box"/>
+    <text x="430" y="320" text-anchor="middle" class="chinese-text">状态指示器测试</text>
+    <g transform="translate(320, 335)">
+      <circle cx="20" cy="0" r="8" fill="#28a745"/>
+      <text x="35" y="5" class="chinese-text">✅ 功能正常</text>
+    </g>
+    <g transform="translate(320, 355)">
+      <circle cx="20" cy="0" r="8" fill="#dc3545"/>
+      <text x="35" y="5" class="chinese-text">❌ 功能异常</text>
+    </g>
+  </g>
+  
+  <!-- Footer -->
+  <text x="300" y="395" text-anchor="middle" class="subtitle">SVG Rendering Test Complete - 渲染测试完成</text>
+</svg>

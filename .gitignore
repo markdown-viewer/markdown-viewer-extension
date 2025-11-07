@@ -1,0 +1,29 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+dist.*
+
+# Generated files (will be copied from node_modules during build)
+fonts/
+katex.css
+katex-*.css
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp

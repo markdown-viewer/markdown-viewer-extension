@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+  <style>
+    .title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #333; }
+    .chinese-text { font-family: 'Microsoft YaHei', SimHei, Arial, sans-serif; font-size: 14px; fill: #000; }
+    .success-box { fill: #e8f5e8; stroke: #28a745; stroke-width: 2; }
+  </style>
+  
+  <!-- Background -->
+  <rect width="400" height="200" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
+  
+  <!-- Title -->
+  <text x="200" y="30" text-anchor="middle" class="title">Mermaid SVG 测试</text>
+  
+  <!-- Test Box with Chinese Text -->
+  <rect x="50" y="50" width="300" height="100" class="success-box"/>
+  
+  <!-- Test Chinese text that previously got clipped -->
+  <text x="200" y="80" text-anchor="middle" class="chinese-text">❌ 旧版本方案 ✅ 新版本方案</text>
+  <text x="200" y="100" text-anchor="middle" class="chinese-text">这是测试中文字符截断问题的 SVG</text>
+  <text x="200" y="120" text-anchor="middle" class="chinese-text">现在应该完整显示所有字符</text>
+  
+  <!-- foreignObject test -->
+  <foreignObject x="60" y="130" width="280" height="40">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 12px; padding: 5px; background: rgba(255,255,255,0.8);">
+      <strong>foreignObject 测试:</strong> 这段文本应该完整显示，不会被截断。包含中文字符：测试文本完整性。
+    </div>
+  </foreignObject>
+  
+  <!-- Footer -->
+  <text x="200" y="190" text-anchor="middle" style="font-size: 12px; fill: #666;">SVG 文本渲染测试完成</text>
+</svg>

@@ -1,0 +1,374 @@
+/* Markdown Viewer Styles */
+
+/* Import KaTeX styles from node_modules */
+@import '../node_modules/katex/dist/katex.min.css';
+
+/* Import highlight.js styles */
+@import '../node_modules/highlight.js/styles/github.css';
+
+/* Processing Overlay Styles */
+.processing-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+}
+
+.processing-content {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+.processing-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+#processing-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+#processing-status {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin-bottom: 2px;
+  min-height: 16px;
+}
+
+#processing-progress {
+  font-size: 12px;
+  color: #95a5a6;
+  font-weight: 500;
+  min-height: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f5f5f5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* When TOC is hidden, adjust the content margin */
+body.toc-hidden #markdown-content {
+  margin-left: 0;
+  width: 100%;
+  max-width: 1200px;
+}
+
+#table-of-contents {
+  width: 280px;
+  background: #f8f9fa;
+  border-right: 1px solid #e0e0e0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+  user-select: none;
+}
+
+.toc-header {
+  background: #2c3e50;
+  color: white;
+  padding: 15px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #34495e;
+}
+
+.toc-list {
+  padding: 20px 0;
+}
+
+#table-of-contents.hidden {
+  transform: translateX(-100%);
+}
+
+#toc-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+}
+
+#toc-overlay:not(.hidden) {
+  display: block;
+}
+
+#table-of-contents ul {
+  list-style: none;
+  padding: 0 20px;
+  margin: 0;
+}
+
+#table-of-contents li {
+  margin: 0;
+}
+
+#table-of-contents a {
+  color: #333;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  display: block;
+  padding: 2px 0;
+}
+
+#table-of-contents a:hover {
+  color: #666;
+  background-color: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin: 0 -8px;
+}
+
+#markdown-wrapper {
+  margin-left: 280px;
+  transition: margin-left 0.3s ease;
+}
+
+#markdown-content {
+  background: white;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px;
+  box-sizing: border-box;
+  font-family: 'SimSun', 'Times New Roman', Times, serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#markdown-content h1,
+#markdown-content h2,
+#markdown-content h3,
+#markdown-content h4,
+#markdown-content h5,
+#markdown-content h6 {
+  font-weight: 800;
+}
+
+#markdown-content h1 {
+  font-size: 29px;
+  text-align: center;
+  margin: 0 0 0.5em 0;
+}
+
+#markdown-content h2 {
+  font-size: 24px;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+}
+
+#markdown-content h3 {
+  font-size: 22px;
+  margin-top: 1.1em;
+  margin-bottom: 0.5em;
+}
+
+#markdown-content h4 {
+  font-size: 19px;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+#markdown-content h5 {
+  font-size: 16px;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+#markdown-content h6 {
+  font-size: 14px;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+#markdown-content p {
+  margin: 16px 0;
+}
+
+#markdown-content a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+#markdown-content a:hover {
+  text-decoration: underline;
+}
+
+#markdown-content code {
+  background-color: #f6f8fa;
+  border-radius: 3px;
+  padding: 0.2em 0.4em;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+  font-size: 0.9em;
+}
+
+#markdown-content pre {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow: auto;
+  line-height: 1.45;
+  margin: 16px 0;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo', monospace;
+}
+
+#markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Ensure highlight.js styles work properly */
+#markdown-content .hljs {
+  background: #f6f8fa !important;
+  color: #24292e;
+}
+
+#markdown-content blockquote {
+  border-left: 4px solid #dfe2e5;
+  color: #6a737d;
+  padding: 0 15px;
+  margin: 0;
+}
+
+#markdown-content ul, #markdown-content ol {
+  padding-left: 2em;
+  margin: 16px 0;
+}
+
+#markdown-content li {
+  margin: 0.25em 0;
+}
+
+#markdown-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+#markdown-content hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #e1e4e8;
+  border: 0;
+}
+
+#markdown-content table {
+  border-collapse: collapse;
+  margin: 16px auto;
+  overflow: auto;
+}
+
+#markdown-content table th,
+#markdown-content table td {
+  border: 1px solid #dfe2e5;
+  padding: 12px;
+}
+
+#markdown-content table th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+#markdown-content table tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+
+/* KaTeX math expressions - let KaTeX handle its own sizing */
+.katex {
+  /* Reset any inherited text-rendering that might interfere */
+  text-rendering: auto !important;
+  /* Ensure proper line-height inheritance */
+  line-height: 1.2 !important;
+  /* Reset any box-sizing that might affect positioning */
+  box-sizing: content-box !important;
+}
+
+.katex * {
+  /* Ensure all KaTeX elements use content-box sizing */
+  box-sizing: content-box !important;
+}
+
+.katex-display {
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Syntax Highlighting is now handled by highlight.js */
+
+/* Responsive Design */
+@media (min-width: 1025px) {
+  #toc-overlay {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  #markdown-wrapper {
+    margin-left: 0;
+  }
+  
+  #table-of-contents {
+    transform: translateX(-100%);
+    width: 80%;
+    max-width: 320px;
+  }
+  
+  #table-of-contents:not(.hidden) {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  #table-of-contents {
+    width: 90%;
+    max-width: 300px;
+  }
+  
+  #markdown-content {
+    padding: 20px;
+  }
+}
