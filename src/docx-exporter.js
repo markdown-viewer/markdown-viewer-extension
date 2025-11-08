@@ -1045,7 +1045,7 @@ class DocxExporter {
         
         // For task lists, prepend checkbox symbol
         if (isTaskList) {
-          const checkboxSymbol = node.checked ? '☒' : '☐';  // ☒ for checked, ☐ for unchecked
+          const checkboxSymbol = node.checked ? '▣' : '☐';  // ▣ for checked, ☐ for unchecked
           children.unshift(new TextRun({
             text: checkboxSymbol + ' ',
             font: {
