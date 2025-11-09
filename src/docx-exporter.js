@@ -1385,6 +1385,9 @@ class DocxExporter {
             // Header row gets gray background
             if (isHeaderRow) {
               cellConfig.shading = { fill: 'F6F8FA' };
+            } else if ((rowIndex % 2) === 0) {
+              // Apply alternating background color to even-numbered data rows
+              cellConfig.shading = { fill: 'F6F8FA' };
             }
 
             cells.push(new TableCell(cellConfig));
