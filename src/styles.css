@@ -644,6 +644,37 @@ body.toc-hidden #markdown-wrapper {
     margin: 10px auto !important;
   }
 
+  /* Preserve code and table backgrounds when printing */
+  #markdown-content code,
+  #markdown-content pre,
+  #markdown-content pre code,
+  #markdown-content table,
+  #markdown-content th,
+  #markdown-content td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #markdown-content code {
+    background-color: #f6f8fa !important;
+  }
+
+  #markdown-content pre {
+    background-color: #f6f8fa !important;
+  }
+
+  #markdown-content table th {
+    background-color: #f6f8fa !important;
+  }
+
+  #markdown-content table tr:nth-child(even) td {
+    background-color: #f6f8fa !important;
+  }
+
+  #markdown-content table tr:nth-child(odd) td {
+    background-color: white !important;
+  }
+
   /* Ensure images fit on page */
   #markdown-content img {
     max-width: 100% !important;
