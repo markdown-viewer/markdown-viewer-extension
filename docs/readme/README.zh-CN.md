@@ -224,8 +224,6 @@ LaTeX → Word 可编辑公式（不是图片！）
 | **GitHub 直接查看** | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **价格** | 免费 | 免费 | 部分付费 | 部分付费 | ✅ 免费 |
 
-
-
 **核心优势：更快、更便宜、更安全、功能更强大。**
 
 ---
@@ -323,6 +321,6 @@ A: 在 Markdown 中使用 ````vega-lite` 代码块，内容为 JSON 格式的图
 
 **把精力放在写作上，让 Markdown Viewer 处理其他一切**
 
-### [🚀 立即安装](https://chrome.google.com/webstore)
+### [🚀 立即安装](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
 
 *完全免费 · 本地处理 · 隐私安全*
