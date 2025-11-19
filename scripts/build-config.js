@@ -90,6 +90,7 @@ export const createBuildConfig = () => {
               const fileCopies = [
                 { src: 'src/manifest.json', dest: 'dist/manifest.json', log: '📄 Copied manifest.json from src/' },
                 { src: 'src/ui/popup/popup.html', dest: 'dist/ui/popup/popup.html' },
+                { src: 'src/ui/popup/popup.css', dest: 'dist/ui/popup/popup.css' },
                 { src: 'src/ui/offscreen.html', dest: 'dist/ui/offscreen.html' },
                 { src: 'src/ui/print/print.html', dest: 'dist/ui/print/print.html' },
                 { src: 'node_modules/html2canvas/dist/html2canvas.min.js', dest: 'dist/html2canvas.min.js', log: '📄 Copied html2canvas library' }

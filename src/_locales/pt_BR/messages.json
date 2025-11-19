@@ -151,10 +151,6 @@
     "message": "Sistema de cache indisponível — abra um arquivo Markdown primeiro",
     "description": "Shown when cache manager cannot be reached"
   },
-  "demo_open_failed": {
-    "message": "Falha ao abrir documento de demonstração",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "Falha na exportação{0}",
     "description": "Alert shown when DOCX export fails"

@@ -151,10 +151,6 @@
     "message": "缓存系统不可用，请先打开 Markdown 文件",
     "description": "缓存系统不可用提示"
   },
-  "demo_open_failed": {
-    "message": "打开演示失败",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "导出失败{0}",
     "description": "DOCX 导出失败警告"

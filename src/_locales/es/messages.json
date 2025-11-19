@@ -151,10 +151,6 @@
     "message": "Sistema de caché no disponible — abre primero un archivo Markdown",
     "description": "Mensaje cuando no se puede acceder a la caché"
   },
-  "demo_open_failed": {
-    "message": "No se pudo abrir el documento de demostración",
-    "description": "Toast cuando falla la demo"
-  },
   "docx_export_failed_alert": {
     "message": "Error al exportar{0}",
     "description": "Alerta al fallar la exportación"

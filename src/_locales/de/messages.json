@@ -151,10 +151,6 @@
     "message": "Cachesystem nicht verfügbar — öffnen Sie zuerst eine Markdown-Datei",
     "description": "Angezeigt bei nicht verfügbarem Cache"
   },
-  "demo_open_failed": {
-    "message": "Demo-Dokument konnte nicht geöffnet werden",
-    "description": "Toast bei Fehler"
-  },
   "docx_export_failed_alert": {
     "message": "Export fehlgeschlagen{0}",
     "description": "Warnung bei Exportfehler"

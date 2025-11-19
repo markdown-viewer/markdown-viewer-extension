@@ -185,7 +185,7 @@ class PopupManager {
 
     const itemsEl = document.getElementById('cache-items');
     if (itemsEl) {
-      itemsEl.dataset.empty = 'true';
+      itemsEl.dataset.empty = 'false';
       itemsEl.querySelectorAll('[data-cache-item="dynamic"]').forEach((element) => {
         element.remove();
       });
@@ -382,6 +382,15 @@ class PopupManager {
     }
     if (usageEl) {
       usageEl.textContent = `${usagePercent}%`;
+      
+      // Visual feedback for high usage
+      if (usagePercent >= 90) {
+        usageEl.style.color = 'var(--color-danger)';
+      } else if (usagePercent >= 70) {
+        usageEl.style.color = 'var(--color-warning)';
+      } else {
+        usageEl.style.color = 'var(--color-text-primary)';
+      }
     }
     if (capacityEl) {
       capacityEl.textContent = `${maxItems}`;
@@ -469,9 +478,55 @@ class PopupManager {
     itemsEl.appendChild(fragment);
   }
 
+  showConfirm(title, message) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('confirm-modal');
+      const titleEl = document.getElementById('modal-title');
+      const messageEl = document.getElementById('modal-message');
+      const confirmBtn = document.getElementById('modal-confirm');
+      const cancelBtn = document.getElementById('modal-cancel');
+
+      if (!modal || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
+        // Fallback to native confirm if modal elements are missing
+        resolve(confirm(message));
+        return;
+      }
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      modal.style.display = 'flex';
+
+      const cleanup = () => {
+        modal.style.display = 'none';
+        confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+        cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+      };
+
+      confirmBtn.onclick = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      cancelBtn.onclick = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      // Close on click outside
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          cleanup();
+          resolve(false);
+        }
+      };
+    });
+  }
+
   async clearCache() {
     const confirmMessage = translate('cache_clear_confirm');
-    if (!confirm(confirmMessage)) {
+    const confirmed = await this.showConfirm(translate('cache_clear'), confirmMessage);
+    
+    if (!confirmed) {
       return;
     }
 
@@ -499,7 +554,7 @@ class PopupManager {
     itemsEl.querySelectorAll('[data-cache-item="dynamic"]').forEach((element) => {
       element.remove();
     });
-    itemsEl.dataset.empty = 'true';
+    itemsEl.dataset.empty = 'false';
 
     try {
       const result = await chrome.storage.local.get(['markdownHistory']);
@@ -583,7 +638,9 @@ class PopupManager {
 
   async clearHistory() {
     const confirmMessage = translate('history_clear_confirm');
-    if (!confirm(confirmMessage)) {
+    const confirmed = await this.showConfirm(translate('history_clear'), confirmMessage);
+    
+    if (!confirmed) {
       return;
     }
 
@@ -813,7 +870,9 @@ class PopupManager {
 
   async resetSettings() {
     const confirmMessage = translate('settings_reset_confirm');
-    if (!confirm(confirmMessage)) {
+    const confirmed = await this.showConfirm(translate('settings_reset_btn'), confirmMessage);
+    
+    if (!confirmed) {
       return;
     }
 
@@ -925,19 +984,6 @@ class PopupManager {
       }
     } catch (error) {
       console.error('Failed to check file access:', error);
-    }
-  }
-
-  async openDemo() {
-    try {
-      const demoUrl = 'https://raw.githubusercontent.com/xicilion/markdown-viewer-extension/refs/heads/main/test/test.md';
-
-      window.open(demoUrl, '_blank');
-
-      window.close();
-    } catch (error) {
-      console.error('Failed to open demo:', error);
-      this.showMessage(translate('demo_open_failed'), 'error');
     }
   }
 

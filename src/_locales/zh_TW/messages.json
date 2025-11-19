@@ -151,10 +151,6 @@
     "message": "快取系統不可用，請先開啟 Markdown 檔案",
     "description": "快取系統不可用提示"
   },
-  "demo_open_failed": {
-    "message": "開啟示範失敗",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "匯出失敗{0}",
     "description": "DOCX 匯出失敗警告"

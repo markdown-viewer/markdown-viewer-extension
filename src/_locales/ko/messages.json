@@ -151,10 +151,6 @@
     "message": "캐시 시스템을 사용할 수 없습니다. 먼저 Markdown 파일을 여세요",
     "description": "캐시 사용 불가 메시지"
   },
-  "demo_open_failed": {
-    "message": "데모 문서를 열 수 없습니다",
-    "description": "데모 실패 알림"
-  },
   "docx_export_failed_alert": {
     "message": "내보내기에 실패했습니다{0}",
     "description": "내보내기 실패 경고"

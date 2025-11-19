@@ -151,10 +151,6 @@
     "message": "Önbellek sistemi kullanılamıyor — önce bir Markdown dosyası açın",
     "description": "Shown when cache manager cannot be reached"
   },
-  "demo_open_failed": {
-    "message": "Demo belge açılamadı",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "Dışa aktarma başarısız{0}",
     "description": "Alert shown when DOCX export fails"

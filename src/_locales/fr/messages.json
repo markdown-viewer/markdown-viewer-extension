@@ -151,10 +151,6 @@
     "message": "Système de cache indisponible — ouvrez d'abord un fichier Markdown",
     "description": "Affiché quand le cache est inaccessible"
   },
-  "demo_open_failed": {
-    "message": "Impossible d'ouvrir le document de démonstration",
-    "description": "Toast quand l'ouverture échoue"
-  },
   "docx_export_failed_alert": {
     "message": "Exportation échouée{0}",
     "description": "Alerte affichée quand l'export échoue"

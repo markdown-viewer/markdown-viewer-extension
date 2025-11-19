@@ -151,10 +151,6 @@
     "message": "Cache system unavailable — open a Markdown file first",
     "description": "Shown when cache manager cannot be reached"
   },
-  "demo_open_failed": {
-    "message": "Failed to open demo document",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "Export failed{0}",
     "description": "Alert shown when DOCX export fails"

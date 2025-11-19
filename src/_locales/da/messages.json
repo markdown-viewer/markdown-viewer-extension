@@ -151,10 +151,6 @@
     "message": "Cache-system utilgængeligt — åbn først en Markdown-fil",
     "description": "Shown when cache manager cannot be reached"
   },
-  "demo_open_failed": {
-    "message": "Kunne ikke åbne demodokument",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "Eksport mislykkedes{0}",
     "description": "Alert shown when DOCX export fails"

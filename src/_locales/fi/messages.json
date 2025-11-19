@@ -151,10 +151,6 @@
     "message": "Välimuistijärjestelmä ei ole käytettävissä — avaa ensin Markdown-tiedosto",
     "description": "Shown when cache manager cannot be reached"
   },
-  "demo_open_failed": {
-    "message": "Demodokumentin avaaminen epäonnistui",
-    "description": "Toast when demo link open fails"
-  },
   "docx_export_failed_alert": {
     "message": "Vienti epäonnistui{0}",
     "description": "Alert shown when DOCX export fails"

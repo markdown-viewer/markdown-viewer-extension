@@ -151,10 +151,6 @@
     "message": "キャッシュシステムを利用できません。先に Markdown ファイルを開いてください",
     "description": "キャッシュ利用不可時のメッセージ"
   },
-  "demo_open_failed": {
-    "message": "デモドキュメントを開けませんでした",
-    "description": "デモ失敗時の通知"
-  },
   "docx_export_failed_alert": {
     "message": "エクスポートに失敗しました{0}",
     "description": "エクスポート失敗時の警告"
