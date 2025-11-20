@@ -87,6 +87,13 @@ export class MermaidRenderer extends BaseRenderer {
     // Add padding to prevent text clipping
     const svgElement = container.querySelector('svg');
     
+    // Fix foreignObject overflow to prevent text clipping
+    const foreignObjects = svgElement.querySelectorAll('foreignObject');
+    foreignObjects.forEach(fo => {
+      fo.style.overflowX = 'visible';
+      fo.style.overflowY = 'visible';
+    });
+    
     // Give layout engine time to process
     container.offsetHeight;
     svgElement.getBoundingClientRect();
