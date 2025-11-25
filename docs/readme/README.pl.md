@@ -4,6 +4,8 @@
 
 *Całkowicie za darmo · Przetwarzanie lokalne · 18+ profesjonalnych motywów · Obsługa 23 języków*
 
+🚀 **Zainstaluj teraz:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Lubisz pisać w Markdown — prosty, wydajny, przyjazny dla kontroli wersji.  
@@ -322,6 +324,6 @@ Ten projekt jest otwartoźródłowy na licencji ISC. Mile widziane Gwiazdki wspa
 
 **Skup energię na pisaniu, pozwól Markdown Viewer obsłużyć resztę**
 
-### [🚀 Zainstaluj teraz](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Zainstaluj teraz:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Całkowicie za darmo · Przetwarzanie lokalne · Bezpieczna prywatność*

@@ -4,6 +4,8 @@
 
 *Täysin ilmainen · Paikallinen käsittely · 18+ ammattimaista teemaa · Tukee 23 kieltä*
 
+🚀 **Asenna nyt:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Rakastat kirjoittaa Markdownilla — siistiä, tehokasta, versionhallinnan ystävällistä.  
@@ -322,6 +324,6 @@ Tämä projekti on avoimen lähdekoodin ISC-lisenssillä. Tervetuloa antamaan t�
 
 **Keskity kirjoittamiseen, anna Markdown Viewerin hoitaa kaikki muu**
 
-### [🚀 Asenna nyt](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Asenna nyt:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Täysin ilmainen · Paikallinen käsittely · Yksityisyys suojattu*

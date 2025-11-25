@@ -4,6 +4,8 @@
 
 *Completamente gratuito · Elaborazione locale · 18+ temi professionali · Supporta 23 lingue*
 
+🚀 **Installa subito:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Ti piace scrivere in Markdown — semplice, efficiente, amico del controllo di versione.  
@@ -322,6 +324,6 @@ Questo progetto è open source con licenza ISC. Benvenuti Star di supporto, segn
 
 **Concentra le energie sulla scrittura, lascia che Markdown Viewer gestisca tutto il resto**
 
-### [🚀 Installa subito](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Installa subito:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Completamente gratuito · Elaborazione locale · Privacy sicura*

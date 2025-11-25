@@ -4,6 +4,8 @@
 
 *Helt gratis · Lokal behandling · 18+ profesjonelle temaer · Støtter 23 språk*
 
+🚀 **Installer nå:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Du elsker å skrive i Markdown — rent, effektivt, versjonskontrollvennlig.  
@@ -322,6 +324,6 @@ Dette prosjektet er åpen kildekode under ISC-lisens. Velkommen til å gi stjern
 
 **Fokuser på skriving, la Markdown Viewer håndtere alt annet**
 
-### [🚀 Installer nå](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Installer nå:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Fullstendig gratis · Lokal behandling · Personvern beskyttet*

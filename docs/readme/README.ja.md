@@ -4,6 +4,8 @@
 
 *完全無料 · ローカル処理 · 18+プロフェッショナルテーマ · 23言語対応*
 
+🚀 **今すぐインストール:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Markdownで書くのが好きですよね。クリーンで効率的で、バージョン管理に優しい。  
@@ -322,6 +324,6 @@ A: Markdownで````vega-lite`コードブロックを使用し、JSON形式のチ
 
 **執筆に集中し、他のすべてはMarkdown Viewerに任せてください**
 
-### [🚀 今すぐインストール](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **今すぐインストール:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *完全無料 · ローカル処理 · プライバシー保護*

@@ -4,6 +4,8 @@
 
 *Sepenuhnya gratis · Pemrosesan lokal · 18+ tema profesional · Mendukung 23 bahasa*
 
+🚀 **Instal Sekarang:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Anda suka menulis dalam Markdown — bersih, efisien, ramah kontrol versi.  
@@ -322,6 +324,6 @@ Proyek ini adalah open source di bawah lisensi ISC. Selamat datang untuk memberi
 
 **Fokus pada penulisan, biarkan Markdown Viewer menangani yang lain**
 
-### [🚀 Instal Sekarang](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Instal Sekarang:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Sepenuhnya Gratis · Pemrosesan Lokal · Privasi Terlindungi*

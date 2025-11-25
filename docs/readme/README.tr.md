@@ -4,6 +4,8 @@
 
 *Tamamen ücretsiz · Yerel işleme · 18+ profesyonel tema · 23 dil desteği*
 
+🚀 **Şimdi Yükleyin:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Markdown ile yazmayı seviyorsunuz — temiz, verimli, sürüm kontrolüne uygun.  
@@ -322,6 +324,6 @@ Bu proje ISC lisansı altında açık kaynaktır. Yıldız vermeniz, sorun bildi
 
 **Yazmaya odaklanın, geri kalan her şeyi Markdown Viewer'a bırakın**
 
-### [🚀 Şimdi Yükleyin](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Şimdi Yükleyin:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Tamamen Ücretsiz · Yerel İşleme · Gizlilik Korumalı*

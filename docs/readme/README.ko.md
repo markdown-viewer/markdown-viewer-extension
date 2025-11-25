@@ -4,6 +4,8 @@
 
 *완전 무료 · 로컬 처리 · 18+ 전문 테마 · 23개 언어 지원*
 
+🚀 **지금 설치:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 여러분은 Markdown으로 글쓰기를 좋아합니다 — 깔끔하고, 효율적이며, 버전 관리 친화적입니다.  
@@ -322,6 +324,6 @@ A: A: Markdown에서 ````vega-lite` 코드 블록을 사용하고 JSON 형식의
 
 **작성에 집중하고, 나머지는 Markdown Viewer에 맡기세요**
 
-### [🚀 지금 설치](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **지금 설치:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *완전 무료 · 로컬 처리 · 개인정보 보호*

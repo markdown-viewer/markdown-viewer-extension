@@ -4,6 +4,8 @@
 
 *完全免費 · 本地處理 · 18+ 專業主題 · 支援 23 種語言*
 
+🚀 **立即安裝:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 您喜歡用 Markdown 寫作 —— 簡潔、高效、版本控制友好。  
@@ -322,6 +324,6 @@ A: A: 在 Markdown 中使用 ````vega-lite` 程式碼區塊，內容為 JSON 格
 
 **把精力放在寫作上，讓 Markdown Viewer 處理其他一切**
 
-### [🚀 立即安裝](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **立即安裝:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *完全免費 · 本機處理 · 隱私安全*

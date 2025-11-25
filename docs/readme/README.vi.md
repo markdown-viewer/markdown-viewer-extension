@@ -4,6 +4,8 @@
 
 *Hoàn toàn miễn phí · Xử lý cục bộ · 18+ chủ đề chuyên nghiệp · Hỗ trợ 23 ngôn ngữ*
 
+🚀 **Cài đặt ngay:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Bạn thích viết bằng Markdown — sạch sẽ, hiệu quả, thân thiện với kiểm soát phiên bản.  
@@ -322,6 +324,6 @@ Dự án này là mã nguồn mở theo giấy phép ISC. Hoan nghênh Star hỗ
 
 **Tập trung vào viết, để Markdown Viewer xử lý mọi thứ khác**
 
-### [🚀 Cài đặt ngay](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Cài đặt ngay:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Hoàn toàn miễn phí · Xử lý cục bộ · Bảo vệ quyền riêng tư*

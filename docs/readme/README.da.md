@@ -4,6 +4,8 @@
 
 *Helt gratis · Lokal behandling · 18+ professionelle temaer · Understøtter 23 sprog*
 
+🚀 **Installer nu:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 Du elsker at skrive i Markdown — simpelt, effektivt, versionskontrol-venligt.  
@@ -322,6 +324,6 @@ Dette projekt er open source under ISC-licens. Velkommen til at give Star, rappo
 
 **Fokuser på at skrive, lad Markdown Viewer håndtere alt andet**
 
-### [🚀 Installer nu](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Installer nu:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Fuldstændig gratis · Lokal behandling · Privatliv beskyttet*

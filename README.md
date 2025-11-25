@@ -4,6 +4,8 @@
 
 *Completely Free · Local Processing · 18+ Professional Themes · 23 Languages Support*
 
+ 🚀 **Install Now:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
+
 ---
 
 You love writing in Markdown — clean, efficient, version control friendly.  
@@ -322,6 +324,6 @@ This project is open source under ISC license. Welcome to Star, report issues, s
 
 **Focus on writing, let Markdown Viewer handle everything else**
 
-### [🚀 Install Now](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+🚀 **Install Now:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
 *Completely Free · Local Processing · Privacy Protected*
