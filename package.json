@@ -54,7 +54,6 @@
     "html2canvas": "^1.4.1",
     "katex": "^0.16.25",
     "mathjax-full": "^3.2.2",
-    "mathml2omml": "^0.5.0",
     "mermaid": "^11.12.1",
     "rehype-highlight": "^7.0.2",
     "rehype-katex": "^7.0.1",
