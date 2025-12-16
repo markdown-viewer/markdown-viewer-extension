@@ -1,6 +1,16 @@
 // Localization manager providing user-selectable locales.
 // Note: Comments in English per instructions.
 
+import { fetchJSON } from './fetch-utils.js';
+
+/**
+ * Get platform instance from global scope
+ * Platform is set by each platform's index.js before using shared modules
+ */
+function getPlatform() {
+  return globalThis.platform;
+}
+
 const DEFAULT_SETTING_LOCALE = 'auto';
 const FALLBACK_LOCALE = 'en';
 
@@ -39,11 +49,12 @@ class LocalizationManager {
   }
 
   async getStorageSettings() {
-    if (!chrome?.storage?.local) {
+    const platform = getPlatform();
+    if (!platform?.storage) {
       return null;
     }
 
-    const result = await chrome.storage.local.get(['markdownViewerSettings']);
+    const result = await platform.storage.get(['markdownViewerSettings']);
     if (result && result.markdownViewerSettings) {
       return result.markdownViewerSettings;
     }
@@ -84,14 +95,11 @@ class LocalizationManager {
 
   async fetchLocaleData(locale) {
     try {
-      const url = chrome.runtime.getURL(`_locales/${locale}/messages.json`);
-      const response = await fetch(url, { cache: 'no-cache' });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return await response.json();
+      const platform = getPlatform();
+      const url = platform.resource.getURL(`_locales/${locale}/messages.json`);
+      return await fetchJSON(url);
     } catch (error) {
-      console.warn('[Localization] fetchLocaleData failed for', locale, error);
+      console.warn('[Localization] fetchLocaleData failed for', locale, error.message || error);
       return null;
     }
   }
@@ -112,8 +120,10 @@ class LocalizationManager {
       return fallbackValue;
     }
 
-    if (chrome?.i18n?.getMessage) {
-      return chrome.i18n.getMessage(key, substitutions) || '';
+    // Use platform's i18n service as last resort (both Chrome and Mobile now use translate)
+    const platform = getPlatform();
+    if (platform?.i18n?.translate) {
+      return platform.i18n.translate(key, substitutions) || '';
     }
 
     return '';

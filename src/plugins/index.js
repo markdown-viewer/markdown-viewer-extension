@@ -67,9 +67,12 @@ export function registerRemarkPlugins(processor, renderer, asyncTask, translate,
                 const { id, code } = data;
                 try {
                   const extraParams = plugin.getRenderParams();
-                  const pngResult = await renderer.render(plugin.type, code, extraParams);
-                  if (pngResult) {
-                    replacePlaceholderWithImage(id, pngResult, plugin.type, plugin.isInline());
+                  // Use SVG format for browser display (fonts render correctly)
+                  // Exception: HTML plugin uses PNG format (doesn't support SVG)
+                  extraParams.outputFormat = plugin.type === 'html' ? 'png' : 'svg';
+                  const renderResult = await renderer.render(plugin.type, code, extraParams);
+                  if (renderResult) {
+                    replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline());
                   } else {
                     const placeholder = document.getElementById(id);
                     if (placeholder) {

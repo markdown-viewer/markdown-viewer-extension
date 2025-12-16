@@ -2,6 +2,15 @@
 // Converts theme configuration to CSS styles
 
 import themeManager from './theme-manager.js';
+import { fetchJSON } from './fetch-utils.js';
+
+/**
+ * Get platform instance from global scope
+ * Platform is set by each platform's index.js before using shared modules
+ */
+function getPlatform() {
+  return globalThis.platform;
+}
 
 /**
  * Convert theme configuration to CSS
@@ -376,39 +385,65 @@ export function applyThemeCSS(css) {
 }
 
 /**
- * Load and apply complete theme
- * @param {string} themeId - Theme ID to load
+ * Apply theme from pre-loaded data (used by mobile when Flutter sends theme data)
+ * @param {Object} theme - Theme configuration
+ * @param {Object} tableStyle - Table style configuration
+ * @param {Object} codeTheme - Code theme configuration
+ * @param {Object} spacingScheme - Spacing scheme configuration
+ * @param {Object} fontConfig - Font configuration (for themeManager)
  */
-export async function loadAndApplyTheme(themeId) {
+export function applyThemeFromData(theme, tableStyle, codeTheme, spacingScheme, fontConfig) {
   try {
-    // Load theme
-    const theme = await themeManager.loadTheme(themeId);
-
-    // Load table style
-    const tableStyleResponse = await fetch(
-      chrome.runtime.getURL(`themes/table-styles/${theme.tableStyle}.json`)
-    );
-    const tableStyle = await tableStyleResponse.json();
-
-    // Load code theme
-    const codeThemeResponse = await fetch(
-      chrome.runtime.getURL(`themes/code-themes/${theme.codeTheme}.json`)
-    );
-    const codeTheme = await codeThemeResponse.json();
-
-    // Load spacing scheme
-    const spacingResponse = await fetch(
-      chrome.runtime.getURL(`themes/spacing-schemes/${theme.spacing}.json`)
-    );
-    const spacingScheme = await spacingResponse.json();
+    // Ensure themeManager has fontConfig before generating CSS
+    // This is needed because themeToCSS uses themeManager.buildFontFamily() etc.
+    if (fontConfig) {
+      // Always update fontConfig to ensure it's current
+      themeManager.fontConfig = fontConfig;
+    }
+    themeManager.currentTheme = theme;
 
     // Generate CSS
     const css = themeToCSS(theme, tableStyle, codeTheme, spacingScheme);
 
     // Apply CSS
     applyThemeCSS(css);
+  } catch (error) {
+    console.error('Error applying theme from data:', error);
+    throw error;
+  }
+}
 
-    console.log('Theme applied successfully:', themeId);
+/**
+ * Load and apply complete theme
+ * @param {string} themeId - Theme ID to load
+ */
+export async function loadAndApplyTheme(themeId) {
+  try {
+    const platform = getPlatform();
+    
+    // Load theme
+    const theme = await themeManager.loadTheme(themeId);
+
+    // Load table style
+    const tableStyle = await fetchJSON(
+      platform.resource.getURL(`themes/table-styles/${theme.tableStyle}.json`)
+    );
+
+    // Load code theme
+    const codeTheme = await fetchJSON(
+      platform.resource.getURL(`themes/code-themes/${theme.codeTheme}.json`)
+    );
+
+    // Load spacing scheme
+    const spacingScheme = await fetchJSON(
+      platform.resource.getURL(`themes/spacing-schemes/${theme.spacing}.json`)
+    );
+
+    // Generate CSS
+    const css = themeToCSS(theme, tableStyle, codeTheme, spacingScheme);
+
+    // Apply CSS
+    applyThemeCSS(css);
   } catch (error) {
     console.error('Error loading theme:', error);
     throw error;

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <title>Markdown Viewer</title>
+  
+  <!-- All styles bundled into one file -->
+  <link rel="stylesheet" href="./styles.css">
+  
+  <style>
+    /* Mobile-specific styles */
+    :root {
+      --safe-area-top: env(safe-area-inset-top, 0px);
+      --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-area-left: env(safe-area-inset-left, 0px);
+      --safe-area-right: env(safe-area-inset-right, 0px);
+    }
+    
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    html {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    
+    body {
+      margin: 0;
+      padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
+      background: var(--bg-color, #ffffff);
+      min-height: 100vh;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    #content {
+      max-width: 100%;
+      padding: 16px;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    /* Loading state */
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #666;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    #loading.hidden {
+      display: none;
+    }
+    
+    /* Empty state */
+    #empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      text-align: center;
+      padding: 32px;
+    }
+    
+    #empty-state.visible {
+      display: flex;
+    }
+    
+    #empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    /* Responsive images */
+    #content img {
+      max-width: 100%;
+      height: auto;
+    }
+    
+    /* Code blocks */
+    #content pre {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Tables */
+    #content table {
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Mermaid containers */
+    .mermaid-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .mermaid-container svg {
+      max-width: 100%;
+      height: auto;
+    }
+    
+    /* Vega containers */
+    .vega-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Offscreen render root (kept out of visible flow) */
+    #render-root {
+      position: fixed;
+      left: -100000px;
+      top: -100000px;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      visibility: hidden;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading indicator -->
+  <div id="loading">
+    <span>Loading...</span>
+  </div>
+  
+  <!-- Empty state -->
+  <div id="empty-state">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    <p>Select a Markdown file to view</p>
+  </div>
+  
+  <!-- Main content container -->
+  <div id="markdown-content"></div>
+
+  <!-- Render iframe: preloaded for faster diagram rendering -->
+  <iframe id="render-frame" src="./render-frame.html" style="position: fixed; left: -10000px; top: -10000px; width: 1400px; height: 800px; border: none; visibility: hidden;"></iframe>
+  
+  <!-- Early message listener for render frame (must be before bundle.js) -->
+  <script>
+    // Global state for render frame communication
+    window.__renderFrameReady = false;
+    window.__renderFrameReadyCallbacks = [];
+    window.__renderFramePendingRequests = new Map();
+    
+    // Listen for messages from render frame
+    window.addEventListener('message', function(event) {
+      var message = event.data;
+      if (!message || typeof message !== 'object') return;
+      
+      // Handle ready signal from render frame
+      if (message.type === 'RENDER_FRAME_READY') {
+        if (!window.__renderFrameReady) {
+          window.__renderFrameReady = true;
+          
+          // Send acknowledgment
+          var iframe = document.getElementById('render-frame');
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'READY_ACK' }, '*');
+          }
+          
+          // Notify any waiting callbacks
+          window.__renderFrameReadyCallbacks.forEach(function(cb) { cb(); });
+          window.__renderFrameReadyCallbacks = [];
+        }
+        return;
+      }
+      
+      // Handle log messages from render frame (for debugging)
+      if (message.type === 'RENDER_FRAME_LOG') {
+        console.log.apply(console, ['[RenderFrame]'].concat(message.args || []));
+        return;
+      }
+      
+      // Handle responses to pending requests
+      if (message.type === 'RESPONSE' && message.requestId !== undefined) {
+        var pending = window.__renderFramePendingRequests.get(message.requestId);
+        if (pending) {
+          window.__renderFramePendingRequests.delete(message.requestId);
+          if (message.error) {
+            pending.reject(new Error(message.error));
+          } else {
+            pending.resolve(message.result);
+          }
+        }
+      }
+    });
+  </script>
+  
+  <!-- Main bundle (generated by build script) -->
+  <script src="./bundle.js"></script>
+  
+  <script>
+    // Hide loading when main script is ready
+    window.addEventListener('load', () => {
+      document.getElementById('loading').classList.add('hidden');
+      
+      // Show empty state if no content loaded after a short delay
+      setTimeout(() => {
+        const content = document.getElementById('markdown-content');
+        if (!content.innerHTML.trim()) {
+          document.getElementById('empty-state').classList.add('visible');
+        }
+      }, 500);
+    });
+    
+    // Listen for content changes to hide empty state
+    const observer = new MutationObserver(() => {
+      const content = document.getElementById('markdown-content');
+      const emptyState = document.getElementById('empty-state');
+      if (content.innerHTML.trim()) {
+        emptyState.classList.remove('visible');
+      }
+    });
+    
+    observer.observe(document.getElementById('markdown-content'), {
+      childList: true,
+      subtree: true
+    });
+  </script>
+</body>
+</html>

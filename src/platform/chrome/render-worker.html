@@ -1,31 +1,21 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="UTF-8">
   <title>Offscreen Renderer</title>
-  <script src="../html2canvas.min.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-    }
-
-    html,
-    body {
+    * { margin: 0; padding: 0; }
+    html, body {
       background: transparent;
       width: 1400px;
       min-height: 600px;
     }
   </style>
 </head>
-
 <body>
-  <!-- Single shared render container for all diagram types -->
   <div id="render-container"></div>
   <canvas id="png-canvas" style="position: absolute; top: -9999px; left: -9999px;"></canvas>
-
+  
   <script type="module" src="../core/offscreen.js"></script>
 </body>
-
 </html>

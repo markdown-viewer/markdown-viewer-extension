@@ -1,9 +1,18 @@
 // Theme Manager for Markdown Viewer Extension
 // Handles loading, applying, and managing themes
 
+import { fetchJSON } from './fetch-utils.js';
+
+/**
+ * Get platform instance from global scope
+ * Platform is set by each platform's index.js before using shared modules
+ */
+function getPlatform() {
+  return globalThis.platform;
+}
+
 /**
  * Theme Manager Class
- * Manages theme loading, font resolution, and theme switching
  */
 class ThemeManager {
   constructor() {
@@ -14,23 +23,36 @@ class ThemeManager {
   }
 
   /**
+   * Initialize theme manager with data from Flutter
+   * Used on mobile platform where Flutter loads assets and sends to WebView
+   * @param {Object} fontConfig - Font configuration object
+   * @param {Object} theme - Theme object
+   */
+  initializeWithData(fontConfig, theme) {
+    this.fontConfig = fontConfig;
+    this.currentTheme = theme;
+    this.initialized = true;
+  }
+
+  /**
    * Initialize theme manager by loading font config and registry
    */
   async initialize() {
     if (this.initialized) return;
     
     try {
+      const platform = getPlatform();
       // Load font config
-      const configResponse = await fetch(chrome.runtime.getURL('themes/font-config.json'));
-      this.fontConfig = await configResponse.json();
+      const fontConfigUrl = platform.resource.getURL('themes/font-config.json');
+      this.fontConfig = await fetchJSON(fontConfigUrl);
       
       // Load theme registry
-      const registryResponse = await fetch(chrome.runtime.getURL('themes/registry.json'));
-      this.registry = await registryResponse.json();
+      const registryUrl = platform.resource.getURL('themes/registry.json');
+      this.registry = await fetchJSON(registryUrl);
       
       this.initialized = true;
     } catch (error) {
-      console.error('Failed to initialize theme manager:', error);
+      console.error('Failed to initialize theme manager:', error.message || error);
       throw error;
     }
   }
@@ -107,15 +129,9 @@ class ThemeManager {
     await this.initialize();
     
     try {
-      const response = await fetch(chrome.runtime.getURL(`themes/presets/${themeId}.json`));
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load theme: ${themeId}`);
-      }
-      
-      const theme = await response.json();
+      const platform = getPlatform();
+      const theme = await fetchJSON(platform.resource.getURL(`themes/presets/${themeId}.json`));
       this.currentTheme = theme;
-      
       return theme;
     } catch (error) {
       console.error('Error loading theme:', error);
@@ -124,25 +140,22 @@ class ThemeManager {
   }
 
   /**
-   * Load theme from chrome.storage
+   * Load theme from storage
    * @returns {Promise<string>} Theme ID
    */
   async loadSelectedTheme() {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(['selectedTheme'], (result) => {
-        resolve(result.selectedTheme || 'default');
-      });
-    });
+    const platform = getPlatform();
+    const result = await platform.storage.get(['selectedTheme']);
+    return result.selectedTheme || 'default';
   }
 
   /**
-   * Save selected theme to chrome.storage
+   * Save selected theme to storage
    * @param {string} themeId - Theme ID to save
    */
   async saveSelectedTheme(themeId) {
-    return new Promise((resolve) => {
-      chrome.storage.sync.set({ selectedTheme: themeId }, resolve);
-    });
+    const platform = getPlatform();
+    await platform.storage.set({ selectedTheme: themeId });
   }
 
   /**
@@ -195,12 +208,13 @@ class ThemeManager {
       return [];
     }
     
+    const platform = getPlatform();
     // Load theme names and descriptions
     const themes = await Promise.all(
       this.registry.themes.map(async (themeInfo) => {
         try {
           const response = await fetch(
-            chrome.runtime.getURL(`themes/presets/${themeInfo.file}`)
+            platform.resource.getURL(`themes/presets/${themeInfo.file}`)
           );
           const theme = await response.json();
           

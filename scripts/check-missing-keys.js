@@ -11,6 +11,7 @@ import path from 'path';
 
 const LOCALES_DIR = path.join(import.meta.dirname, '../src/_locales');
 const SRC_DIR = path.join(import.meta.dirname, '../src');
+const FLUTTER_DIR = path.join(import.meta.dirname, '../lib');
 
 // Get all locale directories
 function getLocaleDirs() {
@@ -43,6 +44,7 @@ function getKeys(messages) {
 function findKeysInCode() {
   const keysUsedInCode = new Set();
   const keysUsedInHTML = new Set();
+  const keysUsedInDart = new Set();
   
   // Scan JavaScript files for translate() calls
   function scanJSFile(filePath) {
@@ -98,6 +100,28 @@ function findKeysInCode() {
     }
   }
   
+  // Scan Dart files for localization.t() or localization.translate() calls
+  function scanDartFile(filePath) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      
+      // Match localization.t('key') or localization.t("key")
+      const tPattern = /localization\.t\s*\(\s*['"]([^'"]+)['"]/g;
+      let match;
+      while ((match = tPattern.exec(content)) !== null) {
+        keysUsedInDart.add(match[1]);
+      }
+      
+      // Match localization.translate('key') or localization.translate("key")
+      const translatePattern = /localization\.translate\s*\(\s*['"]([^'"]+)['"]/g;
+      while ((match = translatePattern.exec(content)) !== null) {
+        keysUsedInDart.add(match[1]);
+      }
+    } catch (error) {
+      console.error(`Error scanning ${filePath}:`, error.message);
+    }
+  }
+  
   // Recursively scan directory
   function scanDirectory(dir, extensions) {
     try {
@@ -119,6 +143,8 @@ function findKeysInCode() {
               scanJSFile(fullPath);
             } else if (ext === '.html') {
               scanHTMLFile(fullPath);
+            } else if (ext === '.dart') {
+              scanDartFile(fullPath);
             }
           } else if (file === 'manifest.json') {
             scanManifestFile(fullPath);
@@ -133,13 +159,19 @@ function findKeysInCode() {
   // Scan all source files
   scanDirectory(SRC_DIR, ['.js', '.html']);
   
+  // Scan Flutter source files
+  if (fs.existsSync(FLUTTER_DIR)) {
+    scanDirectory(FLUTTER_DIR, ['.dart']);
+  }
+  
   // Combine all keys used in code
-  const allUsedKeys = new Set([...keysUsedInCode, ...keysUsedInHTML]);
+  const allUsedKeys = new Set([...keysUsedInCode, ...keysUsedInHTML, ...keysUsedInDart]);
   
   return {
     all: allUsedKeys,
     inJS: keysUsedInCode,
-    inHTML: keysUsedInHTML
+    inHTML: keysUsedInHTML,
+    inDart: keysUsedInDart
   };
 }
 
@@ -223,7 +255,8 @@ function main() {
   const usedKeys = findKeysInCode();
   console.log(`Found ${usedKeys.all.size} unique keys used in source code:`);
   console.log(`  - ${usedKeys.inJS.size} keys in JavaScript files`);
-  console.log(`  - ${usedKeys.inHTML.size} keys in HTML files\n`);
+  console.log(`  - ${usedKeys.inHTML.size} keys in HTML files`);
+  console.log(`  - ${usedKeys.inDart.size} keys in Flutter/Dart files\n`);
   
   // Keys defined but not used
   const definedKeys = allKeysArray;
@@ -254,13 +287,13 @@ function main() {
             
             if (stat.isDirectory()) {
               // Skip these directories
-              if (file !== '_locales' && file !== 'node_modules' && file !== 'dist' && file !== '.git') {
+              if (file !== '_locales' && file !== 'node_modules' && file !== 'dist' && file !== '.git' && file !== 'build') {
                 searchInDirectory(fullPath);
               }
             } else if (stat.isFile()) {
               // Skip non-source files
               const ext = path.extname(file);
-              if (['.js', '.html', '.json', '.css', '.md'].includes(ext) || file === 'manifest.json') {
+              if (['.js', '.html', '.json', '.css', '.md', '.dart'].includes(ext) || file === 'manifest.json') {
                 try {
                   const content = fs.readFileSync(fullPath, 'utf8');
                   
@@ -285,6 +318,11 @@ function main() {
       }
       
       searchInDirectory(SRC_DIR);
+      
+      // Also search in Flutter directory
+      if (!foundInSource && fs.existsSync(FLUTTER_DIR)) {
+        searchInDirectory(FLUTTER_DIR);
+      }
       
       if (!foundInSource) {
         trulyUnusedKeys.push(key);

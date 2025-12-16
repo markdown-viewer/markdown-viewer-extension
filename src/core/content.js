@@ -1,4 +1,6 @@
-// Markdown Viewer Content Script using unified + rehypeKatex + Extension Renderer
+// Markdown Viewer Content Script - Chrome Extension Entry Point
+// Uses shared markdown-processor for core processing logic
+
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
@@ -15,665 +17,34 @@ import DocxExporter from '../exporters/docx-exporter.js';
 import Localization, { DEFAULT_SETTING_LOCALE } from '../utils/localization.js';
 import themeManager from '../utils/theme-manager.js';
 import { loadAndApplyTheme } from '../utils/theme-to-css.js';
-import { registerRemarkPlugins, getPluginByType } from '../plugins/index.js';
-import { createPlaceholderElement } from '../plugins/plugin-content-utils.js';
+import { registerRemarkPlugins } from '../plugins/index.js';
+import { platform } from '../platform/chrome/index.js';
+import {
+  normalizeMathBlocks,
+  escapeHtml,
+  sanitizeRenderedHtml,
+  processTablesForWordCompatibility,
+  renderHtmlIncrementally
+} from './markdown-processor.js';
+
+// Import refactored modules
+import { BackgroundCacheManagerProxy } from './cache-proxy.js';
+import { createScrollManager } from './scroll-manager.js';
+import { createFileStateManager, getCurrentDocumentUrl, saveToHistory } from './file-state.js';
+import { createAsyncTaskQueue } from './async-task-queue.js';
+import { updateProgress, showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator.js';
+import { createTocManager } from './ui/toc-manager.js';
+import { createToolbarManager, generateToolbarHTML, layoutIcons } from './ui/toolbar.js';
 
 async function initializeContentScript() {
   // Record page load start time for performance measurement
   const pageLoadStartTime = performance.now();
-
   const translate = (key, substitutions) => Localization.translate(key, substitutions);
 
-  // Background Cache Proxy for Content Scripts
-  class BackgroundCacheManagerProxy {
-    constructor() {
-      this.dbName = 'MarkdownViewerCache';
-      this.storeName = 'cache';
-      this.dbVersion = 1;
-    }
-
-    async get(key) {
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'cacheOperation',
-          operation: 'get',
-          key: key
-        });
-
-        if (response.error) {
-          throw new Error(response.error);
-        }
-
-        return response.result;
-      } catch (error) {
-        return null;
-      }
-    }
-
-    async set(key, value, type = 'unknown') {
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'cacheOperation',
-          operation: 'set',
-          key: key,
-          value: value,
-          dataType: type
-        });
-
-        if (response.error) {
-          throw new Error(response.error);
-        }
-
-        return response.success;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    async clear() {
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'cacheOperation',
-          operation: 'clear'
-        });
-
-        if (response.error) {
-          throw new Error(response.error);
-        }
-
-        return response.success;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    async getStats() {
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'cacheOperation',
-          operation: 'getStats'
-        });
-
-        if (response.error) {
-          throw new Error(response.error);
-        }
-
-        return response.result;
-      } catch (error) {
-        return null;
-      }
-    }
-
-    // No need for initDB since background handles it
-    async initDB() {
-      return Promise.resolve();
-    }
-
-    async calculateHash(text) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(text);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async generateKey(content, type, themeConfig = null) {
-      let keyContent = content;
-      
-      // Include theme config in cache key if provided
-      if (themeConfig && themeConfig.fontFamily && themeConfig.fontSize) {
-        keyContent = `${content}_font:${themeConfig.fontFamily}_size:${themeConfig.fontSize}`;
-      }
-      
-      const hash = await this.calculateHash(keyContent);
-      return `${hash}_${type}`;
-    }
-  }
-
-  // Flag to stop scroll position restoration when user interacts
-  let stopScrollRestore = false;
-
-  /**
-   * Stop the automatic scroll position restoration
-   */
-  function cancelScrollRestore() {
-    stopScrollRestore = true;
-  }
-
-  /**
-   * Restore scroll position after rendering
-   * @param {number} scrollPosition - The saved scroll position to restore
-   */
-  function restoreScrollPosition(scrollPosition) {
-    // Reset flag for new restoration
-    stopScrollRestore = false;
-
-    if (scrollPosition === 0) {
-      // For position 0, just scroll to top immediately
-      window.scrollTo(0, 0);
-      chrome.runtime.sendMessage({
-        type: 'clearScrollPosition',
-        url: getCurrentDocumentUrl()
-      });
-      return;
-    }
-
-    // Clear saved position
-    chrome.runtime.sendMessage({
-      type: 'clearScrollPosition',
-      url: getCurrentDocumentUrl()
-    });
-
-    // Debounced scroll adjustment
-    let scrollTimer = null;
-    const adjustmentTimeout = 5000; // Stop adjusting after 5 seconds
-    const startTime = Date.now();
-
-    // Listen for user scroll to stop restoration
-    const onUserScroll = () => {
-      stopScrollRestore = true;
-      window.removeEventListener('wheel', onUserScroll);
-      window.removeEventListener('keydown', onUserKeydown);
-      window.removeEventListener('touchmove', onUserScroll);
-    };
-
-    const onUserKeydown = (e) => {
-      // Stop on navigation keys
-      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
-        onUserScroll();
-      }
-    };
-
-    window.addEventListener('wheel', onUserScroll, { passive: true });
-    window.addEventListener('keydown', onUserKeydown);
-    window.addEventListener('touchmove', onUserScroll, { passive: true });
-
-    const adjustScroll = () => {
-      if (stopScrollRestore || Date.now() - startTime > adjustmentTimeout) {
-        // Cleanup listeners when stopping
-        window.removeEventListener('wheel', onUserScroll);
-        window.removeEventListener('keydown', onUserKeydown);
-        window.removeEventListener('touchmove', onUserScroll);
-        return;
-      }
-
-      // Cancel previous timer if exists
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-      }
-
-      // Schedule scroll after 100ms of no changes
-      scrollTimer = setTimeout(() => {
-        if (!stopScrollRestore) {
-          window.scrollTo(0, scrollPosition);
-        }
-      }, 100);
-    };
-
-    // Trigger initial scroll
-    adjustScroll();
-
-    // Monitor images loading
-    const images = document.querySelectorAll('#markdown-content img');
-    images.forEach(img => {
-      if (!img.complete) {
-        img.addEventListener('load', adjustScroll, { once: true });
-        img.addEventListener('error', adjustScroll, { once: true });
-      }
-    });
-
-    // Monitor async placeholders being replaced
-    const observer = new MutationObserver(() => {
-      adjustScroll();
-    });
-
-    observer.observe(document.getElementById('markdown-content'), {
-      childList: true,
-      subtree: true
-    });
-
-    // Stop observing after timeout
-    setTimeout(() => {
-      observer.disconnect();
-      window.removeEventListener('wheel', onUserScroll);
-      window.removeEventListener('keydown', onUserKeydown);
-      window.removeEventListener('touchmove', onUserScroll);
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-      }
-    }, adjustmentTimeout);
-  }
-
-  /**
-   * Get current document URL without hash/anchor
-   * @returns {string} Current document URL without hash
-   */
-  function getCurrentDocumentUrl() {
-    const url = document.location.href;
-    try {
-      const urlObj = new URL(url);
-      // Remove hash/anchor
-      urlObj.hash = '';
-      return urlObj.href;
-    } catch (e) {
-      // Fallback: simple string removal
-      const hashIndex = url.indexOf('#');
-      return hashIndex >= 0 ? url.substring(0, hashIndex) : url;
-    }
-  }
-
-  /**
-   * Save file state to background script
-   * @param {Object} state - State object containing scrollPosition, tocVisible, zoom, layoutMode
-   */
-  function saveFileState(state) {
-    try {
-      chrome.runtime.sendMessage({
-        type: 'saveFileState',
-        url: getCurrentDocumentUrl(),
-        state: state
-      });
-    } catch (e) {
-      console.error('[FileState] Save error:', e);
-    }
-  }
-
-  /**
-   * Get saved file state from background script
-   * @returns {Promise<Object>} State object
-   */
-  async function getFileState() {
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: 'getFileState',
-        url: getCurrentDocumentUrl()
-      });
-      return response?.state || {};
-    } catch (e) {
-      console.error('[FileState] Get error:', e);
-      return {};
-    }
-  }
-
-  /**
-   * Normalize math blocks in markdown text
-   * Converts single-line $$...$$ to multi-line format for proper display math rendering
-   * @param {string} markdown - Raw markdown content
-   * @returns {string} Normalized markdown
-   */
-  function normalizeMathBlocks(markdown) {
-    // Match single-line display math blocks: $$...$$ (not starting/ending with $$$$)
-    // Pattern explanation:
-    // - (?<!\$\$) - not preceded by $$
-    // - \$\$ - opening $$
-    // - (.+?) - formula content (non-greedy)
-    // - \$\$ - closing $$
-    // - (?!\$\$) - not followed by $$
-    const singleLineMathRegex = /^(\s*)(?<!\$\$)\$\$(.+?)\$\$(?!\$\$)\s*$/gm;
-
-    let mathBlocksFound = 0;
-
-    // Replace single-line math blocks with multi-line format
-    const normalized = markdown.replace(singleLineMathRegex, (match, indent, formula) => {
-      mathBlocksFound++;
-      // Convert to multi-line format with proper spacing
-      return `\n$$\n${formula.trim()}\n$$\n`;
-    });
-
-    return normalized;
-  }
-
-  /**
-   * Sanitize rendered HTML to remove active content like scripts before injection
-   * @param {string} html - Raw HTML string produced by the markdown pipeline
-   * @returns {string} Sanitized HTML safe for innerHTML assignment
-   */
-  function sanitizeRenderedHtml(html) {
-    try {
-      const template = document.createElement('template');
-      template.innerHTML = html;
-
-      sanitizeNodeTree(template.content);
-
-      return template.innerHTML;
-    } catch (error) {
-      return html;
-    }
-  }
-
-  /**
-   * Walk the node tree and remove dangerous elements/attributes
-   * @param {Node} root - Root node to sanitize
-   */
-  function sanitizeNodeTree(root) {
-  const blockedTags = new Set(['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'AUDIO', 'VIDEO']);
-    const stack = [];
-
-    Array.from(root.childNodes).forEach((child) => {
-      if (child.nodeType === Node.ELEMENT_NODE) {
-        stack.push(child);
-      } else if (child.nodeType === Node.COMMENT_NODE) {
-        child.remove();
-      }
-    });
-
-    while (stack.length > 0) {
-      const node = stack.pop();
-
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        continue;
-      }
-
-      const tagName = node.tagName ? node.tagName.toUpperCase() : '';
-      if (blockedTags.has(tagName)) {
-  const originalMarkup = node.outerHTML || `<${tagName.toLowerCase()}>`;
-  const truncatedMarkup = originalMarkup.length > 500 ? `${originalMarkup.slice(0, 500)}...` : originalMarkup;
-        const warning = document.createElement('pre');
-        warning.className = 'blocked-html-warning';
-        warning.setAttribute('style', 'background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px; white-space: pre-wrap;');
-  const message = `Blocked insecure <${tagName.toLowerCase()}> element removed.
-
-${truncatedMarkup}`;
-        warning.textContent = message;
-        node.replaceWith(warning);
-        continue;
-      }
-
-      sanitizeElementAttributes(node);
-
-      Array.from(node.childNodes).forEach((child) => {
-        if (child.nodeType === Node.ELEMENT_NODE) {
-          stack.push(child);
-        } else if (child.nodeType === Node.COMMENT_NODE) {
-          child.remove();
-        }
-      });
-    }
-  }
-
-  /**
-   * Strip unsafe attributes from an element
-   * @param {Element} element - Element to sanitize
-   */
-  function sanitizeElementAttributes(element) {
-    if (!element.hasAttributes()) {
-      return;
-    }
-
-    const urlAttributes = ['src', 'href', 'xlink:href', 'action', 'formaction', 'poster', 'data', 'srcset'];
-
-    Array.from(element.attributes).forEach((attr) => {
-      const attrName = attr.name.toLowerCase();
-
-      if (attrName.startsWith('on')) {
-        element.removeAttribute(attr.name);
-        return;
-      }
-
-      if (urlAttributes.includes(attrName)) {
-        if (attrName === 'srcset') {
-          if (!isSafeSrcset(attr.value)) {
-            element.removeAttribute(attr.name);
-          }
-        } else if (attrName === 'href' || attrName === 'xlink:href') {
-          // For href attributes, validate URL safety
-          if (!isSafeUrl(attr.value)) {
-            element.removeAttribute(attr.name);
-          }
-        } else if (!isSafeUrl(attr.value)) {
-          element.removeAttribute(attr.name);
-        }
-      }
-    });
-  }
-
-  /**
-   * Validate that every URL candidate in a srcset attribute is safe
-   * @param {string} value - Raw srcset value
-   * @returns {boolean} True when every entry is safe
-   */
-  function isSafeSrcset(value) {
-    if (!value) {
-      return true;
-    }
-
-    return value.split(',').every((candidate) => {
-      const urlPart = candidate.trim().split(/\s+/)[0];
-      return isSafeUrl(urlPart);
-    });
-  }
-
-  /**
-   * Validate URL values and block javascript-style protocols
-   * @param {string} url - URL to validate
-   * @returns {boolean} True when URL is considered safe
-   */
-  function isSafeUrl(url) {
-    if (!url) {
-      return true;
-    }
-
-    const trimmed = url.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      return true;
-    }
-
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text/javascript')) {
-      return false;
-    }
-
-    if (lower.startsWith('data:')) {
-      return lower.startsWith('data:image/') || lower.startsWith('data:application/pdf');
-    }
-
-    try {
-      const parsed = new URL(trimmed, document.baseURI);
-      return ['http:', 'https:', 'mailto:', 'tel:', 'chrome-extension:', 'file:'].includes(parsed.protocol);
-    } catch (error) {
-      return false;
-    }
-  }
-
-  // Global async task queue
-  const asyncTaskQueue = [];
-  let asyncTaskIdCounter = 0;
-
-  /**
-   * Generate unique ID for async tasks
-   */
-  function generateAsyncId() {
-    return `async-placeholder-${++asyncTaskIdCounter}`;
-  }
-
-  /**
-   * Register async task for later execution with status management
-   * @param {Function} callback - The async callback function
-   * @param {Object} data - Data to pass to callback
-   * @param {Object} plugin - Plugin instance that provides type and placeholder generation
-   * @param {Function} translate - Translation function
-   * @param {string} initialStatus - Initial task status ('ready', 'fetching')
-   * @returns {Object} - Object with task control and placeholder content
-   */
-  function asyncTask(callback, data = {}, plugin = null, translate = null, initialStatus = 'ready') {
-    const placeholderId = generateAsyncId();
-    const type = plugin?.type || 'unknown';
-
-    // Create task object with status management
-    const task = {
-      id: placeholderId,
-      callback,
-      data: { ...data, id: placeholderId },
-      type,
-      status: initialStatus, // 'ready', 'fetching', 'error'
-      error: null,
-
-      // Methods for business logic to update status
-      setReady: () => {
-        task.status = 'ready';
-      },
-      setError: (error) => {
-        task.status = 'error';
-        task.error = error;
-      }
-    };
-
-    asyncTaskQueue.push(task);
-
-    // Generate placeholder using utility function
-    const placeholderHtml = createPlaceholderElement(
-      placeholderId,
-      type,
-      plugin?.isInline() || false,
-      translate
-    );
-
-    return {
-      task, // Return task object for business logic control
-      placeholder: {
-        type: 'html',
-        value: placeholderHtml
-      }
-    };
-  }
-
-  /**
-   * Process all async tasks in parallel
-   */
-  async function processAsyncTasks() {
-    if (asyncTaskQueue.length === 0) {
-      // Log render completion time even when no async tasks
-      const renderCompleteTime = performance.now();
-      console.log(`[Markdown Viewer] All resources rendered in ${(renderCompleteTime - pageLoadStartTime).toFixed(2)}ms (no async tasks)`);
-      return;
-    }
-
-    const totalTasks = asyncTaskQueue.length;
-    const tasks = asyncTaskQueue.splice(0, asyncTaskQueue.length); // Take all tasks
-
-    // Show processing indicator and set initial progress
-    showProcessingIndicator();
-    updateProgress(0, totalTasks);
-
-    let completedTasks = 0;
-
-    // Wait for all fetching tasks to be ready first
-    const waitForReady = async (task) => {
-      while (task.status === 'fetching') {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-    };
-
-    // Process all tasks in parallel
-    const processTask = async (task) => {
-      try {
-        // Wait if task is still fetching
-        await waitForReady(task);
-
-        if (task.status === 'error') {
-          // Handle error case - update placeholder with error message
-          const placeholder = document.getElementById(task.id);
-          if (placeholder) {
-            const unknownError = translate('async_unknown_error');
-            const errorDetail = escapeHtml((task.error ? task.error.message : '') || unknownError);
-            const localizedError = translate('async_processing_error', [errorDetail]);
-            placeholder.outerHTML = `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">${localizedError}</pre>`;
-          }
-        } else {
-          // Process ready task normally
-          await task.callback(task.data);
-        }
-      } catch (error) {
-        console.error('Async task processing error:', error);
-        // Update placeholder with error message
-        const placeholder = document.getElementById(task.id);
-        if (placeholder) {
-          const errorDetail = escapeHtml(error.message || '');
-          const localizedError = translate('async_task_processing_error', [errorDetail]);
-          placeholder.outerHTML = `<pre style="background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;">${localizedError}</pre>`;
-        }
-      } finally {
-        completedTasks++;
-        updateProgress(completedTasks, totalTasks);
-      }
-    };
-
-    // Run all tasks in parallel
-    await Promise.all(tasks.map(processTask));
-
-    // Hide processing indicator when all tasks are done
-    hideProcessingIndicator();
-
-    // Log render completion time
-    const renderCompleteTime = performance.now();
-    console.log(`[Markdown Viewer] All resources rendered in ${(renderCompleteTime - pageLoadStartTime).toFixed(2)}ms`);
-  }
-
-  /**
-   * Update progress circle based on completed vs total tasks
-   */
-  function updateProgress(completed, total) {
-    const progressCircle = document.querySelector('.progress-circle-progress');
-    if (!progressCircle) return;
-
-    // Calculate progress percentage
-    const progress = completed / total;
-    const circumference = 43.98; // 2 * PI * 7 (radius)
-
-    // Calculate stroke-dashoffset (starts at full circle, decreases as progress increases)
-    const offset = circumference * (1 - progress);
-
-    progressCircle.style.strokeDashoffset = offset;
-  }
-
-  /**
-   * Show processing indicator in TOC header
-   */
-  function showProcessingIndicator() {
-    const indicator = document.getElementById('processing-indicator');
-
-    if (indicator) {
-      indicator.classList.remove('hidden');
-    }
-  }
-
-  /**
-   * Hide processing indicator in TOC header
-   */
-  function hideProcessingIndicator() {
-    const indicator = document.getElementById('processing-indicator');
-    if (indicator) {
-      indicator.classList.add('hidden');
-    }
-  }
-
-  /**
-   * Process tables to add centering attributes for Word compatibility
-   * @param {string} html - HTML content
-   * @returns {string} HTML with centered tables
-   */
-  function processTablesForWordCompatibility(html) {
-    // Wrap tables with centering div and add align attributes (same as convert.js)
-    html = html.replace(/<table>/g, '<div align="center"><table align="center">');
-    html = html.replace(/<\/table>/g, '</table></div>');
-
-    return html;
-  }
-
-  /**
-   * Escape HTML special characters
-   */
-  function escapeHtml(text) {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
+  // Initialize cache manager with platform
+  const cacheManager = new BackgroundCacheManagerProxy(platform);
+  
   // Initialize renderer with background cache proxy
-  const cacheManager = new BackgroundCacheManagerProxy();
   const renderer = new ExtensionRenderer(cacheManager);
 
   // Initialize DOCX exporter
@@ -684,35 +55,20 @@ ${truncatedMarkup}`;
   window.docxExporter = docxExporter;
   window.sanitizeRenderedHtml = sanitizeRenderedHtml;
 
-  // Since this script is only injected when content-detector.js confirms this is a markdown file,
-  // we can directly proceed with processing
-  // Get scroll position from background script (avoids sandbox restrictions)
-  async function getSavedScrollPosition() {
-    let currentScrollPosition = 0;
+  // Initialize file state manager
+  const { saveFileState, getFileState } = createFileStateManager(platform);
 
-    try {
-      currentScrollPosition = window.scrollY || window.pageYOffset || 0;
-    } catch (e) {
-      // Window access blocked, use default position
-    }
+  // Initialize scroll manager
+  const scrollManager = createScrollManager(platform, getCurrentDocumentUrl);
+  const { cancelScrollRestore, restoreScrollPosition, getSavedScrollPosition } = scrollManager;
 
-    // Get saved scroll position from background script
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: 'getScrollPosition',
-        url: getCurrentDocumentUrl()
-      });
+  // Initialize TOC manager
+  const tocManager = createTocManager(saveFileState, getFileState);
+  const { generateTOC, setupTocToggle, updateActiveTocItem, setupResponsiveToc } = tocManager;
 
-      // Return saved position if available and current position is at top (page just loaded)
-      if (response && typeof response.position === 'number' && currentScrollPosition === 0) {
-        return response.position;
-      }
-    } catch (e) {
-      // Failed to get saved position, use default
-    }
-
-    return currentScrollPosition;
-  }
+  // Initialize async task queue
+  const asyncTaskQueueManager = createAsyncTaskQueue(escapeHtml);
+  const { asyncTask, processAsyncTasks } = asyncTaskQueueManager;
 
   // Get the raw markdown content
   const rawMarkdown = document.body.textContent;
@@ -720,34 +76,13 @@ ${truncatedMarkup}`;
   // Get saved state early to prevent any flashing
   const initialState = await getFileState();
 
-  // SVG icons for different layouts
-  const layoutIcons = {
-    normal: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-    <rect x="3" y="4" width="14" height="12" stroke-width="2" rx="1"/>
-    <line x1="3" y1="7" x2="17" y2="7" stroke-width="2"/>
-  </svg>`,
-    fullscreen: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-    <rect x="2" y="2" width="16" height="16" stroke-width="2" rx="1"/>
-    <line x1="2" y1="6" x2="18" y2="6" stroke-width="2"/>
-  </svg>`,
-    narrow: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-    <rect x="6" y="3" width="8" height="14" stroke-width="2" rx="1"/>
-    <line x1="6" y1="6" x2="14" y2="6" stroke-width="2"/>
-  </svg>`
-  };
-
-  const toolbarLayoutTitleNormal = translate('toolbar_layout_title_normal');
-  const toolbarLayoutTitleFullscreen = translate('toolbar_layout_title_fullscreen');
-  const toolbarLayoutTitleNarrow = translate('toolbar_layout_title_narrow');
-  const layoutTitleAttr = escapeHtml(toolbarLayoutTitleNormal);
-
+  // Layout configurations
   const layoutTitles = {
-    normal: toolbarLayoutTitleNormal,
-    fullscreen: toolbarLayoutTitleFullscreen,
-    narrow: toolbarLayoutTitleNarrow
+    normal: translate('toolbar_layout_title_normal'),
+    fullscreen: translate('toolbar_layout_title_fullscreen'),
+    narrow: translate('toolbar_layout_title_narrow')
   };
-  
-  // Layout mode configurations (same as in toolbar setup)
+
   const layoutConfigs = {
     normal: { maxWidth: '1360px', icon: layoutIcons.normal, title: layoutTitles.normal },
     fullscreen: { maxWidth: '100%', icon: layoutIcons.fullscreen, title: layoutTitles.fullscreen },
@@ -761,129 +96,41 @@ ${truncatedMarkup}`;
   const initialMaxWidth = layoutConfigs[initialLayout].maxWidth;
   const initialZoom = initialState.zoom || 100;
   
-  // Global zoom state
-  let currentZoomLevel = initialZoom;
-
-  /**
-   * Apply zoom level to content and update UI
-   * @param {number} newLevel - New zoom level percentage (e.g. 100, 150)
-   * @param {boolean} saveState - Whether to save state to storage
-   */
-  const applyZoom = (newLevel, saveState = true) => {
-    currentZoomLevel = Math.max(50, Math.min(400, newLevel));
-    
-    const zoomLevelSpan = document.getElementById('zoom-level');
-    const contentDiv = document.getElementById('markdown-content');
-    
-    if (zoomLevelSpan) {
-      zoomLevelSpan.textContent = currentZoomLevel + '%';
-    }
-    
-    if (contentDiv) {
-      // Apply zoom using CSS zoom property (like browser zoom)
-      contentDiv.style.zoom = (currentZoomLevel / 100);
-      
-      // Update scroll-margin-top for all headings to account for zoom
-      // Formula: 50px (toolbar height) / zoom ratio
-      const scrollMargin = 50 / (currentZoomLevel / 100);
-      const headings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      headings.forEach(heading => {
-        heading.style.scrollMarginTop = scrollMargin + 'px';
-      });
-    }
-    
-    // Save zoom level
-    if (saveState) {
-      saveFileState({ zoom: currentZoomLevel });
-    }
-    
-    // Update TOC active state since zoom affects scroll positions
-    updateActiveTocItem();
-  };
-  
   // Default TOC visibility based on screen width if no saved state
   let initialTocVisible;
   if (initialState.tocVisible !== undefined) {
-    // Use saved state
     initialTocVisible = initialState.tocVisible;
   } else {
-    // No saved state - use responsive default (show on wide screens, hide on narrow)
     initialTocVisible = window.innerWidth > 1024;
   }
   const initialTocClass = initialTocVisible ? '' : ' hidden';
 
-  const toolbarToggleTocTitle = translate('toolbar_toggle_toc_title');
-  const toolbarZoomOutTitle = translate('toolbar_zoom_out_title');
-  const toolbarZoomInTitle = translate('toolbar_zoom_in_title');
-  const toolbarDownloadTitle = translate('toolbar_download_title');
-  const toolbarPrintTitle = translate('toolbar_print_title');
   const toolbarPrintDisabledTitle = translate('toolbar_print_disabled_title');
 
-  const toggleTocTitleAttr = escapeHtml(toolbarToggleTocTitle);
-  const zoomOutTitleAttr = escapeHtml(toolbarZoomOutTitle);
-  const zoomInTitleAttr = escapeHtml(toolbarZoomInTitle);
+  // Initialize toolbar manager
+  const toolbarManager = createToolbarManager({
+    translate,
+    escapeHtml,
+    saveFileState,
+    getFileState,
+    rawMarkdown,
+    docxExporter,
+    cancelScrollRestore,
+    updateActiveTocItem,
+    toolbarPrintDisabledTitle
+  });
 
-  const downloadTitleAttr = escapeHtml(toolbarDownloadTitle);
-  const printTitleAttr = escapeHtml(toolbarPrintTitle);
+  // Set initial zoom level
+  toolbarManager.setInitialZoom(initialZoom);
 
   // Create a new container for the rendered content
-  document.body.innerHTML = `
-  <div id="toolbar">
-    <div class="toolbar-left">
-      <button id="toggle-toc-btn" class="toolbar-btn" title="${toggleTocTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <span id="file-name" class="file-name"></span>
-      <div id="processing-indicator" class="processing-indicator hidden">
-        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="#666" stroke-width="2" fill="none"/>
-          <circle class="progress-circle-progress" cx="9" cy="9" r="7" stroke="#00d4aa" stroke-width="2" fill="none"
-                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-        </svg>
-      </div>
-    </div>
-    <div class="toolbar-center">
-      <button id="zoom-out-btn" class="toolbar-btn" title="${zoomOutTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <span id="zoom-level" class="zoom-level">100%</span>
-      <button id="zoom-in-btn" class="toolbar-btn" title="${zoomInTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <button id="layout-toggle-btn" class="toolbar-btn" title="${layoutTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-          <rect x="3" y="4" width="14" height="12" stroke-width="2" rx="1"/>
-          <line x1="3" y1="7" x2="17" y2="7" stroke-width="2"/>
-        </svg>
-      </button>
-    </div>
-    <div class="toolbar-right">
-      <button id="download-btn" class="toolbar-btn" title="${downloadTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <button id="print-btn" class="toolbar-btn" title="${printTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M5 7V3h10v4M5 14H3V9h14v5h-2M5 14v3h10v-3M5 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-  <div id="table-of-contents" class="${initialTocClass}"></div>
-  <div id="toc-overlay" class="hidden"></div>
-  <div id="markdown-wrapper">
-    <div id="markdown-page" style="max-width: ${initialMaxWidth};">
-      <div id="markdown-content" style="zoom: ${initialZoom / 100};"></div>
-    </div>
-  </div>
-`;
+  document.body.innerHTML = generateToolbarHTML({
+    translate,
+    escapeHtml,
+    initialTocClass,
+    initialMaxWidth,
+    initialZoom
+  });
 
   // Set initial body class for TOC state
   if (!initialTocVisible) {
@@ -896,27 +143,26 @@ ${truncatedMarkup}`;
     const savedScrollPosition = await getSavedScrollPosition();
 
     // Initialize toolbar
-    initializeToolbar();
+    toolbarManager.initializeToolbar();
 
     // Parse and render markdown
     await renderMarkdown(rawMarkdown, savedScrollPosition);
 
     // Save to history after successful render
-    await saveToHistory();
+    await saveToHistory(platform);
 
     // Setup TOC toggle
     setupTocToggle();
 
     // Setup keyboard shortcuts
-    setupKeyboardShortcuts();
+    toolbarManager.setupKeyboardShortcuts();
 
     // Setup responsive behavior
     await setupResponsiveToc();
 
     // Now that all DOM is ready, process async tasks
-    // Add a small delay to ensure DOM is fully rendered and visible
     setTimeout(() => {
-      processAsyncTasks();
+      processAsyncTasks(translate, showProcessingIndicator, hideProcessingIndicator, updateProgress);
     }, 200);
   }, 100);
 
@@ -932,107 +178,16 @@ ${truncatedMarkup}`;
       scrollTimeout = setTimeout(() => {
         try {
           const currentPosition = window.scrollY || window.pageYOffset;
-          // Save position even when it's 0 (page top) to ensure correct restoration
           saveFileState({
             scrollPosition: currentPosition
           });
         } catch (e) {
           // Ignore errors
         }
-      }, 300); // Save position 300ms after user stops scrolling
+      }, 300);
     });
   } catch (e) {
     // Scroll event listener setup failed, continuing without scroll persistence
-  }
-
-  /**
-   * Update active TOC item based on scroll position
-   * Highlights the last heading that is above the viewport top
-   */
-  function updateActiveTocItem() {
-    const contentDiv = document.getElementById('markdown-content');
-    const tocDiv = document.getElementById('table-of-contents');
-    
-    if (!contentDiv || !tocDiv) return;
-    
-    const headings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    if (headings.length === 0) return;
-    
-    // Get current scroll position
-    const scrollTop = window.scrollY || window.pageYOffset;
-    
-    // Get current zoom level
-    let currentZoom = 1;
-    if (contentDiv.style.zoom) {
-      currentZoom = parseFloat(contentDiv.style.zoom) || 1;
-    }
-
-    // Threshold: toolbar height (50px) + small tolerance (10px)
-    // Scale threshold with zoom to ensure accurate detection
-    // Use Math.max to ensure threshold is never too small for low zoom levels
-    const threshold = Math.max(60, 60 * currentZoom);
-    
-    // Find the last heading that is above or near the viewport top
-    let activeHeading = null;
-    
-    for (let i = 0; i < headings.length; i++) {
-      const heading = headings[i];
-      const headingTop = heading.getBoundingClientRect().top + scrollTop;
-      
-      // If heading is above viewport top + threshold
-      if (headingTop <= scrollTop + threshold) {
-        activeHeading = heading;
-      } else {
-        // Headings are in order, so we can break once we find one below
-        break;
-      }
-    }
-    
-    // Update TOC highlighting
-    const tocLinks = tocDiv.querySelectorAll('a');
-    tocLinks.forEach(link => {
-      link.classList.remove('active');
-    });
-    
-    if (activeHeading && activeHeading.id) {
-      const activeLink = tocDiv.querySelector(`a[href="#${activeHeading.id}"]`);
-      if (activeLink) {
-        activeLink.classList.add('active');
-        
-        // Scroll TOC to make active item visible
-        scrollTocToActiveItem(activeLink, tocDiv);
-      }
-    }
-  }
-
-  /**
-   * Scroll TOC container to ensure active item is visible
-   * @param {Element} activeLink - The active TOC link element
-   * @param {Element} tocDiv - The TOC container element
-   */
-  function scrollTocToActiveItem(activeLink, tocDiv) {
-    if (!activeLink || !tocDiv) return;
-    
-    const linkRect = activeLink.getBoundingClientRect();
-    const tocRect = tocDiv.getBoundingClientRect();
-    
-    // Calculate if link is outside visible area
-    const linkTop = linkRect.top - tocRect.top + tocDiv.scrollTop;
-    const linkBottom = linkTop + linkRect.height;
-    
-    const visibleTop = tocDiv.scrollTop;
-    const visibleBottom = visibleTop + tocDiv.clientHeight;
-    
-    // Add some padding for better UX
-    const padding = 20;
-    
-    if (linkTop < visibleTop + padding) {
-      // Link is above visible area, scroll up
-      tocDiv.scrollTop = linkTop - padding;
-    } else if (linkBottom > visibleBottom - padding) {
-      // Link is below visible area, scroll down
-      tocDiv.scrollTop = linkBottom - tocDiv.clientHeight + padding;
-    }
   }
 
   async function renderMarkdown(markdown, savedScrollPosition = 0) {
@@ -1052,7 +207,6 @@ ${truncatedMarkup}`;
       // Set theme configuration for renderer
       if (theme && theme.fontScheme && theme.fontScheme.body) {
         const fontFamily = themeManager.buildFontFamily(theme.fontScheme.body.fontFamily);
-        // fontSize should be a number in pt for renderer scaling
         const fontSize = parseFloat(theme.fontScheme.body.fontSize);
         await renderer.setThemeConfig({
           fontFamily: fontFamily,
@@ -1071,7 +225,7 @@ ${truncatedMarkup}`;
       const processor = unified()
         .use(remarkParse)
         .use(remarkGfm)
-        .use(remarkBreaks) // Add line break processing
+        .use(remarkBreaks)
         .use(remarkMath);
       
       // Register all plugins from plugin registry
@@ -1081,7 +235,7 @@ ${truncatedMarkup}`;
       processor
         .use(remarkRehype, { allowDangerousHtml: true })
         .use(rehypeSlug)
-        .use(rehypeHighlight) // Add syntax highlighting
+        .use(rehypeHighlight)
         .use(rehypeKatex)
         .use(rehypeStringify, { allowDangerousHtml: true });
 
@@ -1094,7 +248,9 @@ ${truncatedMarkup}`;
       // Sanitize HTML before injecting into the document
       htmlContent = sanitizeRenderedHtml(htmlContent);
 
-      contentDiv.innerHTML = htmlContent;
+      // Render incrementally to avoid blocking the main thread
+      contentDiv.innerHTML = '';
+      await renderHtmlIncrementally(contentDiv, htmlContent, { batchSize: 200, yieldDelay: 0 });
 
       // Show the content container
       const pageDiv = document.getElementById('markdown-page');
@@ -1106,7 +262,7 @@ ${truncatedMarkup}`;
       await generateTOC();
 
       // Apply initial zoom to ensure scroll margins are correct
-      applyZoom(currentZoomLevel, false);
+      toolbarManager.applyZoom(toolbarManager.getZoomLevel(), false);
 
       // Restore scroll position immediately
       restoreScrollPosition(savedScrollPosition);
@@ -1114,7 +270,6 @@ ${truncatedMarkup}`;
       // Update TOC active state initially
       setTimeout(updateActiveTocItem, 100);
 
-      // Don't process async tasks here - let main flow handle it
     } catch (error) {
       console.error('Markdown processing error:', error);
       console.error('Error stack:', error.stack);
@@ -1122,496 +277,9 @@ ${truncatedMarkup}`;
       restoreScrollPosition(savedScrollPosition);
     }
   }
-
-  async function generateTOC() {
-    const contentDiv = document.getElementById('markdown-content');
-    const tocDiv = document.getElementById('table-of-contents');
-
-    if (!contentDiv || !tocDiv) return;
-
-    const headings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
-
-    if (headings.length === 0) {
-      tocDiv.style.display = 'none';
-      return;
-    }
-
-    // Generate TOC list only
-    let tocHTML = '<ul class="toc-list">';
-
-    headings.forEach((heading, index) => {
-      const level = parseInt(heading.tagName[1]);
-      const text = heading.textContent;
-      const id = heading.id || `heading-${index}`;
-
-      if (!heading.id) {
-        heading.id = id;
-      }
-
-      const indent = (level - 1) * 20;
-      tocHTML += `<li style="margin-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
-    });
-
-    tocHTML += '</ul>';
-    tocDiv.innerHTML = tocHTML;
-    
-    // Apply saved TOC visibility state after generating TOC
-    // Note: Initial state is already set in the HTML, but we verify it here
-    const savedState = await getFileState();
-    const overlayDiv = document.getElementById('toc-overlay');
-    
-    if (overlayDiv) {
-      // Determine desired visibility: use saved state if available, otherwise use responsive default
-      let shouldBeVisible;
-      if (savedState.tocVisible !== undefined) {
-        shouldBeVisible = savedState.tocVisible;
-      } else {
-        // No saved state - use responsive default
-        shouldBeVisible = window.innerWidth > 1024;
-      }
-      
-      const currentlyVisible = !tocDiv.classList.contains('hidden');
-      
-      // Only update if state doesn't match
-      if (shouldBeVisible !== currentlyVisible) {
-        if (!shouldBeVisible) {
-          // Hide TOC
-          tocDiv.classList.add('hidden');
-          document.body.classList.add('toc-hidden');
-          overlayDiv.classList.add('hidden');
-        } else {
-          // Show TOC
-          tocDiv.classList.remove('hidden');
-          document.body.classList.remove('toc-hidden');
-          overlayDiv.classList.remove('hidden');
-        }
-      }
-    }
-  }
-
-  function setupTocToggle() {
-    const tocDiv = document.getElementById('table-of-contents');
-    const overlayDiv = document.getElementById('toc-overlay');
-
-    if (!tocDiv || !overlayDiv) return;
-
-    const toggleToc = () => {
-      const willBeHidden = !tocDiv.classList.contains('hidden');
-      tocDiv.classList.toggle('hidden');
-      document.body.classList.toggle('toc-hidden');
-      overlayDiv.classList.toggle('hidden');
-      
-      // Save TOC visibility state
-      saveFileState({
-        tocVisible: !willBeHidden
-      });
-    };
-
-    // Close TOC when clicking overlay (for mobile)
-    overlayDiv.addEventListener('click', toggleToc);
-
-    // Return toggleToc function for use by toolbar button and keyboard shortcuts
-    return toggleToc;
-  }
-
-  // Setup global keyboard shortcuts
-  function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-      // Ctrl/Cmd + B: Toggle TOC
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        e.preventDefault();
-        const tocDiv = document.getElementById('table-of-contents');
-        const overlayDiv = document.getElementById('toc-overlay');
-        if (tocDiv && overlayDiv) {
-          const willBeHidden = !tocDiv.classList.contains('hidden');
-          tocDiv.classList.toggle('hidden');
-          document.body.classList.toggle('toc-hidden');
-          overlayDiv.classList.toggle('hidden');
-          
-          // Save TOC visibility state
-          saveFileState({
-            tocVisible: !willBeHidden
-          });
-        }
-        return;
-      }
-
-      // Ctrl/Cmd + S: Download as DOCX
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        const downloadBtn = document.getElementById('download-btn');
-        if (downloadBtn && !downloadBtn.disabled) {
-          downloadBtn.click();
-        }
-        return;
-      }
-
-      // Ctrl/Cmd + P: Print (browser default, but we ensure it's enabled)
-      // No need to prevent default for print, browser handles it well
-    });
-  }
-
-  async function dispatchPrintJob(html, metadata = {}) {
-    // For local files, use simple browser print
-    if (document.location.protocol === 'file:') {
-      window.print();
-      return 'local-print';
-    }
-
-    // For remote files, show message that print is not supported
-    throw new Error('Print functionality is only available for local files. Please save the file locally to print.');
-  }
-
-  function initializeToolbar() {
-    // Set file name from URL
-    const fileNameSpan = document.getElementById('file-name');
-    if (fileNameSpan) {
-      const fileName = getFilenameFromURL();
-      fileNameSpan.textContent = fileName;
-      
-      // Click file name to scroll to top
-      fileNameSpan.addEventListener('click', () => {
-        cancelScrollRestore();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    }
-
-    // Setup toolbar button handlers
-    setupToolbarButtons();
-  }
-
-  async function setupToolbarButtons() {
-    // Get saved state first
-    const savedState = await getFileState();
-    
-    // Toggle TOC button
-    const toggleTocBtn = document.getElementById('toggle-toc-btn');
-    const tocDiv = document.getElementById('table-of-contents');
-    const overlayDiv = document.getElementById('toc-overlay');
-
-    if (toggleTocBtn && tocDiv && overlayDiv) {
-      toggleTocBtn.addEventListener('click', () => {
-        const willBeHidden = !tocDiv.classList.contains('hidden');
-        tocDiv.classList.toggle('hidden');
-        document.body.classList.toggle('toc-hidden');
-        overlayDiv.classList.toggle('hidden');
-        
-        // Save TOC visibility state
-        saveFileState({
-          tocVisible: !willBeHidden
-        });
-      });
-      
-      // Note: TOC visibility state is applied in generateTOC() after TOC is generated
-    }
-
-    // Zoom controls
-    const zoomLevelSpan = document.getElementById('zoom-level');
-    
-    // Initialize zoom display
-    if (zoomLevelSpan) {
-      zoomLevelSpan.textContent = currentZoomLevel + '%';
-    }
-
-    // Click zoom level to reset to 100%
-    if (zoomLevelSpan) {
-      zoomLevelSpan.style.cursor = 'pointer';
-      zoomLevelSpan.addEventListener('click', () => {
-        applyZoom(100);
-      });
-    }
-
-    const zoomInBtn = document.getElementById('zoom-in-btn');
-    if (zoomInBtn) {
-      zoomInBtn.addEventListener('click', () => {
-        applyZoom(currentZoomLevel + 10);
-      });
-    }
-
-    const zoomOutBtn = document.getElementById('zoom-out-btn');
-    if (zoomOutBtn) {
-      zoomOutBtn.addEventListener('click', () => {
-        applyZoom(currentZoomLevel - 10);
-      });
-    }
-
-    // Layout toggle button
-    const layoutBtn = document.getElementById('layout-toggle-btn');
-    const pageDiv = document.getElementById('markdown-page');
-    let currentLayout = 'normal'; // normal, fullscreen, narrow
-    const layoutSequence = ['normal', 'fullscreen', 'narrow'];
-
-    if (layoutBtn && pageDiv) {
-      const applyLayout = (layout, saveState = true) => {
-        const config = layoutConfigs[layout];
-        if (!config) {
-          return;
-        }
-        currentLayout = layout;
-        pageDiv.style.maxWidth = config.maxWidth;
-        layoutBtn.innerHTML = config.icon;
-        layoutBtn.title = config.title;
-        
-        // Save layout mode
-        if (saveState) {
-          saveFileState({ layoutMode: layout });
-        }
-      };
-
-      applyLayout('normal', false);
-
-      layoutBtn.addEventListener('click', () => {
-        if (!layoutSequence.includes(currentLayout)) {
-          applyLayout(layoutSequence[0]);
-          return;
-        }
-
-        const currentIndex = layoutSequence.indexOf(currentLayout);
-        const nextLayout = layoutSequence[(currentIndex + 1) % layoutSequence.length];
-        applyLayout(nextLayout);
-      });
-      
-      // Restore layout and zoom state after toolbar setup
-      (async () => {
-        // Restore layout mode
-        if (savedState.layoutMode && layoutConfigs[savedState.layoutMode]) {
-          applyLayout(savedState.layoutMode, false);
-        }
-        
-        // Restore zoom level
-        if (savedState.zoom && typeof savedState.zoom === 'number') {
-          applyZoom(savedState.zoom, false);
-        }
-      })();
-    }
-
-    // Download button (DOCX export)
-    // Download button
-    const downloadBtn = document.getElementById('download-btn');
-    if (downloadBtn) {
-      downloadBtn.addEventListener('click', async () => {
-        // Prevent multiple clicks
-        if (downloadBtn.disabled) {
-          return;
-        }
-
-        try {
-          // Disable button and show progress indicator
-          downloadBtn.disabled = true;
-          downloadBtn.classList.add('downloading');
-
-          // Add progress indicator to button
-          const originalContent = downloadBtn.innerHTML;
-          const progressHTML = `
-          <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-            <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
-            <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
-                    stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-          </svg>
-        `;
-          downloadBtn.innerHTML = progressHTML;
-
-          // Get the original markdown content
-          const markdown = rawMarkdown;
-
-          // Generate filename from document title or URL
-          const filename = getDocumentFilename();
-
-          // Export to DOCX with progress callback
-          const exportErrorFallback = translate('docx_export_failed_default');
-          const result = await docxExporter.exportToDocx(markdown, filename, (completed, total) => {
-            // Update progress circle
-            const progressCircle = downloadBtn.querySelector('.download-progress-circle');
-            if (progressCircle && total > 0) {
-              const progress = completed / total;
-              const circumference = 43.98; // 2 * PI * 7
-              const offset = circumference * (1 - progress);
-              progressCircle.style.strokeDashoffset = offset;
-            }
-          });
-
-          if (!result.success) {
-            throw new Error(result.error || exportErrorFallback);
-          }
-
-          // Restore button after successful download
-          downloadBtn.innerHTML = originalContent;
-          downloadBtn.disabled = false;
-          downloadBtn.classList.remove('downloading');
-        } catch (error) {
-          console.error('Export error:', error);
-          const alertDetail = error?.message ? `: ${error.message}` : '';
-          const alertMessage = translate('docx_export_failed_alert', [alertDetail])
-            || `Export failed${alertDetail}`;
-          alert(alertMessage);
-
-          // Restore button on error
-          const originalContent = `
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        `;
-          downloadBtn.innerHTML = originalContent;
-          downloadBtn.disabled = false;
-          downloadBtn.classList.remove('downloading');
-        }
-      });
-    }
-
-    // Print button
-    const printBtn = document.getElementById('print-btn');
-    if (printBtn) {
-      // Check if this is a remote file - disable print for remote files
-      const isLocalFile = document.location.protocol === 'file:';
-      
-      if (!isLocalFile) {
-        printBtn.disabled = true;
-        printBtn.title = toolbarPrintDisabledTitle;
-        printBtn.style.opacity = '0.5';
-        printBtn.style.cursor = 'not-allowed';
-      } else {
-        printBtn.addEventListener('click', async () => {
-          const contentDiv = document.getElementById('markdown-content');
-          if (!contentDiv) {
-            return;
-          }
-
-          const htmlContent = contentDiv.innerHTML;
-          const printTitle = document.title || getDocumentFilename();
-          const fileName = getDocumentFilename();
-
-          try {
-            if (printBtn.disabled) {
-              return;
-            }
-            printBtn.disabled = true;
-
-            await dispatchPrintJob(htmlContent, {
-              title: printTitle,
-              filename: fileName
-            });
-          } catch (error) {
-            console.error('Print request failed:', error);
-            alert(`Failed to open print preview: ${error.message}`);
-          } finally {
-            printBtn.disabled = false;
-          }
-        });
-      }
-    }
-  }
-
-  // Get filename from URL with proper decoding and hash removal
-  function getFilenameFromURL() {
-    const url = getCurrentDocumentUrl();
-    const urlParts = url.split('/');
-    let fileName = urlParts[urlParts.length - 1] || 'document.md';
-
-    // Decode URL encoding
-    try {
-      fileName = decodeURIComponent(fileName);
-    } catch (e) {
-    }
-
-    return fileName;
-  }
-
-  function getDocumentFilename() {
-    // Get base filename
-    const fileName = getFilenameFromURL();
-
-    // Remove .md or .markdown extension and add .docx
-    const nameWithoutExt = fileName.replace(/\.(md|markdown)$/i, '');
-    if (nameWithoutExt) {
-      return nameWithoutExt + '.docx';
-    }
-
-    // Try to get from first h1 heading
-    const firstH1 = document.querySelector('#markdown-content h1');
-    if (firstH1) {
-      const title = firstH1.textContent.trim()
-        .replace(/[^\w\s\u4e00-\u9fa5-]/g, '') // Keep alphanumeric, spaces, Chinese chars, and dashes
-        .replace(/\s+/g, '-') // Replace spaces with dashes
-        .substring(0, 50); // Limit length
-
-      if (title) {
-        return title + '.docx';
-      }
-    }
-
-    // Default fallback
-    return 'document.docx';
-  }
-
-  // Save current document to history
-  async function saveToHistory() {
-    try {
-      const url = getCurrentDocumentUrl();
-      const title = document.title || extractFileName(url);
-      
-      const result = await chrome.storage.local.get(['markdownHistory']);
-      const history = result.markdownHistory || [];
-      
-      // Remove existing entry for this URL
-      const filteredHistory = history.filter(item => item.url !== url);
-      
-      // Add new entry at the beginning
-      filteredHistory.unshift({
-        url: url,
-        title: title,
-        lastAccess: new Date().toISOString()
-      });
-      
-      // Keep only last 100 items
-      const trimmedHistory = filteredHistory.slice(0, 100);
-      
-      await chrome.storage.local.set({ markdownHistory: trimmedHistory });
-    } catch (error) {
-      console.error('Failed to save to history:', error);
-    }
-  }
-
-  function extractFileName(url) {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const fileName = pathname.split('/').pop();
-      return decodeURIComponent(fileName);
-    } catch (error) {
-      return url;
-    }
-  }
-
-  async function setupResponsiveToc() {
-    const tocDiv = document.getElementById('table-of-contents');
-
-    if (!tocDiv) return;
-
-    const handleResize = async () => {
-      const savedState = await getFileState();
-      
-      if (window.innerWidth <= 1024) {
-        // On smaller screens, hide TOC by default (unless user explicitly wants it shown)
-        if (savedState.tocVisible === undefined || savedState.tocVisible === false) {
-          tocDiv.classList.add('hidden');
-          document.body.classList.add('toc-hidden');
-          const overlayDiv = document.getElementById('toc-overlay');
-          if (overlayDiv) {
-            overlayDiv.classList.add('hidden');
-          }
-        }
-      }
-      // On larger screens, respect user's saved preference (don't force show)
-    };
-
-    // Don't set initial state here - it's already set by generateTOC()
-    // Only listen for window resize
-    window.addEventListener('resize', handleResize);
-  }
-
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+platform.message.addListener((message) => {
   if (!message) {
     return;
   }
@@ -1624,11 +292,9 @@ chrome.runtime.onMessage.addListener((message) => {
         console.error('Failed to update locale in content script:', error);
       })
       .finally(() => {
-        // Reload to re-render UI with new locale
         window.location.reload();
       });
   } else if (message.type === 'themeChanged') {
-    // Reload page to apply new theme
     window.location.reload();
   }
 });

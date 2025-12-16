@@ -1,4 +1,8 @@
 {
+  "about": {
+    "message": "के बारे में",
+    "description": "Menu item for about"
+  },
   "async_processing_error": {
     "message": "{0} त्रुटि: {1}",
     "description": "Generic error message with type and detail"
@@ -151,6 +155,22 @@
     "message": "कैश सिस्टम उपलब्ध नहीं है — पहले एक Markdown फाइल खोलें",
     "description": "Shown when cache manager cannot be reached"
   },
+  "cancel": {
+    "message": "रद्द करें",
+    "description": "Cancel button text"
+  },
+  "clear_all": {
+    "message": "सब साफ़ करें",
+    "description": "Button to clear all items"
+  },
+  "clear_recent_files": {
+    "message": "हाल की फ़ाइलें साफ़ करें",
+    "description": "Dialog title for clearing recent files"
+  },
+  "clear_recent_files_confirm": {
+    "message": "सूची से सभी हाल की फ़ाइलें हटाएं?",
+    "description": "Confirmation message for clearing recent files"
+  },
   "docx_export_failed_alert": {
     "message": "एक्सपोर्ट विफल रहा{0}",
     "description": "Alert shown when DOCX export fails"
@@ -167,6 +187,14 @@
     "message": "Markdown Viewer",
     "description": "Extension name"
   },
+  "failed_to_open_file": {
+    "message": "फ़ाइल खोलने में विफल: {0}",
+    "description": "Toast when file open fails"
+  },
+  "failed_to_share": {
+    "message": "साझा करने में विफल: {0}",
+    "description": "Toast when sharing fails"
+  },
   "file_access_disabled": {
     "message": "अक्षम",
     "description": "Status text when file access is disabled"
@@ -182,6 +210,10 @@
   "file_access_settings_link": {
     "message": "एक्सटेंशन सेटिंग्स पेज",
     "description": "Link text to extension settings"
+  },
+  "file_not_found": {
+    "message": "फ़ाइल नहीं मिली",
+    "description": "Error message when file doesn't exist"
   },
   "history_clear": {
     "message": "इतिहास साफ़ करें",
@@ -223,17 +255,61 @@
     "message": "हाल के दस्तावेज़",
     "description": "History documents title"
   },
-  "popup_title": {
-    "message": "Markdown Viewer",
-    "description": "Popup title"
+  "language": {
+    "message": "भाषा",
+    "description": "Menu item for language"
+  },
+  "more": {
+    "message": "अधिक",
+    "description": "More menu tooltip"
+  },
+  "no_file_to_share": {
+    "message": "साझा करने के लिए कोई फ़ाइल नहीं",
+    "description": "Toast when no file is open for sharing"
+  },
+  "no_headings": {
+    "message": "कोई शीर्षक नहीं मिला",
+    "description": "Toast when document has no headings"
+  },
+  "open_file": {
+    "message": "फ़ाइल खोलें",
+    "description": "Menu item to open file"
   },
   "popup_review_link": {
     "message": "रेटिंग",
     "description": "Link text to rate and review the extension"
   },
+  "popup_title": {
+    "message": "Markdown Viewer",
+    "description": "Popup title"
+  },
   "popup_version_label": {
     "message": "संस्करण {0}",
     "description": "Shows the extension version in the header"
+  },
+  "recent_files": {
+    "message": "हाल की फ़ाइलें",
+    "description": "Title for recent files section"
+  },
+  "remove": {
+    "message": "हटाएं",
+    "description": "Remove item from list"
+  },
+  "reset": {
+    "message": "रीसेट",
+    "description": "Reset button"
+  },
+  "save_failed": {
+    "message": "फ़ाइल सहेजने में विफल",
+    "description": "Toast when file save fails"
+  },
+  "save_file": {
+    "message": "लाइब्रेरी में सहेजें",
+    "description": "Menu item for saving file to app storage"
+  },
+  "save_success": {
+    "message": "फ़ाइल सहेजी गई",
+    "description": "Toast when file save succeeds"
   },
   "settings_general_title": {
     "message": "एक्सटेंशन सेटिंग्स",
@@ -395,6 +471,10 @@
     "message": "थीम चुनें:",
     "description": "Label for theme selector"
   },
+  "share": {
+    "message": "साझा करें",
+    "description": "Share button tooltip"
+  },
   "tab_cache": {
     "message": "कैश",
     "description": "Label for cache tab"
@@ -406,6 +486,14 @@
   "tab_settings": {
     "message": "सेटिंग्स",
     "description": "Label for settings tab"
+  },
+  "theme": {
+    "message": "थीम",
+    "description": "Menu item for theme"
+  },
+  "toc": {
+    "message": "विषय सूची",
+    "description": "TOC drawer title"
   },
   "toolbar_download_title": {
     "message": "डाउनलोड करें",
@@ -442,5 +530,13 @@
   "toolbar_zoom_out_title": {
     "message": "ज़ूम आउट",
     "description": "Toolbar zoom out tooltip"
+  },
+  "welcome_message": {
+    "message": "शुरू करने के लिए एक मार्कडाउन फ़ाइल खोलें",
+    "description": "Welcome message on empty state"
+  },
+  "zoom": {
+    "message": "ज़ूम",
+    "description": "Menu item for zoom"
   }
 }

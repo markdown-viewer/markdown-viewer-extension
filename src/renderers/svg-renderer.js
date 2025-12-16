@@ -24,13 +24,16 @@ export class SvgRenderer extends BaseRenderer {
   }
 
   /**
-   * Override render to convert SVG to PNG using direct canvas rendering
+   * Override render to support both SVG and PNG output
    * @param {string} svg - SVG content
    * @param {object} themeConfig - Theme configuration
    * @param {object} extraParams - Extra parameters
-   * @returns {Promise<{base64: string, width: number, height: number}>}
+   * @param {string} extraParams.outputFormat - 'svg' or 'png' (default: 'png')
+   * @returns {Promise<{base64?: string, svg?: string, width: number, height: number, format: string}>}
    */
   async render(svg, themeConfig, extraParams = {}) {
+    const outputFormat = extraParams.outputFormat || 'png';
+    
     // Validate input
     this.validateInput(svg);
 
@@ -56,8 +59,21 @@ export class SvgRenderer extends BaseRenderer {
       captureHeight = Math.ceil(parseFloat(svgEl.getAttribute('height')) || 600);
     }
 
-    // Calculate scale
+    // Calculate scale (same as PNG for consistent dimensions)
     const scale = this.calculateCanvasScale(themeConfig);
+
+    // If SVG format requested, return the SVG string directly
+    if (outputFormat === 'svg') {
+      // Return scaled dimensions (same as PNG for consistent display)
+      return {
+        svg: svg,
+        width: Math.round(captureWidth * scale),
+        height: Math.round(captureHeight * scale),
+        format: 'svg'
+      };
+    }
+
+    // PNG format: render SVG to canvas
 
     // Render SVG directly to canvas
     const canvas = await this.renderSvgToCanvas(svg, captureWidth * scale, captureHeight * scale);
@@ -68,7 +84,8 @@ export class SvgRenderer extends BaseRenderer {
     return {
       base64: base64Data,
       width: canvas.width,
-      height: canvas.height
+      height: canvas.height,
+      format: 'png'
     };
   }
 }

@@ -136,6 +136,8 @@ export class BasePlugin {
 
     try {
       const extraParams = this.getRenderParams();
+      // Use PNG format for DOCX export (binary format required)
+      extraParams.outputFormat = 'png';
       const pngResult = await renderer.render(this.type, content, extraParams);
 
       // Empty content

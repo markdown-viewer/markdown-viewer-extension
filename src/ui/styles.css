@@ -300,6 +300,12 @@ body.toc-hidden #markdown-wrapper {
   height: auto;
 }
 
+/* SVG diagrams should also respect container width */
+#markdown-content .diagram-svg svg {
+  width: 100%;
+  height: auto;
+}
+
 #markdown-content hr {
   height: 3px;
   padding: 0;

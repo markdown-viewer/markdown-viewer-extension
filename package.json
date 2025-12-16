@@ -5,7 +5,12 @@
   "type": "module",
   "main": "src/content.js",
   "scripts": {
-    "build": "node scripts/build.js"
+    "build:chrome": "node scripts/build.js",
+    "build:mobile": "node scripts/build-mobile.js",
+    "app:ios": "flutter build ipa --export-options-plist=ios/exportOptions.plist && mkdir -p dist/ios && cp -r build/ios/ipa/* dist/ios/",
+    "app:ios:sim": "flutter build ios --simulator && mkdir -p dist/ios-sim && cp -r build/ios/iphonesimulator/Runner.app dist/ios-sim/",
+    "app:android": "flutter build apk && mkdir -p dist/android && cp build/app/outputs/flutter-apk/*.apk dist/android/",
+    "app:macos": "flutter build macos && mkdir -p dist/macos && cp -r 'build/macos/Build/Products/Release/markdown_viewer_mobile.app' dist/macos/"
   },
   "keywords": [
     "markdown",

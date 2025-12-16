@@ -74,12 +74,15 @@ export function createRemarkPlugin(plugin, renderer, asyncTask, translate, escap
               const { id, code } = data;
               try {
                 const extraParams = plugin.getRenderParams();
-                const pngResult = await renderer.render(plugin.type, code, extraParams);
+                // Use SVG format for browser display (fonts render correctly)
+                // Exception: HTML plugin uses PNG format (doesn't support SVG)
+                extraParams.outputFormat = plugin.type === 'html' ? 'png' : 'svg';
+                const renderResult = await renderer.render(plugin.type, code, extraParams);
                 // If renderer returns null (e.g., empty content), skip rendering
-                if (pngResult) {
+                if (renderResult) {
                   // Dynamically import HTML utils to replace placeholder
                   const { replacePlaceholderWithImage } = await import('./plugin-html-utils.js');
-                  replacePlaceholderWithImage(id, pngResult, plugin.type, plugin.isInline());
+                  replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline());
                 } else {
                   // Remove placeholder element if content is empty
                   const placeholder = document.getElementById(id);

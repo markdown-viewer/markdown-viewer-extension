@@ -1,10 +1,12 @@
-// Offscreen document script for rendering
-import { renderers } from '../renderers/index.js';
+// Chrome Offscreen Render Worker Adapter
+// Bridges Chrome extension messaging with shared render-worker-core
 
-// Create renderer map for quick lookup
-const rendererMap = new Map(
-  renderers.map(r => [r.type, r])
-);
+import {
+  handleRender,
+  setThemeConfig,
+  initRenderEnvironment,
+  MessageTypes
+} from '../../renderers/render-worker-core.js';
 
 // Add error listeners for debugging
 window.addEventListener('error', (event) => {
@@ -30,20 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.documentElement.style.backgroundColor = 'transparent';
   document.body.style.backgroundColor = 'transparent';
 
+  // Initialize render environment using shared core
   const canvas = document.getElementById('png-canvas');
-  if (canvas) {
-    // Pre-initialize context with willReadFrequently for better performance
-    canvas.getContext('2d', { willReadFrequently: true });
-  }
+  initRenderEnvironment({ canvas });
 
   // Send ready signal when DOM is loaded
   chrome.runtime.sendMessage({
     type: 'offscreenDOMReady'
   }).catch(() => { });
 });
-
-// Store current theme configuration
-let currentThemeConfig = null;
 
 // Establish connection with background script for lifecycle monitoring
 const port = chrome.runtime.connect({ name: 'offscreen' });
@@ -59,14 +56,14 @@ chrome.runtime.sendMessage({
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.type === 'setThemeConfig') {
-    // Update theme configuration
-    currentThemeConfig = message.config;
+    // Update theme configuration using shared core
+    setThemeConfig(message.config);
     sendResponse({ success: true });
     return true;
   }
   
   // Handle unified render messages
-  if (message.action === 'RENDER_DIAGRAM') {
+  if (message.action === MessageTypes.RENDER_DIAGRAM || message.action === 'RENDER_DIAGRAM') {
     // Check message source using Chrome's sender object
     // - sender.tab exists → from content script → SKIP (let background handle)
     // - sender.tab is undefined → from background/extension → PROCESS
@@ -74,8 +71,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return; // Don't send response, let background handle it
     }
     
-    // Process render task directly (parallel rendering supported)
-    handleRender(message).then(result => {
+    // Process render task using shared core
+    handleRender({
+      renderType: message.renderType,
+      input: message.input,
+      themeConfig: message.themeConfig,
+      extraParams: message.extraParams
+    }).then(result => {
       sendResponse(result);
     }).catch(error => {
       console.error('Render error:', error);
@@ -85,29 +87,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
-
-/**
- * Handle unified render messages
- * @param {object} message - Unified message with action, renderType, input, etc.
- * @returns {Promise<object>} Render result
- */
-async function handleRender(message) {
-  const { renderType, input, themeConfig, extraParams } = message;
-  
-  // Update theme config if provided
-  if (themeConfig && themeConfig !== currentThemeConfig) {
-    currentThemeConfig = themeConfig;
-  }
-  
-  // Use new renderer architecture
-  const renderer = rendererMap.get(renderType);
-  
-  if (!renderer) {
-    throw new Error(`No renderer found for type: ${renderType}`);
-  }
-  
-  return await renderer.render(input, themeConfig, extraParams);
-}
 
 // Signal that the offscreen document is ready
 chrome.runtime.sendMessage({ type: 'offscreenReady' }).catch(() => {

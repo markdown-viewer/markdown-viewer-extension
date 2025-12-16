@@ -52,14 +52,14 @@ export const createBuildConfig = () => {
       'core/content-detector': 'src/core/content-detector.js',
       'core/content': 'src/core/content.js',
       'core/background': 'src/core/background.js',
-      'core/offscreen': 'src/core/offscreen.js',
+      'core/offscreen': 'src/platform/chrome/render-worker.js',
       'ui/popup/popup': 'src/ui/popup/popup.js',
       'ui/print/print': 'src/ui/print/print.js',
       'ui/print/print-page': 'src/ui/print/print-page.css',
       'ui/styles': 'src/ui/styles.css'
     },
     bundle: true,
-    outdir: 'dist',
+    outdir: 'dist/chrome',
     format: 'iife', // Use IIFE for Chrome extension content scripts
     target: ['chrome120'], // Target modern Chrome
     treeShaking: true,
@@ -88,17 +88,17 @@ export const createBuildConfig = () => {
           build.onEnd(() => {
             try {
               const fileCopies = [
-                { src: 'src/manifest.json', dest: 'dist/manifest.json', log: '📄 Copied manifest.json from src/' },
-                { src: 'src/ui/popup/popup.html', dest: 'dist/ui/popup/popup.html' },
-                { src: 'src/ui/popup/popup.css', dest: 'dist/ui/popup/popup.css' },
-                { src: 'src/ui/offscreen.html', dest: 'dist/ui/offscreen.html' },
-                { src: 'src/ui/print/print.html', dest: 'dist/ui/print/print.html' },
-                { src: 'node_modules/html2canvas/dist/html2canvas.min.js', dest: 'dist/html2canvas.min.js', log: '📄 Copied html2canvas library' }
+                { src: 'src/manifest.json', dest: 'dist/chrome/manifest.json', log: '📄 Copied manifest.json from src/' },
+                { src: 'src/ui/popup/popup.html', dest: 'dist/chrome/ui/popup/popup.html' },
+                { src: 'src/ui/popup/popup.css', dest: 'dist/chrome/ui/popup/popup.css' },
+                { src: 'src/platform/chrome/render-worker.html', dest: 'dist/chrome/ui/offscreen.html' },
+                { src: 'src/ui/print/print.html', dest: 'dist/chrome/ui/print/print.html' },
+                { src: 'node_modules/html2canvas/dist/html2canvas.min.js', dest: 'dist/chrome/html2canvas.min.js', log: '📄 Copied html2canvas library' }
               ];
 
-              fileCopies.push(...copyDirectory('icons', 'dist/icons'));
-              fileCopies.push(...copyDirectory('src/_locales', 'dist/_locales'));
-              fileCopies.push(...copyDirectory('src/themes', 'dist/themes'));
+              fileCopies.push(...copyDirectory('icons', 'dist/chrome/icons'));
+              fileCopies.push(...copyDirectory('src/_locales', 'dist/chrome/_locales'));
+              fileCopies.push(...copyDirectory('src/themes', 'dist/chrome/themes'));
 
               fileCopies.forEach(({ src, dest, log }) => copyFileIfExists(src, dest, log));
 
@@ -106,7 +106,7 @@ export const createBuildConfig = () => {
               // esbuild bundles fonts to dist/ root with relative paths like ./KaTeX_*.woff2
               // We convert them to absolute Chrome extension URLs so they work in content scripts
               // __MSG_@@extension_id__ will be resolved by Chrome when CSS is injected
-              const stylesCssSource = 'dist/ui/styles.css';
+              const stylesCssSource = 'dist/chrome/ui/styles.css';
 
               if (fs.existsSync(stylesCssSource)) {
                 let stylesContent = fs.readFileSync(stylesCssSource, 'utf8');
@@ -123,8 +123,8 @@ export const createBuildConfig = () => {
                 console.log('📄 Fixed font paths in styles.css');
               }
 
-              console.log('✅ Complete extension created in dist/');
-              console.log('🎯 Ready for Chrome: chrome://extensions/ → Load unpacked → select dist/');
+              console.log('✅ Complete extension created in dist/chrome/');
+              console.log('🎯 Ready for Chrome: chrome://extensions/ → Load unpacked → select dist/chrome/');
             } catch (error) {
               console.error('Error creating complete extension:', error.message);
             }

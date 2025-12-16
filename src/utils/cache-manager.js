@@ -331,15 +331,19 @@ class ExtensionCacheManager {
    * @param {string} content - Content to cache
    * @param {string} type - Cache type identifier
    * @param {Object} themeConfig - Optional theme configuration (fontFamily, fontSize)
+   * @param {string} outputFormat - Output format: 'png' or 'svg' (default: 'png')
    * @returns {Promise<string>} Cache key
    */
-  async generateKey(content, type, themeConfig = null) {
+  async generateKey(content, type, themeConfig = null, outputFormat = 'png') {
     let keyContent = content;
     
     // Include theme config in cache key if provided
     if (themeConfig && themeConfig.fontFamily && themeConfig.fontSize) {
       keyContent = `${content}_font:${themeConfig.fontFamily}_size:${themeConfig.fontSize}`;
     }
+    
+    // Include output format in cache key
+    keyContent = `${keyContent}_format:${outputFormat}`;
     
     const hash = await this.calculateHash(keyContent);
     return `${hash}_${type}`;

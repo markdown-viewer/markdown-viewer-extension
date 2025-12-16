@@ -61,7 +61,8 @@ export class BaseRenderer {
    * @param {string|object} input - Input data for rendering
    * @param {object} themeConfig - Theme configuration
    * @param {object} extraParams - Additional type-specific parameters
-   * @returns {Promise<{base64: string, width: number, height: number}>}
+   * @param {string} extraParams.outputFormat - Output format: 'png' (default) or 'svg'
+   * @returns {Promise<{base64?: string, svg?: string, width: number, height: number, format: string}>}
    */
   async render(input, themeConfig, extraParams = {}) {
     throw new Error('render() must be implemented by subclass');
@@ -107,9 +108,18 @@ export class BaseRenderer {
    * @param {string} svgContent - SVG content string
    * @param {number} width - Canvas width
    * @param {number} height - Canvas height
+   * @param {string} fontFamily - Optional font family to set on canvas
    * @returns {Promise<HTMLCanvasElement>} Canvas element
    */
-  async renderSvgToCanvas(svgContent, width, height) {
+  async renderSvgToCanvas(svgContent, width, height, fontFamily = null) {
+    // Log SVG content for debugging
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'RENDER_FRAME_LOG',
+        args: ['[BaseRenderer] SVG first 800 chars:', svgContent.substring(0, 800)]
+      }, '*');
+    }
+    
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'Anonymous';
@@ -123,6 +133,12 @@ export class BaseRenderer {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        
+        // Set font on canvas context if provided
+        if (fontFamily) {
+          ctx.font = `14px ${fontFamily}`;
+        }
+        
         ctx.fillStyle = 'white'; // Default background
         ctx.fillRect(0, 0, width, height); // Fill background
         ctx.drawImage(img, 0, 0, width, height);

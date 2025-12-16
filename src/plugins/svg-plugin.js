@@ -90,9 +90,29 @@ export class SvgPlugin extends BasePlugin {
     }
 
     // Handle local file:// URLs or relative paths
+    // Check if we're in mobile environment (no chrome.runtime)
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+      // In mobile WebView, request Flutter to read the file
+      // The file path is relative to the currently opened markdown file
+      if (window.platform && window.platform.bridge) {
+        try {
+          const result = await window.platform.bridge.sendRequest('READ_RELATIVE_FILE', { path: url });
+          // Flutter returns { content: string }
+          if (result && typeof result === 'object' && result.content) {
+            return result.content;
+          }
+          throw new Error('Invalid response from Flutter: ' + JSON.stringify(result));
+        } catch (e) {
+          console.error('[SVG Plugin] Failed to read file via Flutter:', e);
+          throw new Error(`Cannot load SVG file: ${url} - ${e.message}`);
+        }
+      }
+      throw new Error(`Cannot load relative SVG file in mobile: ${url}`);
+    }
+
+    // Chrome extension: use message passing
     const baseUrl = window.location.href;
     const absoluteUrl = new URL(url, baseUrl).href;
-
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'READ_LOCAL_FILE',

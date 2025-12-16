@@ -118,13 +118,16 @@ export class VegaRenderer extends BaseRenderer {
   }
 
   /**
-   * Override render to use direct Canvas rendering instead of SVG pipeline
+   * Override render to support both SVG and PNG output
    * @param {object} vegaSpec - Vega/Vega-Lite specification
    * @param {object} themeConfig - Theme configuration
    * @param {object} extraParams - Extra parameters
-   * @returns {Promise<{base64: string, width: number, height: number}>}
+   * @param {string} extraParams.outputFormat - 'svg' or 'png' (default: 'png')
+   * @returns {Promise<{base64?: string, svg?: string, width: number, height: number, format: string}>}
    */
   async render(vegaSpec, themeConfig, extraParams = {}) {
+    const outputFormat = extraParams.outputFormat || 'png';
+    
     // Ensure renderer is initialized
     if (!this._initialized) {
       await this.initialize(themeConfig);
@@ -143,11 +146,14 @@ export class VegaRenderer extends BaseRenderer {
     const container = this.createContainer();
     container.style.cssText = 'position: absolute; left: -9999px; top: -9999px; display: inline-block; background: transparent; padding: 0; margin: 0;';
 
-    // Prepare embed options with canvas renderer for direct rendering
+    // Choose renderer based on output format
+    const rendererType = outputFormat === 'svg' ? 'svg' : 'canvas';
+    
+    // Prepare embed options
     const embedOptions = {
       mode: this.mode,
       actions: false, // Hide action links
-      renderer: 'canvas', // Use Canvas renderer for direct rendering
+      renderer: rendererType,
       ast: true, // Use AST mode to avoid eval
       expr: expressionInterpreter, // Use expression interpreter instead of eval
       config: {
@@ -174,8 +180,33 @@ export class VegaRenderer extends BaseRenderer {
     // Render the spec using vega-embed
     const result = await embed(container, processedSpec, embedOptions);
     
-    // Calculate scale for final output
+    // Calculate scale (same as PNG for consistent dimensions)
     const scale = this.calculateCanvasScale(themeConfig);
+
+    // If SVG format requested, return SVG string
+    if (outputFormat === 'svg') {
+      const svgString = await result.view.toSVG();
+      
+      // Get dimensions from SVG
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+      const svgElement = svgDoc.documentElement;
+      const width = parseInt(svgElement.getAttribute('width')) || 800;
+      const height = parseInt(svgElement.getAttribute('height')) || 600;
+      
+      // Cleanup container
+      this.removeContainer(container);
+      
+      // Return scaled dimensions (same as PNG for consistent display)
+      return {
+        svg: svgString,
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+        format: 'svg'
+      };
+    }
+    
+    // PNG format: render to canvas
     
     // Get Canvas directly from the view object
     // toCanvas() returns a Promise<HTMLCanvasElement>
@@ -196,7 +227,8 @@ export class VegaRenderer extends BaseRenderer {
     return {
       base64: base64Data,
       width: sourceCanvas.width,
-      height: sourceCanvas.height
+      height: sourceCanvas.height,
+      format: 'png'
     };
   }
 }

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Render Frame</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background: transparent;
+      width: 100%;
+      min-height: 100%;
+      /* Preload common fonts to ensure they're available for SVG foreignObject */
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "SimSun", "宋体", "STSong", "SimHei", "黑体", "STHeiti",
+        "FangSong", "仿宋", "STFangsong", "KaiTi", "楷体", "STKaiti",
+        "Microsoft YaHei", "微软雅黑", "PingFang SC", "Hiragino Sans GB",
+        "Times New Roman", Times, Georgia, serif;
+    }
+
+    #render-container {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+    }
+
+    #png-canvas {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+    }
+  </style>
+</head>
+<body>
+  <div id="render-container"></div>
+  <canvas id="png-canvas"></canvas>
+  
+  <!-- Bundled from platform/mobile/render-worker.js -->
+  <script src="./render-frame.js"></script>
+</body>
+</html>

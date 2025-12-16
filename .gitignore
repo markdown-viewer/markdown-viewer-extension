@@ -8,6 +8,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+*.iml
+*.ipr
+*.iws
 
 # Dependencies
 node_modules/
@@ -16,6 +19,7 @@ package-lock.json
 # Build output
 dist/
 dist.*
+/build/
 
 # Generated files (will be copied from node_modules during build)
 fonts/
@@ -27,3 +31,37 @@ katex-*.css
 
 # Temporary files
 *.tmp
+
+# Flutter/Dart related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.pub-cache/
+.pub/
+/coverage/
+**/doc/api/
+
+# iOS
+/ios/Flutter/
+/ios/Pods/
+/ios/Podfile.lock
+**/ios/Flutter/.last_build_id
+
+# macOS
+/macos/Flutter/
+/macos/Pods/
+/macos/Podfile.lock
+
+# Android
+/android/.gradle/
+/android/app/build/
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json

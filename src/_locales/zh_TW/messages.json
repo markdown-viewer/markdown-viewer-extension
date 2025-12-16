@@ -1,4 +1,8 @@
 {
+  "about": {
+    "message": "關於",
+    "description": "Menu item for about"
+  },
   "async_processing_error": {
     "message": "{0} 錯誤：{1}",
     "description": "Generic error message with type and detail"
@@ -151,6 +155,22 @@
     "message": "快取系統不可用，請先開啟 Markdown 檔案",
     "description": "快取系統不可用提示"
   },
+  "cancel": {
+    "message": "取消",
+    "description": "Cancel button text"
+  },
+  "clear_all": {
+    "message": "清除全部",
+    "description": "Button to clear all items"
+  },
+  "clear_recent_files": {
+    "message": "清除最近檔案",
+    "description": "Dialog title for clearing recent files"
+  },
+  "clear_recent_files_confirm": {
+    "message": "確定要清除所有最近開啟的檔案記錄嗎？",
+    "description": "Confirmation message for clearing recent files"
+  },
   "docx_export_failed_alert": {
     "message": "匯出失敗{0}",
     "description": "DOCX 匯出失敗警告"
@@ -167,6 +187,14 @@
     "message": "Markdown Viewer",
     "description": "擴充功能名稱"
   },
+  "failed_to_open_file": {
+    "message": "開啟檔案失敗: {0}",
+    "description": "Toast when file open fails"
+  },
+  "failed_to_share": {
+    "message": "分享失敗: {0}",
+    "description": "Toast when sharing fails"
+  },
   "file_access_disabled": {
     "message": "未啟用",
     "description": "Status text when file access is disabled"
@@ -182,6 +210,10 @@
   "file_access_settings_link": {
     "message": "擴充功能設定頁面",
     "description": "Link text to extension settings"
+  },
+  "file_not_found": {
+    "message": "檔案不存在",
+    "description": "Error message when file doesn't exist"
   },
   "history_clear": {
     "message": "清空歷史記錄",
@@ -223,17 +255,61 @@
     "message": "最近存取的文件",
     "description": "歷史文件標題"
   },
-  "popup_title": {
-    "message": "Markdown Viewer",
-    "description": "彈出視窗標題"
+  "language": {
+    "message": "語言",
+    "description": "Menu item for language"
+  },
+  "more": {
+    "message": "更多",
+    "description": "More menu tooltip"
+  },
+  "no_file_to_share": {
+    "message": "沒有可分享的檔案",
+    "description": "Toast when no file is open for sharing"
+  },
+  "no_headings": {
+    "message": "未找到標題",
+    "description": "Toast when document has no headings"
+  },
+  "open_file": {
+    "message": "開啟檔案",
+    "description": "Menu item to open file"
   },
   "popup_review_link": {
     "message": "評分",
     "description": "評價擴充功能的連結文字"
   },
+  "popup_title": {
+    "message": "Markdown Viewer",
+    "description": "彈出視窗標題"
+  },
   "popup_version_label": {
     "message": "版本 {0}",
     "description": "彈出視窗中的版本文字"
+  },
+  "recent_files": {
+    "message": "最近檔案",
+    "description": "Title for recent files section"
+  },
+  "remove": {
+    "message": "移除",
+    "description": "Remove item from list"
+  },
+  "reset": {
+    "message": "重置",
+    "description": "Reset button"
+  },
+  "save_failed": {
+    "message": "儲存檔案失敗",
+    "description": "Toast when file save fails"
+  },
+  "save_file": {
+    "message": "儲存到文庫",
+    "description": "Menu item for saving file to app storage"
+  },
+  "save_success": {
+    "message": "檔案已儲存",
+    "description": "Toast when file save succeeds"
   },
   "settings_general_title": {
     "message": "擴充功能設定",
@@ -395,6 +471,10 @@
     "message": "選擇主題：",
     "description": "主題選擇器標籤"
   },
+  "share": {
+    "message": "分享",
+    "description": "Share button tooltip"
+  },
   "tab_cache": {
     "message": "快取",
     "description": "快取標籤"
@@ -406,6 +486,14 @@
   "tab_settings": {
     "message": "設定",
     "description": "設定標籤"
+  },
+  "theme": {
+    "message": "主題",
+    "description": "Menu item for theme"
+  },
+  "toc": {
+    "message": "目錄",
+    "description": "TOC drawer title"
   },
   "toolbar_download_title": {
     "message": "下載",
@@ -442,5 +530,13 @@
   "toolbar_zoom_out_title": {
     "message": "縮小",
     "description": "縮小按鈕提示"
+  },
+  "welcome_message": {
+    "message": "開啟一個 Markdown 檔案開始",
+    "description": "Welcome message on empty state"
+  },
+  "zoom": {
+    "message": "縮放",
+    "description": "Menu item for zoom"
   }
 }

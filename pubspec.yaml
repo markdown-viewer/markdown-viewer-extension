@@ -1,0 +1,75 @@
+name: markdown_viewer_mobile
+
+description: Flutter wrapper for markdown-viewer WebView
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.10.0
+  file_picker: ^8.0.0
+  path_provider: ^2.1.0
+  share_plus: ^7.2.0
+  shared_preferences: ^2.2.0
+  ant_icons: ^2.0.0-nullsafety.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.2
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "icons/icon128.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "icons/icon128.png"
+  remove_alpha_ios: true
+  macos:
+    generate: true
+    image_path: "icons/icon128.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    # Core webview files
+    - build/mobile/
+    # Fonts directory
+    - build/mobile/fonts/
+    # Locales - all language subdirectories
+    - build/mobile/_locales/da/
+    - build/mobile/_locales/de/
+    - build/mobile/_locales/en/
+    - build/mobile/_locales/es/
+    - build/mobile/_locales/fi/
+    - build/mobile/_locales/fr/
+    - build/mobile/_locales/hi/
+    - build/mobile/_locales/id/
+    - build/mobile/_locales/it/
+    - build/mobile/_locales/ja/
+    - build/mobile/_locales/ko/
+    - build/mobile/_locales/nl/
+    - build/mobile/_locales/no/
+    - build/mobile/_locales/pl/
+    - build/mobile/_locales/pt_BR/
+    - build/mobile/_locales/pt_PT/
+    - build/mobile/_locales/ru/
+    - build/mobile/_locales/sv/
+    - build/mobile/_locales/th/
+    - build/mobile/_locales/tr/
+    - build/mobile/_locales/vi/
+    - build/mobile/_locales/zh_CN/
+    - build/mobile/_locales/zh_TW/
+    # Themes - root files and subdirectories
+    - build/mobile/themes/
+    - build/mobile/themes/presets/
+    - build/mobile/themes/code-themes/
+    - build/mobile/themes/spacing-schemes/
+    - build/mobile/themes/table-styles/

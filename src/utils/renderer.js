@@ -2,6 +2,14 @@
 import { CacheManager } from './cache-manager.js';
 import { UploadManager } from './upload-manager.js';
 
+/**
+ * Get platform instance from global scope
+ * Platform is set by each platform's index.js before using shared modules
+ */
+function getPlatform() {
+  return globalThis.platform;
+}
+
 class ExtensionRenderer {
   constructor(cacheManager = null) {
     // Use provided cache manager or create a new one
@@ -50,32 +58,8 @@ class ExtensionRenderer {
    */
   async _sendMessage(message) {
     try {
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Message timeout after 5 minutes'));
-        }, 300000);
-
-        chrome.runtime.sendMessage(message, (response) => {
-          clearTimeout(timeout);
-
-          if (chrome.runtime.lastError) {
-            reject(new Error(`Runtime error: ${chrome.runtime.lastError.message}`));
-            return;
-          }
-
-          if (!response) {
-            reject(new Error('No response received from background script'));
-            return;
-          }
-
-          if (response.error) {
-            reject(new Error(response.error));
-            return;
-          }
-
-          resolve(response);
-        });
-      });
+      const platform = getPlatform();
+      return await platform.message.send(message);
     } catch (error) {
       throw error;
     }
@@ -85,15 +69,16 @@ class ExtensionRenderer {
    * Unified diagram rendering method
    * @param {string} renderType - Type of diagram (mermaid, vega, etc.)
    * @param {string|object} input - Input data for rendering
-   * @param {object} extraParams - Additional parameters
+   * @param {object} extraParams - Additional parameters (including outputFormat: 'svg' | 'png')
    * @param {string} cacheType - Cache type identifier
-   * @returns {Promise<object>} Render result with base64, width, height
+   * @returns {Promise<object>} Render result with base64/svg, width, height, format
    */
   async _renderDiagram(renderType, input, extraParams = {}, cacheType) {
-    // Generate cache key
+    // Generate cache key (include outputFormat)
     const inputString = typeof input === 'string' ? input : JSON.stringify(input);
     const contentKey = inputString + JSON.stringify(extraParams);
-    const cacheKey = await this.cache.generateKey(contentKey, cacheType, this.themeConfig);
+    const outputFormat = extraParams.outputFormat || 'png';
+    const cacheKey = await this.cache.generateKey(contentKey, cacheType, this.themeConfig, outputFormat);
 
     // Check cache first
     const cached = await this.cache.get(cacheKey);
@@ -129,12 +114,14 @@ class ExtensionRenderer {
    * Unified render method
    * @param {string} type - Renderer type (mermaid, vega, vega-lite, html, svg, etc.)
    * @param {string|object} input - Input data for rendering
-   * @param {object} extraParams - Additional parameters
-   * @returns {Promise<object>} Render result with base64, width, height
+   * @param {object} extraParams - Additional parameters (including outputFormat: 'svg' | 'png')
+   * @returns {Promise<object>} Render result with base64/svg, width, height, format
    */
   async render(type, input, extraParams = {}) {
-    // Generate cache type identifier
-    const cacheType = `${type.toUpperCase()}_PNG`;
+    // Generate cache type identifier based on output format
+    const outputFormat = extraParams.outputFormat || 'png';
+    const formatSuffix = outputFormat.toUpperCase();
+    const cacheType = `${type.toUpperCase()}_${formatSuffix}`;
     
     return this._renderDiagram(type, input, extraParams, cacheType);
   }
@@ -159,7 +146,8 @@ class ExtensionRenderer {
   async cleanup() {
     try {
       if (this.offscreenCreated) {
-        await chrome.offscreen.closeDocument();
+        const platform = getPlatform();
+        await platform.renderer.cleanup();
         this.offscreenCreated = false;
       }
     } catch (error) {

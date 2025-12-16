@@ -47,13 +47,16 @@ export class MermaidRenderer extends BaseRenderer {
   }
 
   /**
-   * Override render to use direct SVG to canvas rendering
+   * Override render to support both SVG and PNG output
    * @param {string} code - Mermaid diagram code
    * @param {object} themeConfig - Theme configuration
    * @param {object} extraParams - Extra parameters
-   * @returns {Promise<{base64: string, width: number, height: number}>}
+   * @param {string} extraParams.outputFormat - 'svg' or 'png' (default: 'png')
+   * @returns {Promise<{base64?: string, svg?: string, width: number, height: number, format: string}>}
    */
   async render(code, themeConfig, extraParams = {}) {
+    const outputFormat = extraParams.outputFormat || 'png';
+    
     // Ensure renderer is initialized
     if (!this._initialized) {
       await this.initialize(themeConfig);
@@ -123,11 +126,33 @@ export class MermaidRenderer extends BaseRenderer {
       captureHeight = Math.ceil(parseFloat(svgElement.getAttribute('height')) || 600);
     }
 
-    // Calculate scale
+    // Get font family from theme config
+    const fontFamily = themeConfig?.fontFamily || "'SimSun', 'Times New Roman', Times, serif";
+
+    // Inject font style into SVG
+    const styledSvg = this.injectFontStyleToSvg(svg, fontFamily);
+
+    // Calculate scale (same as PNG for consistent dimensions)
     const scale = this.calculateCanvasScale(themeConfig);
 
-    // Render SVG directly to canvas
-    const canvas = await this.renderSvgToCanvas(svg, captureWidth * scale, captureHeight * scale);
+    // If SVG format requested, return SVG string directly
+    if (outputFormat === 'svg') {
+      // Cleanup container
+      this.removeContainer(container);
+
+      // Return scaled dimensions (same as PNG for consistent display)
+      return {
+        svg: styledSvg,
+        width: Math.round(captureWidth * scale),
+        height: Math.round(captureHeight * scale),
+        format: 'svg'
+      };
+    }
+
+    // PNG format: render SVG to canvas
+
+    // Render SVG directly to canvas with font family
+    const canvas = await this.renderSvgToCanvas(styledSvg, captureWidth * scale, captureHeight * scale, fontFamily);
 
     const pngDataUrl = canvas.toDataURL('image/png', 1.0);
     const base64Data = pngDataUrl.replace(/^data:image\/png;base64,/, '');
@@ -138,7 +163,36 @@ export class MermaidRenderer extends BaseRenderer {
     return {
       base64: base64Data,
       width: canvas.width,
-      height: canvas.height
+      height: canvas.height,
+      format: 'png'
     };
+  }
+
+  /**
+   * Inject font style into SVG content
+   * @param {string} svgContent - Original SVG content
+   * @param {string} fontFamily - Font family to inject
+   * @returns {string} SVG with injected font style
+   */
+  injectFontStyleToSvg(svgContent, fontFamily) {
+    // Create a style element with font-family for SVG internal elements only
+    // Use :scope to limit styles to SVG content and avoid affecting page elements
+    const styleContent = `
+      <style>
+        :root, :host, svg * { font-family: ${fontFamily} !important; }
+        text { font-family: ${fontFamily} !important; }
+        foreignObject { font-family: ${fontFamily} !important; }
+        foreignObject * { font-family: ${fontFamily} !important; }
+        .node { font-family: ${fontFamily} !important; }
+        .label { font-family: ${fontFamily} !important; }
+        .edgeLabel { font-family: ${fontFamily} !important; }
+        foreignObject span { font-family: ${fontFamily} !important; }
+        foreignObject div { font-family: ${fontFamily} !important; }
+        foreignObject p { font-family: ${fontFamily} !important; }
+      </style>
+    `;
+
+    // Insert style after opening svg tag
+    return svgContent.replace(/(<svg[^>]*>)/, `$1${styleContent}`);
   }
 }

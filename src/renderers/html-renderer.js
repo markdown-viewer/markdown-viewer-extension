@@ -13,7 +13,11 @@ export class HtmlRenderer extends BaseRenderer {
   }
 
   /**
-   * Override the main render method
+   * Render HTML to PNG
+   * @param {string} input - HTML content to render
+   * @param {object} themeConfig - Theme configuration
+   * @param {object} extraParams - Extra parameters
+   * @returns {Promise<{base64: string, width: number, height: number, format: string}>}
    */
   async render(input, themeConfig, extraParams = {}) {
     this.validateInput(input);
