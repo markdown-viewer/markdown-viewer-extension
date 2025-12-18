@@ -128,6 +128,16 @@ interface HtmlNode extends BaseNode {
   value?: string;
 }
 
+interface SuperscriptNode extends BaseNode {
+  type: 'superscript';
+  children: InlineNode[];
+}
+
+interface SubscriptNode extends BaseNode {
+  type: 'subscript';
+  children: InlineNode[];
+}
+
 export type InlineNode = 
   | TextNode 
   | StrongNode 
@@ -139,7 +149,9 @@ export type InlineNode =
   | ImageNode 
   | InlineMathNode 
   | BreakNode 
-  | HtmlNode;
+  | HtmlNode
+  | SuperscriptNode
+  | SubscriptNode;
 
 /**
  * Inline converter result type
@@ -222,6 +234,12 @@ export function createInlineConverter({
 
       case 'delete':
         return await convertInlineNodes(node.children, { ...parentStyle, strike: true });
+
+      case 'superscript':
+        return await convertInlineNodes(node.children, { ...parentStyle, superScript: true });
+
+      case 'subscript':
+        return await convertInlineNodes(node.children, { ...parentStyle, subScript: true });
 
       case 'inlineCode': {
         const codeStyle = themeStyles.characterStyles.code;

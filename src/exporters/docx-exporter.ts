@@ -23,6 +23,7 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
+import remarkSuperSub from '../plugins/remark-super-sub';
 import { visit } from 'unist-util-visit';
 import { loadThemeForDOCX } from './theme-to-docx';
 import themeManager from '../utils/theme-manager';
@@ -273,9 +274,10 @@ class DocxExporter {
   private parseMarkdown(markdown: string): DOCXASTNode {
     const processor = unified()
       .use(remarkParse)
-      .use(remarkGfm)
+      .use(remarkGfm, { singleTilde: false })
       .use(remarkBreaks)
-      .use(remarkMath);
+      .use(remarkMath)
+      .use(remarkSuperSub);
 
     const ast = processor.parse(markdown);
     const transformed = processor.runSync(ast);
