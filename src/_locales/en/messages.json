@@ -284,7 +284,7 @@
     "description": "Popup title"
   },
   "popup_version_label": {
-    "message": "Version {0}",
+    "message": "v{0}",
     "description": "Shows the extension version in the header"
   },
   "recent_files": {

@@ -5,9 +5,35 @@
 import fs from 'fs';
 import path from 'path';
 import { build } from 'esbuild';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DIST_DIR = 'build/mobile';
 const SRC_DIR = 'src';
+
+/**
+ * Sync version from package.json to pubspec.yaml
+ */
+function syncVersion() {
+  const packagePath = path.join(__dirname, '../package.json');
+  const pubspecPath = path.join(__dirname, '../pubspec.yaml');
+  
+  const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+  let pubspec = fs.readFileSync(pubspecPath, 'utf8');
+  
+  // Flutter version format: major.minor.patch+buildNumber
+  const versionMatch = pubspec.match(/version:\s*([\d.]+)(\+\d+)?/);
+  const currentVersion = versionMatch ? versionMatch[1] : null;
+  const buildNumber = versionMatch && versionMatch[2] ? versionMatch[2] : '+1';
+  
+  if (currentVersion !== packageJson.version) {
+    const newVersion = `${packageJson.version}${buildNumber}`;
+    pubspec = pubspec.replace(/version:\s*[\d.]+(\+\d+)?/, `version: ${newVersion}`);
+    fs.writeFileSync(pubspecPath, pubspec, 'utf8');
+    console.log(`📌 Updated pubspec.yaml version: ${newVersion}`);
+  }
+}
 
 /**
  * Copy directory recursively
@@ -192,6 +218,9 @@ function copyResources() {
  */
 async function main() {
   console.log('🚀 Building mobile WebView resources...\n');
+
+  // Sync version first
+  syncVersion();
 
   // Clean build/mobile
   if (fs.existsSync(DIST_DIR)) {

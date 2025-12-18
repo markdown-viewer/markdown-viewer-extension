@@ -6,6 +6,7 @@ import 'package:ant_icons/ant_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -901,12 +902,14 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     );
   }
 
-  void _showAbout() {
+  void _showAbout() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (!mounted) return;
     showAboutDialog(
       context: context,
       applicationName: localization.t('extensionName'),
-      applicationVersion: '0.1.0',
-      applicationLegalese: '© 2024 ${localization.t('extensionName')}',
+      applicationVersion: 'v${packageInfo.version}',
+      applicationLegalese: '@xicilion',
     );
   }
 

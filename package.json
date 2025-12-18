@@ -1,6 +1,6 @@
 {
   "name": "markdown-viewer-extension",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "A Chrome extension to view Markdown files with syntax highlighting",
   "type": "module",
   "main": "src/content.js",
