@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../services/cache_service.dart';
 import '../services/settings_service.dart';
 
 /// Settings page for the app
@@ -18,19 +19,60 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _clearingCache = false;
+  bool _loadingStats = false;
   String _version = '...';
+  String _cacheSize = 'Loading...';
+  int _cacheCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadVersion();
+    _loadCacheStats();
   }
 
   Future<void> _loadVersion() async {
     final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = packageInfo.version;
+      });
+    }
+  }
+
+  Future<void> _loadCacheStats() async {
     setState(() {
-      _version = packageInfo.version;
+      _loadingStats = true;
     });
+
+    try {
+      // Get stats directly from Flutter cache service
+      final stats = await cacheService.getStats();
+      
+      if (mounted) {
+        setState(() {
+          _cacheSize = '${stats.totalSizeMB} MB';
+          _cacheCount = stats.itemCount;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Settings] Failed to load cache stats: $e');
+      if (mounted) {
+        setState(() {
+          _cacheSize = 'N/A';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingStats = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshCacheStats() async {
+    await _loadCacheStats();
   }
 
   @override
@@ -67,6 +109,24 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // Cache section
           _SectionHeader(title: 'Cache'),
+          ListTile(
+            leading: const Icon(Icons.storage_outlined),
+            title: const Text('Cache Size'),
+            subtitle: Text(_cacheSize),
+            trailing: _loadingStats
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right),
+            onTap: _loadingStats ? null : _refreshCacheStats,
+          ),
+          ListTile(
+            leading: const Icon(Icons.layers_outlined),
+            title: const Text('Cached Items'),
+            subtitle: Text('$_cacheCount items'),
+          ),
           ListTile(
             leading: const Icon(Icons.cleaning_services_outlined),
             title: const Text('Clear Render Cache'),
@@ -126,17 +186,15 @@ class _SettingsPageState extends State<SettingsPage> {
     });
 
     try {
-      final controller = widget.webViewController;
-      if (controller != null) {
-        await controller.runJavaScript(
-          "if(window.clearCache){window.clearCache();}",
-        );
-      }
+      // Clear Flutter cache service directly
+      await cacheService.clear();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cache cleared')),
         );
+        // Refresh stats after clearing
+        await _loadCacheStats();
       }
     } catch (e) {
       debugPrint('[Settings] Failed to clear cache: $e');

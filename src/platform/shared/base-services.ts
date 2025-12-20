@@ -69,8 +69,19 @@ export class BaseCacheService {
     return `${hash}_${type}`;
   }
 
+  /**
+   * Estimate byte size of data
+   */
+  estimateSize(data: unknown): number {
+    return new Blob([typeof data === 'string' ? data : JSON.stringify(data)]).size;
+  }
+
   // Abstract methods - must be implemented by subclasses
   async init(): Promise<void> {
+    throw new Error('Not implemented');
+  }
+
+  async ensureDB(): Promise<unknown> {
     throw new Error('Not implemented');
   }
 
@@ -82,8 +93,16 @@ export class BaseCacheService {
     throw new Error('Not implemented');
   }
 
+  async delete(key: string): Promise<boolean> {
+    throw new Error('Not implemented');
+  }
+
   async clear(): Promise<boolean> {
     throw new Error('Not implemented');
+  }
+
+  async cleanup(): Promise<void> {
+    // Optional: LRU cleanup implementation
   }
 
   async getStats(): Promise<CacheStats | SimpleCacheStats | null> {

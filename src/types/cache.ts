@@ -112,10 +112,12 @@ export interface SimpleCacheStats {
  * Cache manager interface for content scripts
  */
 export interface ICacheManager {
+  ensureDB?(): Promise<unknown>;
   get(key: string): Promise<unknown>;
   set(key: string, value: unknown, type?: string): Promise<boolean>;
   delete(key: string): Promise<boolean>;
   clear(): Promise<boolean>;
+  cleanup?(): Promise<void>;
   getStats(): Promise<CacheStats | SimpleCacheStats | null>;
 }
 
@@ -137,6 +139,8 @@ export interface RendererCacheManager {
   ): Promise<string>;
   get(key: string): Promise<unknown>;
   set(key: string, value: unknown, type: string): Promise<void>;
+  delete?(key: string): Promise<boolean>;
+  cleanup?(): Promise<void>;
   getStats(): Promise<CacheStats | SimpleCacheStats | null>;
   clear(): Promise<void>;
 }

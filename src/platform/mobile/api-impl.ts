@@ -221,111 +221,222 @@ class MobileMessageService {
 // ============================================================================
 
 /**
- * Cache entry stored in IndexedDB
+ * Memory cache item with metadata
  */
-interface CacheEntry {
-  key: string;
+interface MemoryCacheItem {
   value: unknown;
-  type: string;
-  timestamp: number;
+  metadata: Record<string, unknown>;
+  accessTime: number;
 }
 
 /**
  * Mobile Cache Service
- * Uses IndexedDB directly in WebView
+ * Two-layer caching: Memory (L1) + Flutter Storage (L2)
  * Extends BaseCacheService for common hash/key generation
+ * 
+ * Similar to Chrome's BackgroundCacheManagerProxy, this service
+ * communicates with Flutter host for persistent storage operations.
+ * Memory cache provides fast access for recently used items.
+ * Flutter storage provides persistence with larger capacity.
  */
 class MobileCacheService extends BaseCacheService {
-  private dbName: string;
-  private storeName: string;
-  private db: IDBDatabase | null;
+  // L1 Memory Cache - Fast access for recently used items
+  private memoryCache: Map<string, MemoryCacheItem> = new Map();
+  private memoryAccessOrder: string[] = []; // Track access order for LRU
+  private memoryMaxItems: number;
 
-  constructor() {
+  constructor(memoryMaxItems = 50) {
     super();
-    this.dbName = 'MarkdownViewerCache';
-    this.storeName = 'cache';
-    this.db = null;
+    this.memoryMaxItems = memoryMaxItems;
   }
 
   async init(): Promise<void> {
-    await this.ensureDB();
+    // Memory cache is ready immediately
+    // Flutter storage is initialized on first use
   }
 
-  async ensureDB(): Promise<IDBDatabase> {
-    if (this.db) return this.db;
-
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 1);
-
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve(this.db);
-      };
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'key' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-          store.createIndex('type', 'type', { unique: false });
-        }
-      };
-    });
+  async ensureDB(): Promise<void> {
+    // No-op: Flutter handles storage initialization
   }
 
+  // ==========================================================================
+  // L1 Memory Cache Operations
+  // ==========================================================================
+
+  /**
+   * Add item to memory cache with LRU eviction
+   */
+  private addToMemoryCache(key: string, value: unknown, metadata: Record<string, unknown> = {}): void {
+    // Remove if already exists to update position
+    if (this.memoryCache.has(key)) {
+      this.removeFromMemoryCache(key);
+    }
+
+    // Add to cache and access order
+    this.memoryCache.set(key, { value, metadata, accessTime: Date.now() });
+    this.memoryAccessOrder.push(key);
+
+    // Evict oldest items if over limit
+    while (this.memoryCache.size > this.memoryMaxItems) {
+      const oldestKey = this.memoryAccessOrder.shift();
+      if (oldestKey) {
+        this.memoryCache.delete(oldestKey);
+      }
+    }
+  }
+
+  /**
+   * Get item from memory cache and update LRU order
+   */
+  private getFromMemoryCache(key: string): unknown | null {
+    if (!this.memoryCache.has(key)) {
+      return null;
+    }
+
+    const item = this.memoryCache.get(key);
+    if (!item) {
+      return null;
+    }
+
+    // Update access order (move to end)
+    this.removeFromMemoryCache(key);
+    item.accessTime = Date.now();
+    this.memoryCache.set(key, item);
+    this.memoryAccessOrder.push(key);
+
+    return item.value;
+  }
+
+  /**
+   * Remove item from memory cache
+   */
+  private removeFromMemoryCache(key: string): void {
+    if (this.memoryCache.has(key)) {
+      this.memoryCache.delete(key);
+      const index = this.memoryAccessOrder.indexOf(key);
+      if (index > -1) {
+        this.memoryAccessOrder.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * Clear memory cache
+   */
+  private clearMemoryCache(): void {
+    this.memoryCache.clear();
+    this.memoryAccessOrder = [];
+  }
+
+  // ==========================================================================
+  // Two-Layer Cache Operations (Memory + Flutter Storage)
+  // ==========================================================================
+
+  /**
+   * Get cached item - Check memory first, then Flutter storage
+   */
   async get(key: string): Promise<unknown> {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readonly');
-      const store = tx.objectStore(this.storeName);
-      const request = store.get(key);
+    // Try L1 Memory Cache first
+    const memoryResult = this.getFromMemoryCache(key);
+    if (memoryResult !== null) {
+      return memoryResult;
+    }
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve((request.result as CacheEntry)?.value || null);
-    });
+    // Try L2 Flutter Storage
+    // Note: bridge.sendRequest returns response.data directly (already unwrapped by BaseMessageChannel)
+    try {
+      const data = await bridge.sendRequest<unknown>('CACHE_OPERATION', {
+        operation: 'get',
+        key,
+      });
+
+      if (data !== null && data !== undefined) {
+        // Add to memory cache for faster future access
+        this.addToMemoryCache(key, data);
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.warn('[MobileCache] Get failed:', error);
+      return null;
+    }
   }
 
+  /**
+   * Set cached item - Store in both memory and Flutter storage
+   */
   async set(key: string, value: unknown, type: string = 'unknown'): Promise<boolean> {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const entry: CacheEntry = { key, value, type, timestamp: Date.now() };
-      const request = store.put(entry);
+    // Add to memory cache immediately
+    this.addToMemoryCache(key, value, { type });
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(true);
-    });
+    // Store in Flutter storage for persistence
+    // Note: bridge.sendRequest returns response.data directly
+    try {
+      const result = await bridge.sendRequest<{ success: boolean }>('CACHE_OPERATION', {
+        operation: 'set',
+        key,
+        value,
+        dataType: type,
+        size: this.estimateSize(value),
+      });
+
+      return result?.success ?? false;
+    } catch (error) {
+      console.warn('[MobileCache] Set failed:', error);
+      this.removeFromMemoryCache(key);
+      return false;
+    }
   }
 
+  /**
+   * Delete cached item from both layers
+   */
   async delete(key: string): Promise<boolean> {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const request = store.delete(key);
+    this.removeFromMemoryCache(key);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(true);
-    });
+    try {
+      const result = await bridge.sendRequest<{ success: boolean }>('CACHE_OPERATION', {
+        operation: 'delete',
+        key,
+      });
+
+      return result?.success ?? false;
+    } catch {
+      return false;
+    }
   }
 
+  /**
+   * Clear all cache from both layers
+   */
   async clear(): Promise<boolean> {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-      const request = store.clear();
+    this.clearMemoryCache();
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(true);
-    });
+    try {
+      const result = await bridge.sendRequest<{ success: boolean }>('CACHE_OPERATION', {
+        operation: 'clear',
+      });
+
+      return result?.success ?? false;
+    } catch {
+      return false;
+    }
   }
 
-  async getStats(): Promise<CacheStats | null> {
-    // Minimal stats implementation for mobile WebView
-    return null;
+  /**
+   * Get cache statistics from Flutter storage
+   */
+  async getStats(): Promise<SimpleCacheStats | null> {
+    try {
+      const stats = await bridge.sendRequest<SimpleCacheStats>('CACHE_OPERATION', {
+        operation: 'getStats',
+        limit: 50,
+      });
+
+      return stats || null;
+    } catch {
+      return null;
+    }
   }
 }
 

@@ -450,6 +450,7 @@ declare global {
     exportDocx: () => void;
     getAvailableThemes: () => Promise<unknown>;
     clearCache: () => Promise<boolean>;
+    getCacheStats: () => Promise<string | null>;
     setFontSize: (size: number) => Promise<void>;
     setLineBreaks: (enabled: boolean) => Promise<void>;
     __lineBreaksEnabled?: boolean;
@@ -485,6 +486,16 @@ window.clearCache = async () => {
   } catch (error) {
     console.error('[Mobile] Failed to clear cache:', error);
     return false;
+  }
+};
+
+window.getCacheStats = async () => {
+  try {
+    const stats = await platform.cache.getStats();
+    return JSON.stringify(stats);
+  } catch (error) {
+    console.error('[Mobile] Failed to get cache stats:', error);
+    return null;
   }
 };
 

@@ -13,6 +13,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 // Import for Android features
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
+import 'services/cache_service.dart';
 import 'services/localization_service.dart';
 import 'services/recent_files_service.dart';
 import 'services/settings_service.dart';
@@ -23,6 +24,7 @@ import 'widgets/theme_picker.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await settingsService.init();
+  await cacheService.init();
   await localization.init();
   await themeRegistry.init();
   await recentFilesService.init();
@@ -386,6 +388,12 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
           }
           break;
 
+        case 'CACHE_OPERATION':
+          if (payload is Map && isEnvelope) {
+            _handleCacheOperation(Map<String, dynamic>.from(payload), envelopeId!);
+          }
+          break;
+
         case 'EXPORT_PROGRESS':
           if (payload is Map) {
             final completed = payload['completed'] as int? ?? 0;
@@ -446,6 +454,16 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       _respondToWebViewEnvelope(requestId, data: {'success': true});
     } catch (e) {
       debugPrint('[Mobile] Storage set error: $e');
+      _respondToWebViewEnvelope(requestId, error: e.toString());
+    }
+  }
+
+  Future<void> _handleCacheOperation(Map<String, dynamic> payload, String requestId) async {
+    try {
+      final result = await cacheService.handleOperation(payload);
+      _respondToWebViewEnvelope(requestId, data: result['data'], ok: result['ok'] as bool);
+    } catch (e) {
+      debugPrint('[Mobile] Cache operation error: $e');
       _respondToWebViewEnvelope(requestId, error: e.toString());
     }
   }
@@ -657,11 +675,11 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     _sendToWebView(response);
   }
 
-  void _respondToWebViewEnvelope(String requestId, {dynamic data, String? error}) {
+  void _respondToWebViewEnvelope(String requestId, {dynamic data, String? error, bool? ok}) {
     final response = <String, dynamic>{
       'type': 'RESPONSE',
       'requestId': requestId,
-      'ok': error == null,
+      'ok': ok ?? (error == null),
     };
 
     if (error != null) {

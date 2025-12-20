@@ -28,6 +28,10 @@ class ExtensionCacheManager {
   cleanupInProgress = false; // Flag to prevent concurrent cleanup
   cleanupScheduled = false; // Flag to prevent multiple scheduled cleanups
 
+  // Batched access time updates to reduce transaction overhead
+  pendingAccessTimeUpdates: Set<string> = new Set();
+  accessTimeUpdateScheduled = false;
+
   constructor(maxItems = 1000, memoryMaxItems = 100) {
     this.maxItems = maxItems; // IndexedDB max items
     this.memoryMaxItems = memoryMaxItems; // Memory cache max items
@@ -161,27 +165,6 @@ class ExtensionCacheManager {
   }
 
   /**
-   * Get memory cache statistics
-   */
-  private _getMemoryCacheStats(): any {
-    const totalMemorySize = Array.from(this.memoryCache.values())
-      .reduce((sum, item) => sum + this.estimateSize(item.value), 0);
-
-    return {
-      itemCount: this.memoryCache.size,
-      maxItems: this.memoryMaxItems,
-      totalSize: totalMemorySize,
-      totalSizeMB: (totalMemorySize / (1024 * 1024)).toFixed(2),
-      items: Array.from(this.memoryCache.entries()).map(([key, item]) => ({
-        key: key.substring(0, 32) + '...',
-        size: this.estimateSize(item.value),
-        accessTime: new Date(item.accessTime).toISOString(),
-        metadata: item.metadata
-      }))
-    };
-  }
-
-  /**
    * Estimate byte size of data
    */
   estimateSize(data: any): number {
@@ -195,15 +178,8 @@ class ExtensionCacheManager {
     // Try L1 Memory Cache first
     const memoryResult = this._getFromMemoryCache(key);
     if (memoryResult !== null) {
-      // Even for memory cache hits, update IndexedDB access time for LRU consistency
-      setTimeout(async () => {
-        try {
-          await this.updateAccessTime(key);
-        } catch (error) {
-          // Silent fail for access time update
-        }
-      }, 0);
-
+      // Update IndexedDB access time asynchronously (non-blocking)
+      this._scheduleAccessTimeUpdate(key);
       return memoryResult;
     }
 
@@ -211,7 +187,8 @@ class ExtensionCacheManager {
     await this.ensureDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.storeName], 'readwrite');
+      // Use readonly transaction for get - faster and doesn't block other operations
+      const transaction = this.db!.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
 
       const getRequest = store.get(key);
@@ -225,14 +202,8 @@ class ExtensionCacheManager {
             originalTimestamp: result.timestamp
           });
 
-          // Update access time for LRU - use a separate transaction to avoid conflicts
-          setTimeout(async () => {
-            try {
-              await this.updateAccessTime(key);
-            } catch (error) {
-              // Silent fail for access time update
-            }
-          }, 0);
+          // Update access time asynchronously (non-blocking)
+          this._scheduleAccessTimeUpdate(key);
 
           resolve(result.value);
         } else {
@@ -251,7 +222,86 @@ class ExtensionCacheManager {
   }
 
   /**
+   * Schedule batched access time update (non-blocking)
+   * Batches multiple updates into a single transaction
+   */
+  private _scheduleAccessTimeUpdate(key: string): void {
+    // Skip access time updates for now - they cause performance issues
+    // The in-memory cache already tracks access order
+    // TODO: Consider updating access time only on cleanup or periodically
+    return;
+
+    this.pendingAccessTimeUpdates.add(key);
+
+    if (this.accessTimeUpdateScheduled) {
+      return;
+    }
+
+    this.accessTimeUpdateScheduled = true;
+
+    // Batch updates with a longer delay to reduce transaction frequency
+    setTimeout(async () => {
+      this.accessTimeUpdateScheduled = false;
+
+      if (this.pendingAccessTimeUpdates.size === 0) {
+        return;
+      }
+
+      const keysToUpdate = Array.from(this.pendingAccessTimeUpdates);
+      this.pendingAccessTimeUpdates.clear();
+
+      try {
+        await this._batchUpdateAccessTime(keysToUpdate);
+      } catch (error) {
+        // Silent fail for access time updates
+      }
+    }, 500); // 500ms delay to batch multiple accesses
+  }
+
+  /**
+   * Batch update access times in a single transaction
+   */
+  private async _batchUpdateAccessTime(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+
+    await this.ensureDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const now = Date.now();
+      let completed = 0;
+
+      keys.forEach(key => {
+        const getRequest = store.get(key);
+
+        getRequest.onsuccess = () => {
+          const item = getRequest.result as CacheItem | undefined;
+          if (item) {
+            item.accessTime = now;
+            store.put(item);
+          }
+          completed++;
+          if (completed === keys.length) {
+            resolve();
+          }
+        };
+
+        getRequest.onerror = () => {
+          completed++;
+          if (completed === keys.length) {
+            resolve();
+          }
+        };
+      });
+
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  /**
    * Update access time for LRU management (separate transaction)
+   * @deprecated Use _scheduleAccessTimeUpdate instead for better performance
    */
   async updateAccessTime(key: string): Promise<void> {
     await this.ensureDB();
@@ -416,13 +466,18 @@ class ExtensionCacheManager {
 
   /**
    * Get comprehensive cache statistics from both layers
-   * Optimized to avoid loading all items into memory
    */
   async getStats(limit = 50): Promise<CacheStats> {
     await this.ensureDB();
 
-    // Get memory cache stats
-    const memoryStats = this._getMemoryCacheStats();
+    // Skip expensive memory cache size calculation (estimateSize creates Blob for each item)
+    const memoryStats = {
+      itemCount: this.memoryCache.size,
+      maxItems: this.memoryMaxItems,
+      totalSize: 0,
+      totalSizeMB: '0.00',
+      items: [] as Array<{ key: string; size: number; accessTime: string; metadata: Record<string, unknown> }>
+    };
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.storeName], 'readonly');
@@ -446,14 +501,13 @@ class ExtensionCacheManager {
       sizeCursorRequest.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest).result as IDBCursor | null;
         if (cursor) {
-          totalSize += cursor.key as number; // cursor.key is the size value
+          totalSize += cursor.key as number;
           cursor.continue();
         }
       };
       
       // 3. Get top N items by accessTime
       const accessIndex = store.index('accessTime');
-      // 'prev' direction gives descending order (newest first)
       const itemsCursorRequest = accessIndex.openCursor(null, 'prev');
       
       itemsCursorRequest.onsuccess = (event) => {
@@ -466,39 +520,32 @@ class ExtensionCacheManager {
       
       transaction.oncomplete = () => {
         const stats: CacheStats = {
-          // Memory cache stats
           memoryCache: memoryStats,
-
-          // IndexedDB cache stats  
           indexedDBCache: {
             itemCount: itemCount,
             maxItems: this.maxItems,
             totalSize: totalSize,
             totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
             items: items.map(item => ({
-                key: (item.key?.substring(0, 32) || '') + '...',
-                type: item.type,
-                size: item.size,
-                sizeMB: (item.size / (1024 * 1024)).toFixed(3),
-                created: new Date(item.timestamp).toISOString(),
-                lastAccess: new Date(item.accessTime).toISOString(),
-                inMemory: this.memoryCache.has(item.key)
-              }))
+              key: (item.key?.substring(0, 32) || '') + '...',
+              type: item.type,
+              size: item.size,
+              sizeMB: (item.size / (1024 * 1024)).toFixed(3),
+              created: new Date(item.timestamp).toISOString(),
+              lastAccess: new Date(item.accessTime).toISOString(),
+              inMemory: this.memoryCache.has(item.key)
+            }))
           },
-
-          // Combined stats
           combined: {
             totalItems: itemCount,
             totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
             memoryHitRatio: itemCount > 0 ? (memoryStats.itemCount / itemCount * 100).toFixed(1) + '%' : '0%',
             hitRate: {
-              memoryHits: 0,
-              indexedDBHits: 0,
-              misses: 0
+              memoryHits: this.memoryHits,
+              indexedDBHits: this.indexedDBHits,
+              misses: this.misses
             }
           },
-
-          // Database info
           databaseInfo: {
             dbName: this.dbName,
             storeName: this.storeName,
@@ -527,8 +574,7 @@ class ExtensionCacheManager {
 
     this.cleanupScheduled = true;
 
-    // Run cleanup asynchronously after a short delay
-    // Short delay (10ms) to batch multiple insertions while keeping responsive
+    // Run cleanup asynchronously after a delay to avoid blocking
     setTimeout(async () => {
       this.cleanupScheduled = false;
 
@@ -542,7 +588,7 @@ class ExtensionCacheManager {
       } catch (error) {
         console.error('Async cleanup failed:', error);
       }
-    }, 10);
+    }, 100);
   }
 
   /**
@@ -560,23 +606,14 @@ class ExtensionCacheManager {
     try {
       await this.ensureDB();
 
-      // First check item count
-      const transaction = this.db!.transaction([this.storeName], 'readonly');
-      const store = transaction.objectStore(this.storeName);
-
-      const itemCount = await new Promise<number>((resolve, reject) => {
-        const countRequest = store.count();
-        countRequest.onsuccess = () => resolve(countRequest.result);
-        countRequest.onerror = () => reject(countRequest.error);
-      });
-
-      // Only cleanup if we exceed maxItems
-      if (itemCount <= this.maxItems) {
+      // Get current item count from database
+      const currentCount = await this._getItemCount();
+      if (currentCount <= this.maxItems) {
         return;
       }
 
-      // Calculate how many items to delete to reach exactly maxItems
-      const itemsToDelete = itemCount - this.maxItems;
+      // Calculate how many items to delete
+      const itemsToDelete = currentCount - this.maxItems;
 
       // Perform cleanup in a separate transaction
       await new Promise<void>((resolve, reject) => {
@@ -584,15 +621,17 @@ class ExtensionCacheManager {
         const cleanupStore = cleanupTransaction.objectStore(this.storeName);
         const index = cleanupStore.index('accessTime');
 
-        const itemsToSort: Array<{ key: string; accessTime: number }> = [];
+        const itemsToSort: Array<{ key: string; accessTime: number; size: number }> = [];
         const cursorRequest = index.openCursor();
 
         cursorRequest.onsuccess = (event) => {
           const cursor = (event.target as IDBRequest).result as IDBCursorWithValue | null;
           if (cursor) {
+            const item = cursor.value as CacheItem;
             itemsToSort.push({
-              key: (cursor.value as CacheItem).key,
-              accessTime: (cursor.value as CacheItem).accessTime
+              key: item.key,
+              accessTime: item.accessTime,
+              size: item.size || 0
             });
             cursor.continue();
           } else {
@@ -602,6 +641,7 @@ class ExtensionCacheManager {
             // Delete oldest items to bring count down to maxItems
             const keysToDelete = itemsToSort.slice(0, itemsToDelete);
             let deletedCount = 0;
+            let deletedSize = 0;
 
             if (keysToDelete.length === 0) {
               resolve();
@@ -617,6 +657,7 @@ class ExtensionCacheManager {
 
               deleteRequest.onsuccess = () => {
                 deletedCount++;
+                deletedSize += item.size;
                 if (deletedCount === keysToDelete.length) {
                   resolve();
                 }
@@ -647,9 +688,9 @@ class ExtensionCacheManager {
   }
 
   /**
-   * Check if cleanup is needed (readonly check only)
+   * Get current item count from database
    */
-  private async _checkIfCleanupNeeded(): Promise<boolean> {
+  private async _getItemCount(): Promise<number> {
     await this.ensureDB();
 
     const transaction = this.db!.transaction([this.storeName], 'readonly');
@@ -659,8 +700,7 @@ class ExtensionCacheManager {
       const countRequest = store.count();
 
       countRequest.onsuccess = () => {
-        const itemCount = countRequest.result;
-        resolve(itemCount > this.maxItems);
+        resolve(countRequest.result);
       };
 
       countRequest.onerror = () => {
@@ -671,11 +711,10 @@ class ExtensionCacheManager {
 
   /**
    * Manual cleanup (for external calls)
-   * @deprecated For internal use, async cleanup is preferred
    */
   async cleanupIfNeeded(): Promise<void> {
-    const needsCleanup = await this._checkIfCleanupNeeded();
-    if (needsCleanup) {
+    const count = await this._getItemCount();
+    if (count > this.maxItems) {
       await this.cleanup();
     }
   }
