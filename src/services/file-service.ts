@@ -101,7 +101,7 @@ export class FileService {
     }
 
     // 1. Initialize upload session
-    const initResponse = await this.channel.send<UploadInitResponse>('UPLOAD_OPERATION', {
+    const initResponse = await this.channel.send('UPLOAD_OPERATION', {
       operation: 'init',
       purpose: 'file-download',
       encoding: 'base64',
@@ -111,7 +111,7 @@ export class FileService {
         filename,
         mimeType,
       },
-    });
+    }) as UploadInitResponse;
 
     if (!initResponse || !initResponse.token) {
       throw new Error('Upload initialization failed');

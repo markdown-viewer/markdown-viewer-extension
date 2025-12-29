@@ -56,9 +56,6 @@ const bridge: PlatformBridgeAPI = {
   },
 };
 
-// Declare acquireVsCodeApi for TypeScript
-declare function acquireVsCodeApi(): VSCodeAPI;
-
 // ============================================================================
 // VSCode Resource Service
 // ============================================================================

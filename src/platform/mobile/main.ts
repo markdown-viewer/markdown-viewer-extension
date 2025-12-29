@@ -119,7 +119,7 @@ async function initialize(): Promise<void> {
     // Don't try to load theme here - Flutter will send it after WebView is ready
 
     // Pre-initialize render iframe (don't wait, let it load in background)
-    platform.renderer.ensureIframe().catch((err: Error) => {
+    platform.renderer.ensureReady().catch((err: Error) => {
       console.warn('[Mobile] Render frame pre-init failed:', err?.message, err?.stack);
     });
 

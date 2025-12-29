@@ -19,7 +19,7 @@ export class StorageService {
    * @returns Object with key-value pairs
    */
   async get(keys: string | string[]): Promise<Record<string, unknown>> {
-    return this.channel.send('STORAGE_GET', { keys });
+    return this.channel.send('STORAGE_GET', { keys }) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -27,7 +27,7 @@ export class StorageService {
    * @param items - Object with key-value pairs to store
    */
   async set(items: Record<string, unknown>): Promise<void> {
-    return this.channel.send('STORAGE_SET', { items });
+    await this.channel.send('STORAGE_SET', { items });
   }
 
   /**
@@ -35,6 +35,6 @@ export class StorageService {
    * @param keys - Single key or array of keys to remove
    */
   async remove(keys: string | string[]): Promise<void> {
-    return this.channel.send('STORAGE_REMOVE', { keys });
+    await this.channel.send('STORAGE_REMOVE', { keys });
   }
 }

@@ -96,7 +96,7 @@ async function initialize(): Promise<void> {
     await Localization.init();
 
     // Render iframe is lazily created on first render request
-    // No pre-initialization needed - ensureIframe() is called in render()
+    // No pre-initialization needed - ensureReady() is called in render()
 
     // Load saved theme from config (default to 'default' theme)
     if (window.VSCODE_CONFIG?.theme && window.VSCODE_CONFIG.theme !== 'auto') {
@@ -223,7 +223,7 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
 
     // NOTE: Don't eagerly create iframe here!
     // The iframe will be created lazily only when a diagram needs to be rendered.
-    // This is handled inside platform.renderer.render() which calls ensureIframe internally.
+    // This is handled inside platform.renderer.render() which calls ensureReady() internally.
 
     const pluginRenderer = createPluginRenderer();
 
