@@ -42,16 +42,31 @@ export function fallbackDownload(blob: Blob, filename: string): void {
 }
 
 /**
+ * Progress callback for upload phase
+ */
+export type UploadProgressCallback = (uploaded: number, total: number) => void;
+
+/**
  * Download blob as file using platform file service
  * @param blob - File blob
  * @param filename - Output filename
+ * @param onProgress - Optional progress callback for upload phase
  */
-export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
+export async function downloadBlob(
+  blob: Blob,
+  filename: string,
+  onProgress?: UploadProgressCallback
+): Promise<void> {
   const platform = globalThis.platform as PlatformAPI | undefined;
   
   if (platform?.file?.download) {
     await platform.file.download(blob, filename, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      onProgress: onProgress
+        ? (progress: { uploaded: number; total: number }) => {
+            onProgress(progress.uploaded, progress.total);
+          }
+        : undefined,
     });
     return;
   }

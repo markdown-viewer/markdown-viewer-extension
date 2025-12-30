@@ -214,14 +214,18 @@ class DocxExporter {
       const ast = this.parseMarkdown(markdown);
       this.totalResources = this.countResources(ast);
 
-      if (onProgress && this.totalResources > 0) {
-        onProgress(0, this.totalResources);
+      // Report initial progress (0%)
+      // Progress is split: 0-20% for rendering, 20-80% for packing, 80-100% for upload
+      if (onProgress) {
+        onProgress(0, 100);
       }
 
       // Initialize converters after theme is loaded
       this.initializeConverters();
 
+      const tRenderStart = performance.now();
       const docChildren = await this.convertAstToDocx(ast);
+      const renderTime = performance.now() - tRenderStart;
 
       const paragraphStyles = Object.entries(this.themeStyles.paragraphStyles).map(([id, style]) => ({
         id,
@@ -264,8 +268,44 @@ class DocxExporter {
         ],
       });
 
+      // Phase 2: Packing DOCX (30-85%)
+      // Estimate toBlob time based on render time (empirically ~1.8x)
+      const estimatedToBlobTime = renderTime * 1.8;
+      const t0 = performance.now();
+      
+      // Simulate progress with timer, stop at 84% to avoid jumping backward
+      let simulatedProgress = 30;
+      const progressInterval = onProgress ? setInterval(() => {
+        const elapsed = performance.now() - t0;
+        // Calculate expected progress based on elapsed time
+        const expectedProgress = Math.min(84, 30 + (elapsed / estimatedToBlobTime) * 55);
+        if (expectedProgress > simulatedProgress) {
+          simulatedProgress = Math.round(expectedProgress);
+          onProgress!(simulatedProgress, 100);
+        }
+      }, 100) : null;
+
       const blob = await Packer.toBlob(doc);
-      await downloadBlob(blob, filename);
+
+      // Clear timer and jump to actual position
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+
+      // Phase 3: Upload (85-100%)
+      if (onProgress) {
+        onProgress(85, 100);
+      }
+
+      await downloadBlob(blob, filename, onProgress
+        ? (uploaded: number, total: number) => {
+            // Map upload progress to 85-100%
+            const uploadProgress = total > 0 ? (uploaded / total) : 1;
+            const overallProgress = 85 + Math.round(uploadProgress * 15);
+            onProgress(overallProgress, 100);
+          }
+        : undefined
+      );
 
       return { success: true };
     } catch (error) {
@@ -295,7 +335,10 @@ class DocxExporter {
   private reportResourceProgress(): void {
     this.processedResources++;
     if (this.progressCallback && this.totalResources > 0) {
-      this.progressCallback(this.processedResources, this.totalResources);
+      // Phase 1: Rendering resources (0-30%)
+      const renderProgress = this.processedResources / this.totalResources;
+      const overallProgress = Math.round(renderProgress * 30);
+      this.progressCallback(overallProgress, 100);
     }
   }
 

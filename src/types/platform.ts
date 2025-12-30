@@ -63,6 +63,7 @@ export interface PlatformBridgeAPI {
 export interface DownloadOptions {
   saveAs?: boolean;
   mimeType?: string;
+  onProgress?: (progress: { uploaded: number; total: number }) => void;
 }
 
 // =============================================================================
