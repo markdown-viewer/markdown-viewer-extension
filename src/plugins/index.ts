@@ -123,10 +123,19 @@ export function registerRemarkPlugins(
             const result = asyncTask(
               async (data: TaskData) => {
                 const { id, code } = data;
+                
+                // Check if placeholder exists BEFORE rendering
+                const placeholderBefore = document.getElementById(id);
+                
+                if (!placeholderBefore) {
+                  return;
+                }
+                
                 try {
                   // Get render context for cancellation support if available
                   const renderContext = renderer.getQueueContext ? renderer.getQueueContext() : null;
                   const renderResult = await renderer.render(plugin.type, code || '', renderContext);
+                  
                   if (renderResult) {
                     replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline());
                   } else {
@@ -141,6 +150,7 @@ export function registerRemarkPlugins(
                       (error as Error).message === 'Request cancelled') {
                     return;
                   }
+                  console.error('[PluginTask] Render error for:', id, error);
                   const placeholder = document.getElementById(id);
                   if (placeholder) {
                     const errorDetail = escapeHtml((error as Error).message || '');

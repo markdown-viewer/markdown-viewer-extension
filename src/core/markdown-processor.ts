@@ -436,7 +436,9 @@ export class AsyncTaskManager {
     onProgress: ((completed: number, total: number) => void) | null = null,
     onError: ((error: Error, task: AsyncTask) => void) | null = null
   ): Promise<boolean> {
-    if (this.queue.length === 0) return true;
+    if (this.queue.length === 0) {
+      return true;
+    }
 
     const tasks = this.queue.splice(0, this.queue.length);
     const totalTasks = tasks.length;
@@ -463,10 +465,12 @@ export class AsyncTaskManager {
           return;
         }
 
+        // Check if placeholder exists in DOM
+        const placeholder = document.getElementById(task.id);
+        
         if (task.status === 'error') {
           // Check context before DOM update
           if (task.context.cancelled) return;
-          const placeholder = document.getElementById(task.id);
           if (placeholder) {
             const errorDetail = escapeHtml(task.error?.message || this.translate('async_unknown_error'));
             const localizedError = this.translate('async_processing_error', [errorDetail]);
@@ -480,7 +484,7 @@ export class AsyncTaskManager {
         if (task.context.cancelled) {
           return;
         }
-        console.error('Async task processing error:', error);
+        console.error('[TaskManager] Task processing error:', task.id, error);
         const placeholder = document.getElementById(task.id);
         if (placeholder) {
           const errorDetail = escapeHtml((error as Error).message || '');
@@ -708,7 +712,11 @@ export async function processMarkdownToHtml(
     const cached = blockHtmlCache.get(blockHash);
     
     let blockHtml: string;
-    if (cached !== undefined) {
+    // Don't use cache for blocks containing placeholders - they need fresh tasks
+    // Placeholders contain 'async-placeholder' class which indicates async rendering is needed
+    const cacheContainsPlaceholder = cached !== undefined && cached.includes('async-placeholder');
+    
+    if (cached !== undefined && !cacheContainsPlaceholder) {
       blockHtml = cached;
       cacheHits++;
     } else {
@@ -716,7 +724,11 @@ export async function processMarkdownToHtml(
       let html = String(file);
       html = processTablesForWordCompatibility(html);
       html = sanitizeRenderedHtml(html);
-      blockHtmlCache.set(blockHash, html);
+      // Only cache blocks without placeholders
+      // Blocks with placeholders need to be processed each time to create tasks
+      if (!html.includes('async-placeholder')) {
+        blockHtmlCache.set(blockHash, html);
+      }
       blockHtml = html;
     }
     
@@ -802,14 +814,20 @@ export async function processMarkdownStreaming(
       const cached = blockHtmlCache.get(cacheKey);
       let blockHtml: string;
       
-      if (cached !== undefined) {
+      // Don't use cache for blocks containing placeholders - they need fresh tasks
+      const cacheContainsPlaceholder = cached !== undefined && cached.includes('async-placeholder');
+      
+      if (cached !== undefined && !cacheContainsPlaceholder) {
         blockHtml = cached;
       } else {
         const file = await processor.process(block.content);
         let html = String(file);
         html = processTablesForWordCompatibility(html);
         html = sanitizeRenderedHtml(html);
-        blockHtmlCache.set(cacheKey, html);
+        // Only cache blocks without placeholders
+        if (!html.includes('async-placeholder')) {
+          blockHtmlCache.set(cacheKey, html);
+        }
         blockHtml = html;
       }
       

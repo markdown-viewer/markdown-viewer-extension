@@ -180,13 +180,11 @@ async function renderMarkdownIncremental(options: Omit<RenderMarkdownOptions, 'c
   } = options;
 
   // Process markdown to HTML (not streaming for incremental update)
-  const t0 = performance.now();
   const html = await processMarkdownToHtml(markdown, {
     renderer,
     taskManager: taskManager!,
     translate,
   });
-  const t1 = performance.now();
 
   if (taskManager!.isAborted()) {
     return {
