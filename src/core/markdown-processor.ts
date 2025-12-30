@@ -91,9 +91,12 @@ export function splitMarkdownIntoChunks(markdown: string): string[] {
   const chunks: string[] = [];
 
   let currentChunk: string[] = [];
-  let inCodeBlock = false;
+  let codeBlockFence = '';  // Store the opening fence (e.g., '```' or '~~~~~~')
   let inMathBlock = false;
   let inTable = false;
+  let inBlockquote = false;
+  let inIndentedCode = false;
+  let inFrontMatter = false;
   let listIndent = -1;
 
   const flushChunk = () => {
@@ -107,10 +110,35 @@ export function splitMarkdownIntoChunks(markdown: string): string[] {
     const line = lines[i];
     const trimmedLine = line.trim();
 
-    // Track code blocks
-    if (trimmedLine.startsWith('```') || trimmedLine.startsWith('~~~')) {
-      inCodeBlock = !inCodeBlock;
+    // Track front matter (--- at start of file)
+    if (i === 0 && trimmedLine === '---') {
+      inFrontMatter = true;
+    } else if (inFrontMatter && trimmedLine === '---') {
+      inFrontMatter = false;
+      currentChunk.push(line);
+      continue;
     }
+
+    // Track code blocks (fenced) - handle nested fences like `````` containing ```
+    const backtickMatch = trimmedLine.match(/^(`{3,})/);
+    const tildeMatch = trimmedLine.match(/^(~{3,})/);
+    const fenceMatch = backtickMatch || tildeMatch;
+    
+    if (fenceMatch) {
+      const fence = fenceMatch[1];
+      const fenceChar = fence[0];
+      
+      if (!codeBlockFence) {
+        // Opening a new code block
+        codeBlockFence = fence;
+      } else if (fenceChar === codeBlockFence[0] && fence.length >= codeBlockFence.length) {
+        // Closing fence must use same char and be at least as long
+        codeBlockFence = '';
+      }
+      // Otherwise it's content inside the code block, ignore
+    }
+
+    const inCodeBlock = codeBlockFence !== '';
 
     // Track math blocks
     if (trimmedLine === '$$') {
@@ -124,25 +152,65 @@ export function splitMarkdownIntoChunks(markdown: string): string[] {
       inTable = false;
     }
 
-    // Track lists (detect list item start)
-    const listMatch = line.match(/^(\s*)[-*+]|\d+\.\s/);
+    // Track blockquotes (lines starting with >)
+    if (trimmedLine.startsWith('>')) {
+      inBlockquote = true;
+    } else if (inBlockquote && trimmedLine === '') {
+      // Empty line might end blockquote
+      const nextLine = lines[i + 1];
+      if (!nextLine || !nextLine.trim().startsWith('>')) {
+        inBlockquote = false;
+      }
+    } else if (inBlockquote && !trimmedLine.startsWith('>')) {
+      // Non-quote line ends blockquote (unless it's a lazy continuation - rare)
+      inBlockquote = false;
+    }
+
+    // Track indented code blocks (4 spaces or 1 tab, not inside list)
+    if (!inCodeBlock && !inMathBlock && listIndent < 0) {
+      const isIndentedCode = line.startsWith('    ') || line.startsWith('\t');
+      if (isIndentedCode && trimmedLine !== '') {
+        inIndentedCode = true;
+      } else if (inIndentedCode && trimmedLine === '') {
+        // Empty line might continue or end indented code
+        const nextLine = lines[i + 1];
+        if (!nextLine || (!nextLine.startsWith('    ') && !nextLine.startsWith('\t'))) {
+          inIndentedCode = false;
+        }
+      } else if (inIndentedCode && !isIndentedCode) {
+        inIndentedCode = false;
+      }
+    }
+
+    // Track lists (detect list item start with proper regex)
+    // Match unordered (-, *, +) or ordered (1., 2., etc.) list items with proper anchoring
+    const listMatch = line.match(/^(\s*)(?:[-*+]|\d+\.)\s/);
     if (listMatch) {
       const indent = listMatch[1]?.length ?? 0;
-      if (listIndent < 0 || indent <= listIndent) {
+      if (listIndent < 0) {
+        // Starting a new list
         listIndent = indent;
+      } else if (indent <= listIndent) {
+        // Back to base or parent list level - update minimum indent
+        listIndent = indent;
+      } else {
+        // Nested deeper - keep existing listIndent to protect all nesting levels
       }
     } else if (listIndent >= 0 && trimmedLine === '') {
       // Empty line might end the list
       const nextLine = lines[i + 1];
-      if (!nextLine || !nextLine.match(/^(\s*)[-*+]|\d+\.\s/)) {
+      if (!nextLine || !nextLine.match(/^(\s*)(?:[-*+]|\d+\.)\s/)) {
         listIndent = -1;
       }
+    } else if (listIndent >= 0 && !trimmedLine.startsWith(' '.repeat(listIndent))) {
+      // Non-indented content after list - list has ended
+      listIndent = -1;
     }
 
     currentChunk.push(line);
 
     // Check if we can split here
-    const canSplit = !inCodeBlock && !inMathBlock && !inTable && listIndent < 0;
+    const canSplit = !inCodeBlock && !inMathBlock && !inTable && !inBlockquote && !inIndentedCode && !inFrontMatter && listIndent < 0;
     const isBlockBoundary = trimmedLine === '' || trimmedLine.startsWith('#');
     const targetSize = getTargetChunkSize(chunks.length);
     const reachedTarget = currentChunk.length >= targetSize;
