@@ -3,6 +3,7 @@
  */
 
 import { translate } from './i18n-helpers';
+import { isFirefoxPopup } from './platform-detect';
 
 /**
  * Show a confirmation modal
@@ -118,11 +119,8 @@ export async function checkFileAccess(): Promise<void> {
   }
 
   try {
-    // Detect Firefox - it allows file:// access by default with <all_urls> permission
-    // Firefox has 'browser' global and navigator.userAgent contains 'Firefox'
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isFirefox = typeof (globalThis as any).browser !== 'undefined' || navigator.userAgent.includes('Firefox');
-    if (isFirefox) {
+    // Firefox allows file:// access by default with <all_urls> permission
+    if (isFirefoxPopup()) {
       warningSection.style.display = 'none';
       return;
     }

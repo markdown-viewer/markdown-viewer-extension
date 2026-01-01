@@ -445,18 +445,11 @@ export async function loadThemeForDOCX(themeId: string): Promise<DOCXThemeStyles
       throw new Error('Platform resource service not available');
     }
 
-    // Helper to fetch JSON resource (use platform.resource.fetch for mobile compatibility)
+    // Helper to fetch JSON resource
+    // Each platform's ResourceService.fetch() handles platform-specific differences
     const fetchResource = async <T>(path: string): Promise<T> => {
-      // On mobile, use platform.resource.fetch which goes through Flutter bridge
-      // On Chrome, can use native fetch with chrome.runtime.getURL
-      if (platform.platform === 'mobile') {
-        const content = await platform.resource.fetch(path);
-        return JSON.parse(content) as T;
-      } else {
-        const url = platform.resource.getURL(path);
-        const response = await fetch(url);
-        return response.json() as Promise<T>;
-      }
+      const content = await platform.resource.fetch(path);
+      return JSON.parse(content) as T;
     };
 
     // Load table style

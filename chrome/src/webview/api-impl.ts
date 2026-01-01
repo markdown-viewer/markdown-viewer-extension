@@ -71,9 +71,9 @@ import type { ReadFileOptions } from '../../../src/types/platform';
 /**
  * Chrome Document Service Implementation
  * 
- * Chrome content script can directly fetch both network URLs and relative paths.
- * For relative paths, the browser resolves them based on the current page's file:// URL.
- * No need to send messages to background for file reading.
+ * Chrome content script must send file read requests to background script,
+ * because content script cannot directly fetch file:// URLs due to same-origin policy.
+ * Background script has permission to read local files.
  */
 export class ChromeDocumentService extends BaseDocumentService {
   constructor() {
@@ -92,46 +92,26 @@ export class ChromeDocumentService extends BaseDocumentService {
   }
 
   async readFile(absolutePath: string, options?: ReadFileOptions): Promise<string> {
-    // Convert to file:// URL if needed
-    const fileUrl = absolutePath.startsWith('file://') ? absolutePath : `file://${absolutePath}`;
+    // Send to background script for file reading
+    const response = await serviceChannel.send('READ_LOCAL_FILE', {
+      filePath: absolutePath.startsWith('file://') ? absolutePath : `file://${absolutePath}`,
+      binary: options?.binary ?? false,
+    }) as { content: string };
     
-    const response = await fetch(fileUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to read file: ${response.status} ${response.statusText}`);
-    }
-    
-    if (options?.binary) {
-      const arrayBuffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binaryString = '';
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binaryString += String.fromCharCode(bytes[i]);
-      }
-      return btoa(binaryString);
-    }
-    
-    return response.text();
+    return response.content;
   }
 
   async readRelativeFile(relativePath: string, options?: ReadFileOptions): Promise<string> {
-    // Chrome content script can directly fetch relative paths
-    // The browser resolves them based on current page URL
-    const response = await fetch(relativePath);
-    if (!response.ok) {
-      throw new Error(`Failed to read file: ${response.status} ${response.statusText}`);
-    }
+    // Resolve relative path to absolute file:// URL
+    const absoluteUrl = new URL(relativePath, this._baseUrl).href;
     
-    if (options?.binary) {
-      const arrayBuffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binaryString = '';
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binaryString += String.fromCharCode(bytes[i]);
-      }
-      return btoa(binaryString);
-    }
+    // Send to background script for file reading
+    const response = await serviceChannel.send('READ_LOCAL_FILE', {
+      filePath: absoluteUrl,
+      binary: options?.binary ?? false,
+    }) as { content: string };
     
-    return response.text();
+    return response.content;
   }
 
   async fetchRemote(url: string): Promise<Uint8Array> {

@@ -4,6 +4,7 @@
 
 import { translate, getUiLocale } from './i18n-helpers';
 import { storageGet, storageSet } from './storage-helper';
+import { isFirefoxPopup } from './platform-detect';
 
 /**
  * History item interface
@@ -126,12 +127,10 @@ export function createHistoryTabManager({ showMessage, showConfirm }: HistoryTab
       // Add click handler to open the document
       historyItemEl.addEventListener('click', async () => {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const isFirefox = typeof (globalThis as any).browser !== 'undefined' || navigator.userAgent.includes('Firefox');
           const isFileUrl = item.url.startsWith('file://');
           
           // Firefox cannot open file:// URLs from extension context due to security restrictions
-          if (isFirefox && isFileUrl) {
+          if (isFirefoxPopup() && isFileUrl) {
             // Copy URL to clipboard and show message
             await navigator.clipboard.writeText(item.url);
             showMessage(translate('file_url_copied') || 'URL copied. Paste in address bar to open.', 'info');
