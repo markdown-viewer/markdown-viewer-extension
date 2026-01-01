@@ -206,9 +206,10 @@ h1.clickable-title:hover {
   cursor: pointer;
   background: none;
   border: none;
+  border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
   font-size: var(--font-size-lg);
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal), color var(--transition-normal);
   font-weight: 500;
 }
 
@@ -219,7 +220,7 @@ h1.clickable-title:hover {
 
 .tab.active {
   background: var(--color-bg-surface);
-  border-bottom: 2px solid var(--color-primary);
+  border-bottom-color: var(--color-primary);
   color: var(--color-text-primary);
 }
 
@@ -231,16 +232,10 @@ h1.clickable-title:hover {
 
 .tab-panel {
   display: none;
-  animation: fadeIn 0.2s ease-out;
 }
 
 .tab-panel.active {
   display: block;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Info Section */
@@ -676,6 +671,11 @@ select:focus, input[type="number"]:focus {
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-content {
