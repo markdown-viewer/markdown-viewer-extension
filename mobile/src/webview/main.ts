@@ -212,13 +212,13 @@ function setupMessageHandlers(): void {
 async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
   const { content, filename, themeDataJson, scrollLine } = payload;
 
-  // Cancel any pending renderer requests from previous render
-  if (platform.renderer.cancelPending) {
-    platform.renderer.cancelPending();
-  }
-  
-  // Abort any pending async tasks from previous render
-  if (currentTaskManager) {
+  // Check if file changed
+  const newFilename = filename || 'document.md';
+  const fileChanged = currentFilename !== newFilename;
+
+  // Only abort on file switch - incremental updates let old tasks complete naturally
+  // (old tasks will find their placeholder gone and silently discard results)
+  if (fileChanged && currentTaskManager) {
     currentTaskManager.abort();
     currentTaskManager = null;
   }
@@ -229,7 +229,7 @@ async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
   }
 
   currentMarkdown = content;
-  currentFilename = filename || 'document.md';
+  currentFilename = newFilename;
 
   try {
     // If theme data is provided with content, set it first (avoids race condition)
@@ -253,8 +253,11 @@ async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
     // This ensures we use the correct theme even if it changes during async operations
     const renderThemeData = currentThemeData;
 
-    // Create task manager for async rendering and store reference for potential cancellation
-    const taskManager = new AsyncTaskManager((key: string, subs?: string | string[]) => Localization.translate(key, subs));
+    // Create task manager with onAbort callback to cancel pending renderer requests
+    const taskManager = new AsyncTaskManager(
+      (key: string, subs?: string | string[]) => Localization.translate(key, subs),
+      { onAbort: () => platform.renderer.cancelPending?.() }
+    );
     currentTaskManager = taskManager;
 
     const pluginRenderer = createPluginRenderer();

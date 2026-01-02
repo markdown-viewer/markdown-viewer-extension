@@ -279,6 +279,9 @@ export class RendererService {
    * Cleanup resources
    */
   async cleanup(): Promise<void> {
+    // Cancel pending requests first (clear the print queue before shutting down)
+    this.cancelPending();
+    
     if (this.host) {
       await this.host.cleanup?.();
       this.host = null;

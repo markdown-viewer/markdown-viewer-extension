@@ -269,15 +269,22 @@ export function processTablesForWordCompatibility(html: string): string {
 /**
  * Async task manager for plugin rendering
  */
+export interface AsyncTaskManagerOptions {
+  /** Callback triggered when abort() is called, for cleanup of downstream resources */
+  onAbort?: () => void;
+}
+
 export class AsyncTaskManager {
   private queue: AsyncTask[] = [];
   private idCounter = 0;
   private translate: TranslateFunction;
   private aborted = false;
   private context: TaskContext;
+  private onAbort?: () => void;
 
-  constructor(translate: TranslateFunction = (key) => key) {
+  constructor(translate: TranslateFunction = (key) => key, options?: AsyncTaskManagerOptions) {
     this.translate = translate;
+    this.onAbort = options?.onAbort;
     // Create a unique context object for this manager instance
     // Tasks will reference this context to check cancellation
     this.context = { cancelled: false };
@@ -292,6 +299,8 @@ export class AsyncTaskManager {
     // Mark current context as cancelled so running callbacks can check
     this.context.cancelled = true;
     this.queue = [];
+    // Trigger downstream cleanup (e.g., cancel pending renderer requests)
+    this.onAbort?.();
   }
 
   /**

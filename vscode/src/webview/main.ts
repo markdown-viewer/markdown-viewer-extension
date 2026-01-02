@@ -227,15 +227,16 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
     platform.document.setDocumentPath(filename, documentBaseUri);
   }
 
-  // Cancel any pending async tasks from previous render
-  if (currentTaskManager) {
+  // Check if file changed
+  const newFilename = filename || 'document.md';
+  const fileChanged = currentFilename !== newFilename;
+
+  // Only abort on file switch - incremental updates let old tasks complete naturally
+  // (old tasks will find their placeholder gone and silently discard results)
+  if (fileChanged && currentTaskManager) {
     currentTaskManager.abort();
     currentTaskManager = null;
   }
-
-  // Check if file changed - reset incremental update flag if different file
-  const newFilename = filename || 'document.md';
-  const fileChanged = currentFilename !== newFilename;
 
   // Wrap non-markdown file content (mermaid, vega, graphviz, infographic)
   const wrappedContent = wrapFileContent(content, newFilename);
@@ -262,9 +263,10 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
     // Capture theme data at render time (same pattern as Mobile)
     const renderThemeData = currentThemeData;
 
-    // Create task manager
-    const taskManager = new AsyncTaskManager((key: string, subs?: string | string[]) => 
-      Localization.translate(key, subs)
+    // Create task manager with onAbort callback to cancel pending renderer requests
+    const taskManager = new AsyncTaskManager(
+      (key: string, subs?: string | string[]) => Localization.translate(key, subs),
+      { onAbort: () => platform.renderer.cancelPending?.() }
     );
     currentTaskManager = taskManager;
 

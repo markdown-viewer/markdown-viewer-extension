@@ -337,7 +337,7 @@ export function createCacheTabManager({ showMessage, showConfirm }: CacheTabMana
     const manualStatusStepConsole = translate('cache_manual_status_step_console');
     const manualClearTitle = translate('cache_manual_clear_title');
     const manualClearIntro = translate('cache_manual_clear_intro');
-    const manualClearCode = 'window.extensionRenderer?.cacheManager?.clear()';
+    const manualClearCode = 'globalThis.platform?.cache?.clear()';
     const manualClearStep1 = translate('cache_manual_clear_step_1');
     const manualClearStep2 = translate('cache_manual_clear_step_2');
     const manualClearStep3Raw = translate('cache_manual_clear_step_3', [manualClearCode]);
