@@ -148,13 +148,28 @@ Document with 50 Mermaid diagrams:
 
 **10x faster than Word, 100x smaller files.**
 
-### Reading Enhancement
+### Live Editing Experience
 
-- **Three layouts:** Normal (1000px) / Full screen / Narrow (530px, preview Word effect)
-- **Flexible zoom:** 50%-400%, shortcuts `Ctrl/Cmd +` `-` `0`
-- **Smart TOC:** Auto-extract headings, sidebar navigation, `Ctrl/Cmd + B` to toggle
-- **Position memory:** Auto-save scroll position, continue reading next time
-- **History:** Track recently opened documents
+- **Real-time preview:** Instant sync as you type, no manual refresh needed
+- **Bi-directional scroll sync:** Editor scrolls → Preview follows; Preview scrolls → Editor follows
+- **Native file support:** Direct preview for `.mermaid`, `.vega`, `.gv`, `.dot`, `.infographic` files
+- **Deep VS Code integration:** Works with Remote Workspaces, WSL, GitHub Codespaces
+
+### Markdown Tools (VS Code Exclusive)
+
+Click the **Tools** button in editor title bar to access:
+
+**Heading Numbering:**
+- Auto-number headings (supports Chinese 第一章, Arabic 1.1, Roman I/II/III)
+- Remove all heading numbers with one click
+
+**Auto-Fix Formatting:**
+- Fix All Issues — one-click fix everything
+- Fix by category: Whitespace · Headings · Lists · Code · Links · Emphasis · Tables · Blockquotes · Proper Names
+
+**Diagnostics:**
+- Show all Markdown issues in Problems panel
+- Navigate to issues directly from diagnostics
 
 ---
 
@@ -174,10 +189,6 @@ Document with 50 Mermaid diagrams:
 1. Open a .md file in VS Code
 2. Click the preview button in top-right corner (or Ctrl+Shift+V / Cmd+Shift+V)
 3. ✅ Side-by-side preview with full formatting
-
-**Not needed if:**
-- Only viewing online docs (GitHub, blogs, etc.)
-- Using browser's "Open File" function
 
 ### Quick Start
 
@@ -224,7 +235,6 @@ English · 简体中文 · 繁體中文 · Русский · 日本語 · हि
 | **Privacy** | ✅ Local | ✅ Local | ❌ Cloud upload | ✅ Local | ✅ Local |
 | **Themes** | - | - | 3-5 | 5-10 | ✅ 18+ |
 | **Offline** | ✅ | ✅ | ❌ | ✅ | ✅ |
-| **GitHub Direct View** | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Price** | Free | Free | Paid plans | Paid plans | ✅ Free |
 
 **Core advantage: Faster, cheaper, safer, more powerful.**
@@ -285,7 +295,6 @@ A: Use ````vega-lite` code block in Markdown with JSON format chart specificatio
 - ✅ All processing done locally, never uploaded
 - ✅ No tracking, no personal data collection
 - ✅ Open source code, auditable and transparent
-- ✅ Chrome Web Store security approved (Manifest V3)
 
 **Your privacy is 100% protected.**
 
@@ -324,6 +333,4 @@ This project is open source under ISC license. Welcome to Star, report issues, s
 **Stop wasting time on formatting**
 
 **Focus on writing, let Markdown Viewer handle everything else**
-
-🚀 **Install Now:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 
