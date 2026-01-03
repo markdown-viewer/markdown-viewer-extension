@@ -6,9 +6,9 @@
 
 ### 🚀 Install Now
 
-- **Chrome / Chromium:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
-- **Firefox:** https://addons.mozilla.org/firefox/addon/markdown-viewer-extension/
-- **VS Code:** https://marketplace.visualstudio.com/items?itemName=xicilion.markdown-viewer-extension
+- **Chrome / Chromium:** [https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi](https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi)
+- **Firefox:** [https://addons.mozilla.org/firefox/addon/markdown-viewer-extension/](https://addons.mozilla.org/firefox/addon/markdown-viewer-extension/)
+- **VS Code:** [https://marketplace.visualstudio.com/items?itemName=xicilion.markdown-viewer-extension](https://marketplace.visualstudio.com/items?itemName=xicilion.markdown-viewer-extension)
 
 ---
 
