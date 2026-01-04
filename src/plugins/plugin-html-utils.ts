@@ -58,12 +58,19 @@ export function convertPluginResultToHTML(
  * @param result - Render result with base64, width, height, format
  * @param pluginType - Plugin type
  * @param isInline - Whether to render inline or block
+ * @param expectedSourceHash - Source hash to validate against placeholder (prevents race conditions)
  */
-export function replacePlaceholderWithImage(id: string, result: PluginRenderResult, pluginType: string, isInline: boolean): void {
+export function replacePlaceholderWithImage(id: string, result: PluginRenderResult, pluginType: string, isInline: boolean, expectedSourceHash: string): void {
   const placeholder = document.getElementById(id);
   if (placeholder) {
     // Preserve source hash from placeholder for DOM diff matching
     const sourceHash = (placeholder as HTMLElement).dataset?.sourceHash;
+    
+    // Validate source hash match to prevent concurrent rendering race conditions
+    if (sourceHash && expectedSourceHash !== sourceHash) {
+      console.debug('[replacePlaceholder] Source hash mismatch, skipping update:', { id, expected: expectedSourceHash, actual: sourceHash });
+      return;
+    }
     
     // Convert result to unified format (always PNG)
     const content: UnifiedRenderResult['content'] = { 

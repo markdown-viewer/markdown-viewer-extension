@@ -112,13 +112,13 @@ export function createRemarkPlugin(
 
           const result = asyncTask(
             async (data: TaskData) => {
-              const { id, code } = data;
+              const { id, code, sourceHash } = data;
               try {
                 const renderResult = await renderer.render(plugin.type, code || '');
                 
                 // If renderer returns null (e.g., empty content), skip rendering
                 if (renderResult) {
-                  replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline());
+                  replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline(), sourceHash as string);
                 } else {
                   // Remove placeholder element if content is empty
                   const placeholder = document.getElementById(id);

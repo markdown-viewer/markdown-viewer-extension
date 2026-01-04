@@ -123,7 +123,7 @@ export function registerRemarkPlugins(
 
             const result = asyncTask(
               async (data: TaskData) => {
-                const { id, code } = data;
+                const { id, code, sourceHash } = data;
                 
                 // Check if placeholder exists BEFORE rendering
                 const placeholderBefore = document.getElementById(id);
@@ -136,7 +136,7 @@ export function registerRemarkPlugins(
                   const renderResult = await renderer.render(plugin.type, code || '');
                   
                   if (renderResult) {
-                    replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline());
+                    replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline(), sourceHash as string);
                     // Sync rendered content back to in-memory cache
                     // This ensures block moves don't lose rendered diagrams
                     syncBlockHtmlFromDOM(id);

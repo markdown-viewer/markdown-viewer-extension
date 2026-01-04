@@ -20,6 +20,7 @@ export type TaskStatus = 'ready' | 'fetching' | 'error' | 'completed';
 export interface TaskData {
   id: string;
   code?: string;
+  sourceHash: string;
   [key: string]: unknown;
 }
 

@@ -361,7 +361,7 @@ export class AsyncTaskManager {
     const task: AsyncTask = {
       id: placeholderId,
       callback: async (taskData: TaskData) => callback(taskData, taskContext),
-      data: { ...data, id: placeholderId },
+      data: { ...data, id: placeholderId, sourceHash },
       type,
       status: initialStatus,
       error: null,
