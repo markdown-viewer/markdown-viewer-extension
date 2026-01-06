@@ -1,7 +1,7 @@
 {
   "name": "markdown-viewer-extension",
   "displayName": "Markdown Viewer Extension",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Markdown to perfect Word in one click — Mermaid, Graphviz, Vega, Infographic, LaTeX (editable), code highlighting, local processing",
   "type": "module",
   "scripts": {
