@@ -202,6 +202,18 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     document.body.classList.add('toc-hidden');
   }
 
+  // Remove the preload style that hides the page content
+  // This should be done after the toolbar is generated but before rendering
+  const preloadStyle = document.getElementById('markdown-viewer-preload');
+  if (preloadStyle) {
+    preloadStyle.remove();
+  }
+
+  // Make body visible with a smooth fade-in
+  document.body.style.opacity = '1';
+  document.body.style.overflow = '';
+  document.body.style.transition = 'opacity 0.15s ease-in';
+
   // Initialize scroll sync controller immediately after DOM is ready
   initScrollSyncController();
 

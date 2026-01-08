@@ -97,9 +97,34 @@ function isProcessableContent(): boolean {
 }
 
 /**
+ * Hide the page content immediately to prevent flash of unstyled content
+ */
+function hidePageContent(): void {
+  // Add inline style to hide content immediately
+  // This prevents the flash of plain text before the extension renders
+  const style = document.createElement('style');
+  style.id = 'markdown-viewer-preload';
+  style.textContent = `
+    body {
+      opacity: 0 !important;
+      overflow: hidden !important;
+    }
+  `;
+  // Insert at the beginning of head (or create head if it doesn't exist)
+  if (!document.head) {
+    const head = document.createElement('head');
+    document.documentElement.insertBefore(head, document.body);
+  }
+  document.head.insertBefore(style, document.head.firstChild);
+}
+
+/**
  * Inject the main content script
  */
 function injectContentScript(): void {
+  // Hide content immediately before injection to prevent flashing
+  hidePageContent();
+
   const url = document.location.href;
   const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
