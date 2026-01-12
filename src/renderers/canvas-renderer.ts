@@ -366,23 +366,37 @@ export class JsonCanvasRenderer extends BaseRenderer {
     const dx = Math.abs(end.x - start.x);
     const dy = Math.abs(end.y - start.y);
     const dist = Math.max(dx, dy);
-    // Control distance should be at least 80px, and scale with distance
-    // This ensures the curve leaves/enters nodes perpendicular to the edge
-    const controlDist = Math.max(80, dist * 0.5);
-    
-    // Control points extend from start/end in the direction of their sides
-    const cp1x = start.x + fromDir.x * controlDist;
-    const cp1y = start.y + fromDir.y * controlDist;
-    const cp2x = end.x + toDir.x * controlDist;
-    const cp2y = end.y + toDir.y * controlDist;
+    // Calculate straight line distance between start and end points
+    const straightDist = Math.sqrt(dx * dx + dy * dy);
     
     let svg = '';
     
-    // Draw the path (markers are defined in <defs>)
-    const markerEnd = (edge.toEnd === 'arrow' || edge.toEnd === undefined) ? `marker-end="url(#${markerId})"` : '';
-    const markerStart = edge.fromEnd === 'arrow' ? `marker-start="url(#${markerId}-start)"` : '';
-    
-    svg += `<path d="M${start.x},${start.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${end.x},${end.y}" fill="none" stroke="${color}" stroke-width="2" ${markerEnd} ${markerStart}/>`;
+    // When nodes are very close (less than 80px straight line distance), only draw a straight line with arrow
+    const minDistanceForCurve = 15;
+    if (straightDist < minDistanceForCurve) {
+      const markerEnd = (edge.toEnd === 'arrow' || edge.toEnd === undefined) ? `marker-end="url(#${markerId})"` : '';
+      const markerStart = edge.fromEnd === 'arrow' ? `marker-start="url(#${markerId}-start)"` : '';
+      
+      // Draw a straight line between the two points
+      svg += `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${color}" stroke-width="2" ${markerEnd} ${markerStart}/>`;
+    } else {
+      // For distant nodes, draw the curved path
+      // Control distance should be at least 80px, and scale with distance
+      // This ensures the curve leaves/enters nodes perpendicular to the edge
+      const controlDist = Math.max(80, dist * 0.5);
+      
+      // Control points extend from start/end in the direction of their sides
+      const cp1x = start.x + fromDir.x * controlDist;
+      const cp1y = start.y + fromDir.y * controlDist;
+      const cp2x = end.x + toDir.x * controlDist;
+      const cp2y = end.y + toDir.y * controlDist;
+      
+      // Draw the path (markers are defined in <defs>)
+      const markerEnd = (edge.toEnd === 'arrow' || edge.toEnd === undefined) ? `marker-end="url(#${markerId})"` : '';
+      const markerStart = edge.fromEnd === 'arrow' ? `marker-start="url(#${markerId}-start)"` : '';
+      
+      svg += `<path d="M${start.x},${start.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${end.x},${end.y}" fill="none" stroke="${color}" stroke-width="2" ${markerEnd} ${markerStart}/>`;
+    }
     
     // Edge label
     if (edge.label) {
