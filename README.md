@@ -338,6 +338,12 @@ A: Use ````vega-lite` code block in Markdown with JSON format chart specificatio
 
 ---
 
+## 🌱 Community Projects
+
+- 🖥️ [md2x](https://github.com/LarchLiu/md2x) - Node.js CLI tool for batch conversion and automation
+
+---
+
 ## 📜 Open Source License
 
 This project is open source under ISC license. Welcome to Star, report issues, suggest features, and contribute code.
