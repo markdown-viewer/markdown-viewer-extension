@@ -368,9 +368,14 @@ export class VSCodePlatformAPI {
               const dataUrl = `data:${contentType};base64,${content}`;
               return { dataUrl };
             } catch (error) {
-              console.warn(`[VSCodePlatformAPI] Failed to fetch remote URL: ${url}`, error);
               return { dataUrl: null };
             }
+          }
+          
+          // Handle resource fetch requests (e.g., DrawIO stencils)
+          if (type === 'FETCH_RESOURCE') {
+            const { path } = payload as { path: string };
+            return this.resource.fetch(path);
           }
           
           throw new Error(`Unknown service request type: ${type}`);

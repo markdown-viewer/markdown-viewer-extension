@@ -299,10 +299,21 @@ class MobilePlatformAPI {
     this.document = mobileDocumentService; // Unified document service
     
     // Unified renderer service with IframeRenderHost
+    const resourceService = this.resource;
     this.renderer = new RendererService({
       createHost: () => new IframeRenderHost({
         iframeUrl: './iframe-render.html',
         source: 'mobile-parent',
+        // Service request handler for proxying render worker requests
+        serviceRequestHandler: async (type, payload) => {
+          // Handle resource fetch requests (e.g., DrawIO stencils)
+          if (type === 'FETCH_RESOURCE') {
+            const { path } = payload as { path: string };
+            return resourceService.fetch(path);
+          }
+          
+          throw new Error(`Unknown service request type: ${type}`);
+        },
       }),
       cache: this.cache,
     });

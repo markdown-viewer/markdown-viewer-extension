@@ -22,6 +22,20 @@ declare const browser: typeof chrome & {
   };
 };
 
+import { DirectResourceService } from '../../../src/services';
+
+// ============================================================================
+// Platform API for Background Render Worker
+// ============================================================================
+
+// Set up minimal platform API for services that need resource.fetch
+// (e.g., StencilsService for DrawIO stencils)
+globalThis.platform = {
+  resource: new DirectResourceService((path) => browser.runtime.getURL(path))
+} as unknown as typeof globalThis.platform;
+
+// ============================================================================
+
 import CacheStorage from '../../../src/utils/cache-storage';
 import { toSimpleCacheStats } from '../../../src/utils/cache-stats';
 import { bootstrapRenderWorker } from '../../../src/renderers/worker/worker-bootstrap';

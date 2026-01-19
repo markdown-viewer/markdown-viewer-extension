@@ -16,10 +16,24 @@ import { WindowPostMessageTransport } from '../../../src/messaging/transports/wi
 import { bootstrapRenderWorker } from '../../../src/renderers/worker/worker-bootstrap';
 import { DirectFetchService, ProxyFetchService, type FetchService } from '../../../src/renderers/worker/services';
 import { MessageTypes } from '../../../src/renderers/render-worker-core';
+import { ProxyResourceService } from '../../../src/services';
 
 type ReadyAckMessage = {
   type?: string;
 };
+
+// ============================================================================
+// Platform API for Iframe Render Worker
+// ============================================================================
+
+// Set up minimal platform API for services that need resource.fetch
+// (e.g., StencilsService for DrawIO stencils)
+// Uses ProxyResourceService to fetch resources via parent window
+globalThis.platform = {
+  resource: new ProxyResourceService(window.parent)
+} as unknown as typeof globalThis.platform;
+
+// ============================================================================
 
 /**
  * Detect if running in VSCode srcdoc iframe

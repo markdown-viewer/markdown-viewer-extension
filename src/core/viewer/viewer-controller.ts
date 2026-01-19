@@ -120,7 +120,7 @@ export function syncBlockHtmlFromDOM(placeholderId: string): void {
   // The element might be inside a block container with data-block-id
   const allBlocks = document.querySelectorAll<HTMLElement>('[data-block-id]');
   
-  for (const blockEl of allBlocks) {
+  for (const blockEl of Array.from(allBlocks)) {
     const blockId = blockEl.getAttribute('data-block-id');
     if (!blockId) continue;
     

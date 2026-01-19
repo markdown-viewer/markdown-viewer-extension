@@ -197,6 +197,8 @@ export class IframeRenderHost implements RenderHost {
 
   /**
    * Set up message handler for service requests from render worker
+  /**
+   * Setup handler for service requests from iframe (e.g., FETCH_RESOURCE)
    */
   private setupServiceMessageHandler(targetWindow: Window): void {
     this.serviceMessageHandler = async (event: MessageEvent) => {
@@ -224,7 +226,6 @@ export class IframeRenderHost implements RenderHost {
           data: result,
         }, '*');
       } catch (error) {
-        
         targetWindow.postMessage({
           __serviceResponse: true,
           id: data.id,

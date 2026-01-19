@@ -5,9 +5,22 @@ import type { RendererThemeConfig } from '../../../src/types/index';
 
 import { bootstrapRenderWorker } from '../../../src/renderers/worker/worker-bootstrap';
 import { DirectFetchService } from '../../../src/renderers/worker/services';
+import { DirectResourceService } from '../../../src/services';
 
 import { RenderChannel } from '../../../src/messaging/channels/render-channel';
 import { ChromeRuntimeTransport } from '../transports/chrome-runtime-transport';
+
+// ============================================================================
+// Platform API for Offscreen Worker
+// ============================================================================
+
+// Set up minimal platform API for services that need resource.fetch
+// (e.g., StencilsService for DrawIO stencils)
+globalThis.platform = {
+  resource: new DirectResourceService((path) => chrome.runtime.getURL(path))
+} as unknown as typeof globalThis.platform;
+
+// ============================================================================
 
 function createRequestId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;

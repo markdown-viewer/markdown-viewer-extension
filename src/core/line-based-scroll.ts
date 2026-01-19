@@ -42,7 +42,7 @@ export function getBlockAtScrollPosition(options: ScrollOptions): { blockId: str
   // Find the block containing current scroll position
   let targetBlock: HTMLElement | null = null;
   
-  for (const block of blocks) {
+  for (const block of Array.from(blocks)) {
     const rect = block.getBoundingClientRect();
     const blockTop = rect.top + scrollTop;
     
