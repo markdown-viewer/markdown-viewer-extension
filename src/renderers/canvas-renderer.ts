@@ -35,6 +35,7 @@ const ARROW_HEIGHT = 6;
 const FONT_SIZE = 14;
 const LABEL_FONT_SIZE = 12;
 const LINE_HEIGHT = 1.4;
+const MIN_DISTANCE_FOR_CURVE = 30;
 
 interface CanvasBounds {
   minX: number;
@@ -53,6 +54,72 @@ export class JsonCanvasRenderer extends BaseRenderer {
     bowing: 0.5,
   };
 
+  private cubicAt(p0: number, p1: number, p2: number, p3: number, t: number): number {
+    const mt = 1 - t;
+    return (mt * mt * mt) * p0
+      + 3 * (mt * mt) * t * p1
+      + 3 * mt * (t * t) * p2
+      + (t * t * t) * p3;
+  }
+
+  private cubicExtremaTs(p0: number, p1: number, p2: number, p3: number): number[] {
+    // Solve derivative: a t^2 + b t + c = 0 for t in (0,1).
+    // For cubic bezier, derivative coefficients are:
+    // a = -p0 + 3p1 - 3p2 + p3
+    // b = 2(p0 - 2p1 + p2)
+    // c = p1 - p0
+    const a = -p0 + 3 * p1 - 3 * p2 + p3;
+    const b = 2 * (p0 - 2 * p1 + p2);
+    const c = p1 - p0;
+
+    const eps = 1e-9;
+    const out: number[] = [];
+
+    if (Math.abs(a) < eps) {
+      if (Math.abs(b) < eps) return out;
+      const t = -c / b;
+      if (t > 0 && t < 1) out.push(t);
+      return out;
+    }
+
+    const d = b * b - 4 * a * c;
+    if (d < 0) return out;
+
+    const sd = Math.sqrt(d);
+    const t1 = (-b + sd) / (2 * a);
+    const t2 = (-b - sd) / (2 * a);
+    if (t1 > 0 && t1 < 1) out.push(t1);
+    if (t2 > 0 && t2 < 1) out.push(t2);
+    return out;
+  }
+
+  private cubicBezierBounds(
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number }
+  ): { minX: number; minY: number; maxX: number; maxY: number } {
+    const ts = new Set<number>([0, 1]);
+    for (const t of this.cubicExtremaTs(p0.x, p1.x, p2.x, p3.x)) ts.add(t);
+    for (const t of this.cubicExtremaTs(p0.y, p1.y, p2.y, p3.y)) ts.add(t);
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const t of ts) {
+      const x = this.cubicAt(p0.x, p1.x, p2.x, p3.x, t);
+      const y = this.cubicAt(p0.y, p1.y, p2.y, p3.y, t);
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+
+    return { minX, minY, maxX, maxY };
+  }
+
   constructor() {
     super('canvas');
   }
@@ -67,17 +134,68 @@ export class JsonCanvasRenderer extends BaseRenderer {
   /**
    * Calculate canvas bounds from nodes
    */
-  private calculateBounds(nodes: Array<{ x: number; y: number; width: number; height: number }>): CanvasBounds {
+  private calculateBounds(
+    nodes: Array<{ x: number; y: number; width: number; height: number }>,
+    edges?: any[],
+    nodeMap?: Map<string, any>
+  ): CanvasBounds {
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
 
+    const extend = (x: number, y: number) => {
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    };
+
     for (const node of nodes) {
-      minX = Math.min(minX, node.x);
-      minY = Math.min(minY, node.y);
-      maxX = Math.max(maxX, node.x + node.width);
-      maxY = Math.max(maxY, node.y + node.height);
+      extend(node.x, node.y);
+      extend(node.x + node.width, node.y + node.height);
+    }
+
+    // Include edges in the bounds. Curved edges can extend outside the node bounding box
+    // due to bezier control points (e.g. right->right long edges), which would otherwise be clipped.
+    if (edges?.length && nodeMap) {
+      for (const edge of edges) {
+        const fromNode = nodeMap.get(edge.fromNode);
+        const toNode = nodeMap.get(edge.toNode);
+        if (!fromNode || !toNode) continue;
+
+        const start = this.getConnectionPoint(fromNode, edge.fromSide, 0, 0);
+        const end = this.getConnectionPoint(toNode, edge.toSide, 0, 0);
+        extend(start.x, start.y);
+        extend(end.x, end.y);
+
+        const dx = Math.abs(end.x - start.x);
+        const dy = Math.abs(end.y - start.y);
+        const straightDist = Math.sqrt(dx * dx + dy * dy);
+
+        if (straightDist >= MIN_DISTANCE_FOR_CURVE) {
+          const fromDir = this.getSideDirection(edge.fromSide);
+          const toDir = this.getSideDirection(edge.toSide);
+
+          const fromControlDist = this.getControlDistanceForDirection(fromDir, dx, dy);
+          const toControlDist = this.getControlDistanceForDirection(toDir, dx, dy);
+
+          const cp1 = { x: start.x + fromDir.x * fromControlDist, y: start.y + fromDir.y * fromControlDist };
+          const cp2 = { x: end.x + toDir.x * toControlDist, y: end.y + toDir.y * toControlDist };
+
+          // Using control points directly tends to overshoot the real curve bounds.
+          // Compute a tighter bounding box from the bezier extrema to reduce empty margins.
+          const bb = this.cubicBezierBounds(start, cp1, cp2, end);
+          extend(bb.minX, bb.minY);
+          extend(bb.maxX, bb.maxY);
+        }
+
+        if (edge.label) {
+          const midX = (start.x + end.x) / 2;
+          const midY = (start.y + end.y) / 2 - 8;
+          extend(midX, midY);
+        }
+      }
     }
 
     // Handle empty canvas
@@ -347,6 +465,12 @@ export class JsonCanvasRenderer extends BaseRenderer {
     }
   }
 
+  private getControlDistanceForDirection(dir: { x: number; y: number }, dx: number, dy: number): number {
+    // Use axis-specific distance so a large vertical separation doesn't overly "push" a horizontal curve (and vice versa).
+    const axisDist = Math.abs(dir.x) > 0 ? dx : dy;
+    return Math.max(80, axisDist * 0.5);
+  }
+
   /**
    * Generate SVG for an edge
    */
@@ -386,9 +510,7 @@ export class JsonCanvasRenderer extends BaseRenderer {
     // When controlDist=80 (minimum) but gap<27, the curve's control points extend beyond
     // the gap, causing S-shaped curves that penetrate nodes.
     // Threshold: 30px for all cases (slightly above observed 27px critical point)
-    const minDistanceForCurve = 30;
-    
-    if (straightDist < minDistanceForCurve) {
+    if (straightDist < MIN_DISTANCE_FOR_CURVE) {
       // Calculate arrow scale based on available space
       // For single arrow: arrow can use up to 60% of distance
       // For bidirectional: each arrow gets 40% of distance (total 80%, leaving 20% gap for line)
@@ -428,15 +550,16 @@ export class JsonCanvasRenderer extends BaseRenderer {
       svg += `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${color}" stroke-width="2" ${markerEnd} ${markerStart}/>`;
     } else {
       // For distant nodes, draw the curved path
-      // Control distance should be at least 80px, and scale with distance
-      // This ensures the curve leaves/enters nodes perpendicular to the edge
-      let controlDist = Math.max(80, dist * 0.5);
+      // Control distance should be at least 80px, and scale with distance.
+      // Use axis-specific distance to avoid excessive bulges on long diagonal links.
+      const fromControlDist = this.getControlDistanceForDirection(fromDir, dx, dy);
+      const toControlDist = this.getControlDistanceForDirection(toDir, dx, dy);
       
       // Control points extend from start/end in the direction of their sides
-      const cp1x = start.x + fromDir.x * controlDist;
-      const cp1y = start.y + fromDir.y * controlDist;
-      const cp2x = end.x + toDir.x * controlDist;
-      const cp2y = end.y + toDir.y * controlDist;
+      const cp1x = start.x + fromDir.x * fromControlDist;
+      const cp1y = start.y + fromDir.y * fromControlDist;
+      const cp2x = end.x + toDir.x * toControlDist;
+      const cp2y = end.y + toDir.y * toControlDist;
       
       // Draw the path (markers are defined in <defs>)
       const markerEnd = (edge.toEnd === 'arrow' || edge.toEnd === undefined) ? `marker-end="url(#${markerId})"` : '';
@@ -461,15 +584,15 @@ export class JsonCanvasRenderer extends BaseRenderer {
   private generateSvg(canvas: any, fontFamily: string): string {
     const nodes = canvas.getNodes();
     const edges = canvas.getEdges();
-    
-    // Calculate bounds
-    const bounds = this.calculateBounds(nodes);
-    
+
     // Build node map for edge rendering
     const nodeMap = new Map<string, any>();
     for (const node of nodes) {
       nodeMap.set(node.id, node);
     }
+
+    // Calculate bounds (include edges so long bezier curves are not clipped)
+    const bounds = this.calculateBounds(nodes, edges, nodeMap);
     
     // Sort nodes: groups first (as background), then other nodes
     const sortedNodes = [...nodes].sort((a, b) => {

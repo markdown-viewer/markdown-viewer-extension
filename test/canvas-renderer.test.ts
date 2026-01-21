@@ -334,6 +334,26 @@ describe('JsonCanvasRenderer', () => {
       assert.ok(svg.includes('height="240"'), 'Should have correct height');
     });
 
+    it('should include bezier control points in bounds to avoid clipping', () => {
+      // A right->right long edge has control points extending beyond node bounds.
+      // If bounds are computed from nodes only, the curve gets clipped on the right side.
+      const svg = generateSvg({
+        nodes: [
+          { id: 'kickoff', type: 'text', text: 'Start', x: 0, y: 0, width: 100, height: 60 },
+          { id: 'operate', type: 'text', text: 'End', x: 390, y: 630, width: 100, height: 60 }
+        ],
+        edges: [
+          { id: 'e1', fromNode: 'operate', fromSide: 'right', toNode: 'kickoff', toSide: 'right' }
+        ]
+      });
+
+      const match = svg.match(/width="(\d+)"/);
+      assert.ok(match, 'Should have width attribute');
+      const width = parseInt(match![1], 10);
+      // Node-only width would be 490 + padding*2 = 570. The curve should increase bounds beyond that.
+      assert.ok(width > 620, `Expected SVG width to include curve (avoid clipping), got width=${width}`);
+    });
+
     it('should handle negative coordinates', () => {
       const svg = generateSvg({
         nodes: [
