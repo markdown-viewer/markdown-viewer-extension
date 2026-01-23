@@ -65,10 +65,39 @@ function processFont(font) {
   const downloadPath = path.join(FONTS_DIR, font.downloadFilename);
   
   // Check if woff2 already exists
+  // If woff2 already exists, accept it
   if (fs.existsSync(woff2Path)) {
     const stats = fs.statSync(woff2Path);
     if (stats.size > 1000) {
       console.log(`  ✓ ${font.name} already exists (${(stats.size / 1024).toFixed(1)} KB)`);
+      return true;
+    }
+  }
+
+  // If only TTF exists (from previous run or manual copy), accept it and convert if possible
+  if (fs.existsSync(ttfPath)) {
+    const ttfStats = fs.statSync(ttfPath);
+    if (ttfStats.size > 1000) {
+      // Attempt conversion if woff2_compress is available and woff2 missing
+      if (!fs.existsSync(woff2Path) && checkWoff2Compress()) {
+        try {
+          console.log(`  ⇄ Converting existing TTF to woff2 for ${font.name}...`);
+          execSync(`woff2_compress "${ttfPath}"`, { cwd: FONTS_DIR, stdio: 'inherit' });
+          if (fs.existsSync(woff2Path)) {
+            const woff2Stats = fs.statSync(woff2Path);
+            console.log(`    ✓ Converted to woff2 (${(woff2Stats.size / 1024).toFixed(1)} KB)`);
+            // remove ttf after conversion
+            fs.unlinkSync(ttfPath);
+            return true;
+          }
+        } catch (err) {
+          // Conversion failed, but TTF is present — accept TTF
+          console.log(`    ⚠ woff2 conversion failed, keeping TTF for ${font.name}`);
+          return true;
+        }
+      }
+
+      console.log(`  ✓ ${font.name} TTF already exists (${(ttfStats.size / 1024).toFixed(1)} KB)`);
       return true;
     }
   }
