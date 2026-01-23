@@ -254,4 +254,7 @@ export interface PlatformAPI {
   
   /** Unified document service for file operations (Phase 1) */
   document?: DocumentService;
+  
+  /** Unified settings service (required for all setting operations) */
+  settings: import('./settings').ISettingsService;
 }

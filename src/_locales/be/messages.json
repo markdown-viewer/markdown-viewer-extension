@@ -515,6 +515,14 @@
     "message": "Падтрымліваемыя фарматы",
     "description": "Heading for supported formats section"
   },
+  "settings_table_merge_empty": {
+    "message": "Аўтааб'яднанне пустых вочак табліцы",
+    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
+  },
+  "settings_table_merge_empty_note": {
+    "message": "Калі ўключана, пустыя вочкі будуць аб'яднаны з вочкай над імі ў папярэднім праглядзе і экспарце DOCX.",
+    "description": "Helper note for the table merge option"
+  },
   "settings_theme_changed": {
     "message": "Тэма паспяхова зменена. Калі ласка, абнавіце старонку, каб убачыць змены.",
     "description": "Message shown when theme is changed"

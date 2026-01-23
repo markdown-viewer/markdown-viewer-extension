@@ -515,6 +515,14 @@
     "message": "Toetatud vormingud",
     "description": "Heading for supported formats section"
   },
+  "settings_table_merge_empty": {
+    "message": "Ühenda tühjad tabelilahtrid automaatselt",
+    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
+  },
+  "settings_table_merge_empty_note": {
+    "message": "Kui see on lubatud, ühendatakse tühjad lahtrid eelvaates ja DOCX-i eksportimisel nende kohal oleva lahtriga.",
+    "description": "Helper note for the table merge option"
+  },
   "settings_theme_changed": {
     "message": "Teema edukalt muudetud. Muudatuste nägemiseks laadige leht uuesti.",
     "description": "Message shown when theme is changed"

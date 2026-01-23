@@ -244,8 +244,16 @@ class ThemeManager {
     if (!platform) {
       return 'default';
     }
-    const result = await platform.storage.get(['selectedTheme']);
-    return (result.selectedTheme as string) || 'default';
+    try {
+      // Prefer settings service
+      if (platform.settings) {
+        const theme = await platform.settings.get('themeId');
+        return theme || 'default';
+      }
+    } catch {
+      // fallthrough to default
+    }
+    return 'default';
   }
 
   /**
@@ -257,7 +265,14 @@ class ThemeManager {
     if (!platform) {
       return;
     }
-    await platform.storage.set({ selectedTheme: themeId });
+    try {
+      if (platform.settings) {
+        await platform.settings.set('themeId', themeId, { refresh: false });
+        return;
+      }
+    } catch (e) {
+      // ignore and fallthrough
+    }
   }
 
   /**

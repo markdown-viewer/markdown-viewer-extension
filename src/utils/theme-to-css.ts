@@ -396,7 +396,8 @@ function generateTableCSS(tableStyle: TableStyleConfig, colorScheme: ColorScheme
     if (border.lastRowBottom) {
       const width = calculateCssBorderWidth(border.lastRowBottom.width, border.lastRowBottom.style);
       const style = convertBorderStyle(border.lastRowBottom.style);
-      css.push(`#markdown-content table tr:last-child td {
+      css.push(`#markdown-content table tr:last-child td,
+#markdown-content table td.merged-to-last {
   border-bottom: ${width} ${style} ${borderColor};
 }`);
     }

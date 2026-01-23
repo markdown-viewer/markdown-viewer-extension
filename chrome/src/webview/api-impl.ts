@@ -12,7 +12,9 @@ import {
   StorageService,
   FileService,
   FileStateService,
-  RendererService
+  RendererService,
+  SettingsService,
+  createSettingsService,
 } from '../../../src/services';
 
 import type { LocaleMessages } from '../../../src/services';
@@ -62,6 +64,9 @@ const cacheService = new CacheService(serviceChannel);
 const storageService = new StorageService(serviceChannel);
 const fileService = new FileService(serviceChannel);
 const fileStateService = new FileStateService(serviceChannel);
+
+// Settings service - will be initialized with refresh callback in ChromePlatformAPI
+let settingsService: SettingsService;
 
 // ============================================================================
 // Chrome Document Service
@@ -234,26 +239,28 @@ export class ChromeMessageService {
 // ============================================================================
 
 export class ChromeI18nService extends BaseI18nService {
-  private storageService: StorageService;
+  private settingsService: SettingsService;
   private resourceService: ChromeResourceService;
 
-  constructor(storageService: StorageService, resourceService: ChromeResourceService) {
+  constructor(settingsService: SettingsService, resourceService: ChromeResourceService) {
     super();
-    this.storageService = storageService;
+    this.settingsService = settingsService;
     this.resourceService = resourceService;
   }
 
   async init(): Promise<void> {
     try {
       await this.ensureFallbackMessages();
-      const result = await this.storageService.get(['markdownViewerSettings']);
-      const settings = (result.markdownViewerSettings || {}) as Record<string, unknown>;
-      const preferredLocale = (settings.preferredLocale as string) || DEFAULT_SETTING_LOCALE;
-      
-      if (preferredLocale !== DEFAULT_SETTING_LOCALE) {
-        await this.loadLocale(preferredLocale);
+      try {
+        const preferredLocale = await this.settingsService.get('preferredLocale');
+        const locale = preferredLocale || DEFAULT_SETTING_LOCALE;
+        if (locale !== DEFAULT_SETTING_LOCALE) {
+          await this.loadLocale(locale);
+        }
+        this.locale = locale;
+      } catch (e) {
+        this.locale = DEFAULT_SETTING_LOCALE;
       }
-      this.locale = preferredLocale;
     } catch (error) {
       console.warn('[I18n] init failed:', error);
     } finally {
@@ -330,6 +337,7 @@ export class ChromePlatformAPI {
   public readonly renderer: RendererService;
   public readonly i18n: ChromeI18nService;
   public readonly document: ChromeDocumentService;
+  public readonly settings: SettingsService;
 
   constructor() {
     // Initialize services
@@ -341,6 +349,10 @@ export class ChromePlatformAPI {
     this.cache = cacheService; // Use unified cache service
     this.document = documentService; // Unified document service
     
+    // Settings service - refresh callback will be set by viewer-main after render function is ready
+    this.settings = createSettingsService(this.storage);
+    settingsService = this.settings;
+    
     // Unified renderer service with OffscreenRenderHost
     // Chrome offscreen document handles serialization internally, so no request queue needed
     this.renderer = new RendererService({
@@ -348,7 +360,7 @@ export class ChromePlatformAPI {
       cache: this.cache,
     });
     
-    this.i18n = new ChromeI18nService(this.storage, this.resource);
+    this.i18n = new ChromeI18nService(this.settings, this.resource);
   }
 
   async init(): Promise<void> {

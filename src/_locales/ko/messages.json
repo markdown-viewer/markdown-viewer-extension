@@ -515,6 +515,14 @@
     "message": "지원 형식",
     "description": "Title for supported file formats section in settings"
   },
+  "settings_table_merge_empty": {
+    "message": "빈 테이블 셀 자동 병합",
+    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
+  },
+  "settings_table_merge_empty_note": {
+    "message": "활성화되면 빈 셀이 미리보기 및 DOCX 내보내기에서 위의 셀과 병합됩니다.",
+    "description": "Helper note for the table merge option"
+  },
   "settings_theme_changed": {
     "message": "테마가 성공적으로 변경되었습니다. 변경 사항을 보려면 페이지를 새로 고침하세요.",
     "description": "테마 변경 시 표시되는 메시지"

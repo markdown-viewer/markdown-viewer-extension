@@ -515,6 +515,14 @@
     "message": "Understøttede formater",
     "description": "Title for supported file formats section in settings"
   },
+  "settings_table_merge_empty": {
+    "message": "Automatisk sammenfletning af tomme tabelceller",
+    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
+  },
+  "settings_table_merge_empty_note": {
+    "message": "Når aktiveret, vil tomme celler blive flettet med cellen over dem i forhåndsvisning og DOCX-eksport.",
+    "description": "Helper note for the table merge option"
+  },
   "settings_theme_changed": {
     "message": "Tema ændret. Genindlæs venligst siden for at se ændringerne.",
     "description": "Message shown when theme is changed"

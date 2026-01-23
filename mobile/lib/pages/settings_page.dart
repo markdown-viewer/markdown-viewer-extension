@@ -130,6 +130,17 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: _pickEmojiStyle,
           ),
           _SwitchTile(
+            title: localization.t('settings_table_merge_empty'),
+            subtitle: localization.t('settings_table_merge_empty_note'),
+            value: settingsService.tableMergeEmpty,
+            onChanged: (value) {
+              setState(() {
+                settingsService.tableMergeEmpty = value;
+              });
+              _notifySettingChanged();
+            },
+          ),
+          _SwitchTile(
             title: localization.t('settings_docx_hr_page_break'),
             subtitle: localization.t('settings_docx_hr_page_break_note'),
             value: settingsService.hrPageBreak,
@@ -137,7 +148,7 @@ class _SettingsPageState extends State<SettingsPage> {
               setState(() {
                 settingsService.hrPageBreak = value;
               });
-              // Settings are read via platform storage abstraction when exporting
+              // HR page break only affects DOCX export, no need to re-render
             },
           ),
           _FontSizeTile(
@@ -181,6 +192,16 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     } catch (e) {
       debugPrint('[Settings] Failed to apply font size: $e');
+    }
+  }
+
+  /// Notify WebView to re-render after settings change
+  void _notifySettingChanged() {
+    final controller = widget.webViewController;
+    if (controller != null) {
+      controller.runJavaScript(
+        "if(window.rerender){window.rerender();}",
+      );
     }
   }
 

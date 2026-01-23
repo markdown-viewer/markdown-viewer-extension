@@ -168,6 +168,19 @@ export type {
 export { BorderStyle, AlignmentType } from './docx';
 
 // =============================================================================
+// Settings Types
+// =============================================================================
+
+export type {
+  SettingKey,
+  SettingTypes,
+  SetSettingOptions,
+  ISettingsService,
+} from './settings';
+
+export { DEFAULT_SETTINGS } from './settings';
+
+// =============================================================================
 // Toolbar Types
 // =============================================================================
 

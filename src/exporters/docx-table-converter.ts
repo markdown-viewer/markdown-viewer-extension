@@ -10,6 +10,7 @@ import {
   BorderStyle,
   TableLayoutType,
   VerticalAlign as VerticalAlignTable,
+  VerticalMergeType,
   WidthType,
   convertInchesToTwip,
   type IBorderOptions,
@@ -19,16 +20,25 @@ import {
 } from 'docx';
 import type { DOCXThemeStyles, DOCXTableNode } from '../types/docx';
 import type { InlineResult, InlineNode } from './docx-inline-converter';
+import { 
+  calculateMergeInfoFromStrings, 
+  extractTextFromAstCell,
+  type CellMergeInfo 
+} from '../utils/table-merge-utils';
 
 type ConvertInlineNodesFunction = (children: InlineNode[], options?: { bold?: boolean; size?: number; color?: string }) => Promise<InlineResult[]>;
 
 interface TableConverterOptions {
   themeStyles: DOCXThemeStyles;
   convertInlineNodes: ConvertInlineNodesFunction;
+  /** Enable auto-merge of empty table cells */
+  mergeEmptyCells?: boolean;
 }
 
 export interface TableConverter {
   convertTable(node: DOCXTableNode, listLevel?: number): Promise<Table>;
+  /** Update merge setting at runtime */
+  setMergeEmptyCells(enabled: boolean): void;
 }
 
 /**
@@ -36,7 +46,7 @@ export interface TableConverter {
  * @param options - Configuration options
  * @returns Table converter
  */
-export function createTableConverter({ themeStyles, convertInlineNodes }: TableConverterOptions): TableConverter {
+export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmptyCells = false }: TableConverterOptions): TableConverter {
   // Default table styles
   const defaultMargins = { top: 80, bottom: 80, left: 100, right: 100 };
   
@@ -46,6 +56,21 @@ export function createTableConverter({ themeStyles, convertInlineNodes }: TableC
   const cellStyles = tableStyles.cell || {};
   const borderStyles = tableStyles.borders || {};
   const zebraStyles = tableStyles.zebra;
+  
+  // Mutable merge setting
+  let enableMerge = mergeEmptyCells;
+  
+  /**
+   * Extract cell text content matrix from data rows (excluding header)
+   */
+  function extractCellMatrix(tableRows: DOCXTableNode['children']): string[][] {
+    // Skip header row (index 0)
+    const dataRows = tableRows.slice(1);
+    return dataRows.map(row => {
+      const cells = (row.children || []).filter(c => c.type === 'tableCell');
+      return cells.map(cell => extractTextFromAstCell(cell));
+    });
+  }
   
   /**
    * Convert table node to DOCX Table
@@ -59,10 +84,20 @@ export function createTableConverter({ themeStyles, convertInlineNodes }: TableC
     const tableRows = (node.children || []).filter((row) => row.type === 'tableRow');
     const rowCount = tableRows.length;
 
+    // Calculate merge info for data rows if merge is enabled
+    let mergeInfo: CellMergeInfo[][] | null = null;
+    if (enableMerge && rowCount > 1) {
+      const cellMatrix = extractCellMatrix(tableRows);
+      if (cellMatrix.length > 0 && cellMatrix[0].length > 0) {
+        mergeInfo = calculateMergeInfoFromStrings(cellMatrix);
+      }
+    }
+
     for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
       const row = tableRows[rowIndex];
       const isHeaderRow = rowIndex === 0;
       const isLastRow = rowIndex === rowCount - 1;
+      const dataRowIndex = rowIndex - 1; // Index in data rows (excluding header)
 
       if (row.type === 'tableRow') {
         const cells: TableCell[] = [];
@@ -72,6 +107,15 @@ export function createTableConverter({ themeStyles, convertInlineNodes }: TableC
           const cell = rowChildren[colIndex];
 
           if (cell.type === 'tableCell') {
+            // Check if this cell should be skipped (merged into cell above)
+            if (!isHeaderRow && mergeInfo && dataRowIndex >= 0 && dataRowIndex < mergeInfo.length) {
+              const cellInfo = mergeInfo[dataRowIndex]?.[colIndex];
+              if (cellInfo && !cellInfo.shouldRender) {
+                // Skip this cell - it's merged into the cell above
+                continue;
+              }
+            }
+            
             const isBold = isHeaderRow && (headerStyles.bold ?? true);
             const headerColor = isHeaderRow && headerStyles.color ? headerStyles.color : undefined;
             const children = isHeaderRow
@@ -122,12 +166,9 @@ export function createTableConverter({ themeStyles, convertInlineNodes }: TableC
             if (isHeaderRow && borderStyles.headerBottom && borderStyles.headerBottom.style !== BorderStyle.NONE) {
               borders = { ...(borders || {}), bottom: borderStyles.headerBottom };
             }
-            if (!isHeaderRow) {
-              if (isLastRow && borderStyles.lastRowBottom && borderStyles.lastRowBottom.style !== BorderStyle.NONE) {
-                borders = { ...(borders || {}), bottom: borderStyles.lastRowBottom };
-              } else if (borderStyles.insideHorizontal && borderStyles.insideHorizontal.style !== BorderStyle.NONE) {
-                borders = { ...(borders || {}), bottom: borderStyles.insideHorizontal };
-              }
+            if (!isHeaderRow && borderStyles.insideHorizontal && borderStyles.insideHorizontal.style !== BorderStyle.NONE) {
+              // Apply inside horizontal border (will be overridden by lastRowBottom if needed)
+              borders = { ...(borders || {}), bottom: borderStyles.insideHorizontal };
             }
 
             let shading: ITableCellOptions['shading'];
@@ -141,12 +182,33 @@ export function createTableConverter({ themeStyles, convertInlineNodes }: TableC
               }
             }
 
+            // Calculate vertical merge for this cell
+            let rowSpan: number | undefined;
+            let cellSpansToLastRow = false;
+            if (!isHeaderRow && mergeInfo && dataRowIndex >= 0 && dataRowIndex < mergeInfo.length) {
+              const cellInfo = mergeInfo[dataRowIndex]?.[colIndex];
+              if (cellInfo && cellInfo.rowspan > 1) {
+                rowSpan = cellInfo.rowspan;
+                // Check if this cell spans to the last data row
+                // dataRowIndex is 0-based index in data rows, mergeInfo.length is total data rows
+                cellSpansToLastRow = (dataRowIndex + cellInfo.rowspan >= mergeInfo.length);
+              }
+            }
+            
+            // Apply last row bottom border if this cell is in last row OR spans to last row
+            if (!isHeaderRow && (isLastRow || cellSpansToLastRow)) {
+              if (borderStyles.lastRowBottom && borderStyles.lastRowBottom.style !== BorderStyle.NONE) {
+                borders = { ...(borders || {}), bottom: borderStyles.lastRowBottom };
+              }
+            }
+
             const cellConfig: ITableCellOptions = {
               children: [new Paragraph(paragraphOptions)],
               verticalAlign: VerticalAlignTable.CENTER,
               margins: cellStyles.margins || defaultMargins,
               borders,
               shading,
+              rowSpan,  // Add vertical merge span
             };
 
             cells.push(new TableCell(cellConfig));
@@ -171,6 +233,10 @@ export function createTableConverter({ themeStyles, convertInlineNodes }: TableC
       indent: indentSize ? { size: indentSize, type: WidthType.DXA } : undefined,
     });
   }
+  
+  function setMergeEmptyCells(enabled: boolean): void {
+    enableMerge = enabled;
+  }
 
-  return { convertTable };
+  return { convertTable, setMergeEmptyCells };
 }

@@ -417,6 +417,7 @@ function initializeUI(): void {
     docxHrAsPageBreak: window.VSCODE_CONFIG?.docxHrAsPageBreak !== false,
     docxEmojiStyle: (window.VSCODE_CONFIG?.docxEmojiStyle as EmojiStyle) || 'system',
     frontmatterDisplay: (window.VSCODE_CONFIG?.frontmatterDisplay as FrontmatterDisplay) || 'hide',
+    tableMergeEmpty: window.VSCODE_CONFIG?.tableMergeEmpty !== false,
     onThemeChange: async (themeId) => {
       // handleSetTheme saves via themeManager.saveSelectedTheme (same as Chrome)
       await handleSetTheme({ themeId });
@@ -442,6 +443,14 @@ function initializeUI(): void {
     onDocxSettingChange: (hrAsPageBreak) => {
       vscodeBridge.postMessage('SAVE_SETTING', { key: 'docxHrAsPageBreak', value: hrAsPageBreak });
     },
+    onTableMergeEmptyChange: async (enabled) => {
+      vscodeBridge.postMessage('SAVE_SETTING', { key: 'tableMergeEmpty', value: enabled });
+      // Re-render to apply new table merge setting
+      if (currentMarkdown) {
+        const scrollLine = scrollSyncController?.getCurrentLine() ?? 0;
+        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename, forceRender: true, scrollLine });
+      }
+    },
     onDocxEmojiStyleChange: (style) => {
       vscodeBridge.postMessage('SAVE_SETTING', { key: 'docxEmojiStyle', value: style });
     },
@@ -449,7 +458,8 @@ function initializeUI(): void {
       vscodeBridge.postMessage('SAVE_SETTING', { key: 'frontmatterDisplay', value: display });
       // Re-render to apply new frontmatter display setting
       if (currentMarkdown) {
-        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename });
+        const scrollLine = scrollSyncController?.getCurrentLine() ?? 0;
+        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename, forceRender: true, scrollLine });
       }
     },
     onClearCache: async () => {

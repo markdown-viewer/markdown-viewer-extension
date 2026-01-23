@@ -532,6 +532,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
             'docxHrAsPageBreak': settingsService.hrPageBreak,
             'docxEmojiStyle': settingsService.emojiStyle,
             'frontmatterDisplay': settingsService.frontmatterDisplay,
+            'tableMergeEmpty': settingsService.tableMergeEmpty,
           };
         }
         // Add more keys as needed
@@ -562,6 +563,9 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
             }
             if (viewerSettings.containsKey('frontmatterDisplay')) {
               settingsService.frontmatterDisplay = viewerSettings['frontmatterDisplay'] as String;
+            }
+            if (viewerSettings.containsKey('tableMergeEmpty')) {
+              settingsService.tableMergeEmpty = viewerSettings['tableMergeEmpty'] as bool;
             }
           }
         }

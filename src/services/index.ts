@@ -24,3 +24,6 @@ export { BaseDocumentService } from './document-service';
 
 export { DirectResourceService, ProxyResourceService } from './resource-service';
 export type { ResourceService } from './resource-service';
+
+export { SettingsService, createSettingsService } from './settings-service';
+export type { RefreshCallback, SettingsServiceConfig } from './settings-service';

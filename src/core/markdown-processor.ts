@@ -16,6 +16,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
 import rehypeImageUri from '../plugins/rehype-image-uri';
+import rehypeTableMerge from '../plugins/rehype-table-merge';
 import { registerRemarkPlugins } from '../plugins/index';
 import { createPlaceholderElement } from '../plugins/plugin-content-utils';
 import { generateContentHash, hashCode } from '../utils/hash';
@@ -538,17 +539,32 @@ export class AsyncTaskManager {
 }
 
 /**
+ * Options for creating markdown processor
+ */
+export interface CreateMarkdownProcessorOptions {
+  renderer: PluginRenderer;
+  taskManager: AsyncTaskManager;
+  translate?: TranslateFunction;
+  /** Enable auto-merge of empty table cells (default: false) */
+  tableMergeEmpty?: boolean;
+}
+
+/**
  * Create the unified markdown processor pipeline
  * @param renderer - Renderer instance for diagrams
  * @param taskManager - Async task manager
  * @param translate - Translation function
+ * @param options - Additional processor options (for backward compatibility, can pass options object)
  * @returns Configured unified processor
  */
 export function createMarkdownProcessor(
   renderer: PluginRenderer,
   taskManager: AsyncTaskManager,
-  translate: TranslateFunction = (key) => key
+  translate: TranslateFunction = (key) => key,
+  options?: { tableMergeEmpty?: boolean }
 ): Processor {
+  const { tableMergeEmpty = false } = options || {};
+  
   const asyncTask: AsyncTaskQueueManager['asyncTask'] = (callback, data, plugin, _translate, initialStatus) => {
     return taskManager.createTask(
       async (taskData, _context) => callback(taskData),
@@ -576,6 +592,7 @@ export function createMarkdownProcessor(
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeSlug)
     .use(rehypeImageUri)  // Rewrite relative image paths for VS Code webview
+    .use(rehypeTableMerge, { enabled: tableMergeEmpty })  // Auto-merge empty table cells
     .use(rehypeHighlight)
     .use(rehypeKatex)
     .use(rehypeStringify, { allowDangerousHtml: true });

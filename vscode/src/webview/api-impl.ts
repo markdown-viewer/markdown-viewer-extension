@@ -13,6 +13,8 @@ import {
   StorageService,
   FileService,
   RendererService,
+  SettingsService,
+  createSettingsService,
 } from '../../../src/services';
 
 import type { FileState } from '../../../src/types/core';
@@ -331,6 +333,7 @@ export class VSCodePlatformAPI {
   public readonly i18n: VSCodeI18nService;
   public readonly message: VSCodeMessageService;
   public readonly document: VSCodeDocumentService;
+  public readonly settings: SettingsService;
 
   constructor() {
     this.storage = storageService; // Use unified storage service
@@ -340,6 +343,9 @@ export class VSCodePlatformAPI {
     this.cache = cacheService; // Use unified cache service
     this.message = new VSCodeMessageService(); // Message service for plugins
     this.document = vsCodeDocumentService; // Unified document service
+    
+    // Settings service - refresh callback will be set by main.ts after render function is ready
+    this.settings = createSettingsService(this.storage);
     
     // Get nonce from parent window (set by preview-panel.ts)
     const nonce = (window as unknown as { VSCODE_NONCE?: string }).VSCODE_NONCE;

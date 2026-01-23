@@ -52,6 +52,28 @@ async function safeQueryTabs(query: chrome.tabs.QueryInfo): Promise<chrome.tabs.
 }
 
 /**
+ * Notify all tabs that a setting has changed, triggering re-render
+ */
+async function notifySettingChanged(key: string, value: unknown): Promise<void> {
+  try {
+    const tabs = await safeQueryTabs({});
+    tabs.forEach(tab => {
+      if (tab.id) {
+        safeSendTabMessage(tab.id, {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          type: 'SETTING_CHANGED',
+          payload: { key, value },
+          timestamp: Date.now(),
+          source: 'popup-settings',
+        });
+      }
+    });
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
  * Theme info from registry
  */
 interface ThemeRegistryInfo {
@@ -133,6 +155,7 @@ interface Settings {
   docxEmojiStyle?: EmojiStyle;
   supportedExtensions?: SupportedExtensions;
   frontmatterDisplay?: FrontmatterDisplay;
+  tableMergeEmpty?: boolean;
 }
 
 /**
@@ -179,6 +202,7 @@ export function createSettingsTabManager({
       infographic: true,
     },
     frontmatterDisplay: 'hide',
+    tableMergeEmpty: true,
   };
   let currentTheme = 'default';
   let themes: ThemeDefinition[] = [];
@@ -304,6 +328,23 @@ export function createSettingsTabManager({
         frontmatterDisplayEl.addEventListener('change', async () => {
           settings.frontmatterDisplay = frontmatterDisplayEl.value as FrontmatterDisplay;
           await saveSettingsToStorage();
+          // Notify all tabs to re-render
+          notifySettingChanged('frontmatterDisplay', settings.frontmatterDisplay);
+        });
+      }
+    }
+
+    // Table merge empty cells
+    const tableMergeEmptyEl = document.getElementById('table-merge-empty') as HTMLInputElement | null;
+    if (tableMergeEmptyEl) {
+      tableMergeEmptyEl.checked = settings.tableMergeEmpty ?? true;
+      if (!tableMergeEmptyEl.dataset.listenerAdded) {
+        tableMergeEmptyEl.dataset.listenerAdded = 'true';
+        tableMergeEmptyEl.addEventListener('change', async () => {
+          settings.tableMergeEmpty = tableMergeEmptyEl.checked;
+          await saveSettingsToStorage();
+          // Notify all tabs to re-render
+          notifySettingChanged('tableMergeEmpty', settings.tableMergeEmpty);
         });
       }
     }
@@ -625,18 +666,7 @@ export function createSettingsTabManager({
       updateThemeDescription(themeId);
 
       // Notify all tabs to reload theme
-      const tabs = await safeQueryTabs({});
-      tabs.forEach(tab => {
-        if (tab.id) {
-          safeSendTabMessage(tab.id, {
-            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            type: 'THEME_CHANGED',
-            payload: { themeId },
-            timestamp: Date.now(),
-            source: 'popup-settings',
-          });
-        }
-      });
+      notifySettingChanged('themeId', themeId);
 
       showMessage(translate('settings_theme_changed'), 'success');
     } catch (error) {
@@ -729,7 +759,8 @@ export function createSettingsTabManager({
           vegaLite: true,
           dot: true,
           infographic: true,
-        }
+        },
+        tableMergeEmpty: true,
       };
 
       await storageSet({

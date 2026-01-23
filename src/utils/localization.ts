@@ -83,15 +83,16 @@ class LocalizationManager {
 
   async getStorageSettings(): Promise<StorageSettings | null> {
     const platform = getPlatform();
-    if (!platform?.storage) {
+    if (!platform?.settings) {
       return null;
     }
 
-    const result = await platform.storage.get(['markdownViewerSettings']);
-    if (result && result.markdownViewerSettings) {
-      return result.markdownViewerSettings as StorageSettings;
+    try {
+      const preferredLocale = await platform.settings.get('preferredLocale');
+      return { preferredLocale };
+    } catch (error) {
+      return null;
     }
-    return null;
   }
 
   async setPreferredLocale(locale: string): Promise<void> {

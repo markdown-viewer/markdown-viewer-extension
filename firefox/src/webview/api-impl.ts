@@ -20,7 +20,7 @@ import { BrowserRuntimeTransport } from '../../../chrome/src/transports/chrome-r
 
 import { BackgroundRenderHost } from './hosts/background-render-host';
 
-import { CacheService, StorageService, FileService, FileStateService, RendererService } from '../../../src/services';
+import { CacheService, StorageService, FileService, FileStateService, RendererService, SettingsService, createSettingsService } from '../../../src/services';
 
 // Firefox WebExtension API types
 declare const browser: typeof chrome;
@@ -271,6 +271,7 @@ class FirefoxPlatformAPI {
   public readonly renderer: RendererService;
   public readonly i18n: FirefoxI18nService;
   public readonly document: FirefoxDocumentService;
+  public readonly settings: SettingsService;
   
   // Internal bridge reference (for advanced usage)
   public readonly _bridge: PlatformBridgeAPI;
@@ -294,6 +295,8 @@ class FirefoxPlatformAPI {
     });
     
     this.i18n = new FirefoxI18nService();
+    // Settings service
+    this.settings = createSettingsService(this.storage);
     
     // Internal bridge reference
     this._bridge = bridge;

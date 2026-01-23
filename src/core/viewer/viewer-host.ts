@@ -142,17 +142,30 @@ export function createPluginRenderer(platform: PlatformAPI): PluginRenderer {
 // ============================================================================
 
 /**
- * Get the frontmatter display setting from storage.
+ * Get the frontmatter display setting.
+ * Uses platform.settings service exclusively.
  *
- * @returns 'hide' | 'table' | 'raw'
+ * @returns 'hide' | 'show' | 'fold'
  */
 export async function getFrontmatterDisplay(platform: PlatformAPI): Promise<FrontmatterDisplay> {
   try {
-    const result = await platform.storage.get(['markdownViewerSettings']);
-    const settings = (result.markdownViewerSettings || {}) as Record<string, unknown>;
-    return (settings.frontmatterDisplay as FrontmatterDisplay) || 'hide';
+    return await platform.settings.get('frontmatterDisplay');
   } catch {
     return 'hide';
+  }
+}
+
+/**
+ * Get the table merge empty setting.
+ * Uses platform.settings service exclusively.
+ *
+ * @returns boolean (default: true)
+ */
+export async function getTableMergeEmpty(platform: PlatformAPI): Promise<boolean> {
+  try {
+    return await platform.settings.get('tableMergeEmpty');
+  } catch {
+    return true;
   }
 }
 
@@ -401,6 +414,9 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     // Get frontmatter display setting
     const frontmatterDisplay = await getFrontmatterDisplay(platform);
 
+    // Get table merge empty setting
+    const tableMergeEmpty = await getTableMergeEmpty(platform);
+
     // Render markdown
     const renderResult = await renderMarkdownDocument({
       markdown,
@@ -410,6 +426,7 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       taskManager,
       clearContainer: false, // Already cleared above if needed
       frontmatterDisplay,
+      tableMergeEmpty,
       onHeadings,
       onStreamingComplete: () => {
         scrollController?.onStreamingComplete();

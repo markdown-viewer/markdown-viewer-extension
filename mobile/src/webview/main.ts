@@ -440,7 +440,7 @@ window.setLocale = (locale: string) => {
 window.rerender = async () => {
   // Re-render current markdown with updated settings
   if (currentMarkdown) {
-    await handleLoadMarkdown({ content: currentMarkdown, filename: currentFilename });
+    await handleLoadMarkdown({ content: currentMarkdown, filename: currentFilename || '', forceRender: true });
   }
 };
 

@@ -22,6 +22,8 @@ export interface SettingsPanelOptions {
   docxEmojiStyle?: EmojiStyle;
   /** Frontmatter display mode */
   frontmatterDisplay?: FrontmatterDisplay;
+  /** Table merge empty cells setting */
+  tableMergeEmpty?: boolean;
   /** Theme changed callback */
   onThemeChange?: (themeId: string) => void;
   /** Locale changed callback */
@@ -32,6 +34,8 @@ export interface SettingsPanelOptions {
   onDocxEmojiStyleChange?: (style: EmojiStyle) => void;
   /** Frontmatter display changed callback */
   onFrontmatterDisplayChange?: (display: FrontmatterDisplay) => void;
+  /** Table merge empty cells changed callback */
+  onTableMergeEmptyChange?: (enabled: boolean) => void;
   /** Cache clear callback */
   onClearCache?: () => Promise<void>;
   /** Called when panel is shown, use to refresh dynamic data */
@@ -90,6 +94,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
     docxHrAsPageBreak = true,
     docxEmojiStyle = 'windows',
     frontmatterDisplay = 'hide',
+    tableMergeEmpty = true,
     onThemeChange,
     onLocaleChange,
     onDocxSettingChange,
@@ -141,6 +146,12 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
       </div>
       <div class="vscode-settings-group">
         <label class="vscode-settings-checkbox">
+          <input type="checkbox" data-setting="tableMergeEmpty" ${tableMergeEmpty ? 'checked' : ''}>
+          <span data-i18n="settings_table_merge_empty">${Localization.translate('settings_table_merge_empty')}</span>
+        </label>
+      </div>
+      <div class="vscode-settings-group">
+        <label class="vscode-settings-checkbox">
           <input type="checkbox" data-setting="docxHrPageBreak" ${docxHrAsPageBreak ? 'checked' : ''}>
           <span data-i18n="settings_docx_hr_page_break">${Localization.translate('settings_docx_hr_page_break')}</span>
         </label>
@@ -167,6 +178,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
   const themeSelect = panel.querySelector('[data-setting="theme"]') as HTMLSelectElement;
   const localeSelect = panel.querySelector('[data-setting="locale"]') as HTMLSelectElement;
   const docxCheckbox = panel.querySelector('[data-setting="docxHrPageBreak"]') as HTMLInputElement;
+  const tableMergeEmptyCheckbox = panel.querySelector('[data-setting="tableMergeEmpty"]') as HTMLInputElement;
   const emojiStyleSelect = panel.querySelector('[data-setting="emojiStyle"]') as HTMLSelectElement;
   const frontmatterDisplaySelect = panel.querySelector('[data-setting="frontmatterDisplay"]') as HTMLSelectElement;
   const clearCacheBtn = panel.querySelector('.vscode-cache-clear-btn') as HTMLButtonElement;
@@ -177,6 +189,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
   if (themeSelect) themeSelect.value = currentTheme;
   if (localeSelect) localeSelect.value = currentLocale;
   if (docxCheckbox) docxCheckbox.checked = docxHrAsPageBreak;
+  if (tableMergeEmptyCheckbox) tableMergeEmptyCheckbox.checked = tableMergeEmpty;
   if (emojiStyleSelect) emojiStyleSelect.value = docxEmojiStyle;
   if (frontmatterDisplaySelect) frontmatterDisplaySelect.value = frontmatterDisplay;
 
@@ -196,6 +209,10 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
 
   docxCheckbox?.addEventListener('change', () => {
     onDocxSettingChange?.(docxCheckbox.checked);
+  });
+
+  tableMergeEmptyCheckbox?.addEventListener('change', () => {
+    options.onTableMergeEmptyChange?.(tableMergeEmptyCheckbox.checked);
   });
 
   emojiStyleSelect?.addEventListener('change', () => {

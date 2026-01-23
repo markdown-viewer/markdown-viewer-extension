@@ -90,6 +90,7 @@ class DocxExporter {
   private docxHrAsPageBreak = true;
   private docxEmojiStyle: EmojiStyle = 'windows';
   private frontmatterDisplay: FrontmatterDisplay = 'hide';
+  private tableMergeEmpty = true;  // Default: enabled
   
   // Converters (initialized in exportToDocx)
   private tableConverter: TableConverter | null = null;
@@ -173,7 +174,8 @@ class DocxExporter {
     // Create other converters
     this.tableConverter = createTableConverter({
       themeStyles: this.themeStyles,
-      convertInlineNodes: (nodes, style) => this.inlineConverter!.convertInlineNodes(nodes, style)
+      convertInlineNodes: (nodes, style) => this.inlineConverter!.convertInlineNodes(nodes, style),
+      mergeEmptyCells: this.tableMergeEmpty,
     });
 
     this.blockquoteConverter = createBlockquoteConverter({
@@ -204,25 +206,29 @@ class DocxExporter {
     try {
       this.setBaseUrl(window.location.href);
 
-      // Load export-related settings via platform abstraction
+      // Load export-related settings via platform.settings service
       try {
-        const storage = globalThis.platform?.storage;
-        if (storage?.get) {
-          const result = await storage.get(['markdownViewerSettings']);
-          const userSettings = (result as any)?.markdownViewerSettings as Record<string, unknown> | undefined;
-          const value = userSettings?.docxHrAsPageBreak;
-          this.docxHrAsPageBreak = typeof value === 'boolean' ? value : true;
-          const emojiValue = userSettings?.docxEmojiStyle;
-          this.docxEmojiStyle = (emojiValue === 'apple' || emojiValue === 'windows' || emojiValue === 'system') ? emojiValue : 'system';
-          const frontmatterValue = userSettings?.frontmatterDisplay;
-          this.frontmatterDisplay = (frontmatterValue === 'hide' || frontmatterValue === 'table' || frontmatterValue === 'raw') ? frontmatterValue : 'hide';
+        const settings = globalThis.platform?.settings;
+        if (settings) {
+          const [hrAsPageBreak, emojiStyle, frontmatterDisplay, tableMergeEmpty] = await Promise.all([
+            settings.get('docxHrAsPageBreak'),
+            settings.get('docxEmojiStyle'),
+            settings.get('frontmatterDisplay'),
+            settings.get('tableMergeEmpty'),
+          ]);
+          this.docxHrAsPageBreak = hrAsPageBreak;
+          this.docxEmojiStyle = emojiStyle === 'native' ? 'system' : 'system'; // Map to internal naming
+          this.frontmatterDisplay = frontmatterDisplay;
+          this.tableMergeEmpty = tableMergeEmpty;
         } else {
           this.docxHrAsPageBreak = true;
           this.frontmatterDisplay = 'hide';
+          this.tableMergeEmpty = true;
         }
       } catch {
         this.docxHrAsPageBreak = true;
         this.frontmatterDisplay = 'hide';
+        this.tableMergeEmpty = true;
       }
 
       const selectedThemeId = await themeManager.loadSelectedTheme();

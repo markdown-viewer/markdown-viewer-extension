@@ -7,7 +7,9 @@
 import {
   BaseI18nService,
   DEFAULT_SETTING_LOCALE,
-  FALLBACK_LOCALE
+  FALLBACK_LOCALE,
+  SettingsService,
+  createSettingsService,
 } from '../../../src/services';
 
 import type { LocaleMessages } from '../../../src/services';
@@ -284,6 +286,7 @@ class MobilePlatformAPI {
   public readonly renderer: RendererService;
   public readonly i18n: MobileI18nService;
   public readonly document: MobileDocumentService;
+  public readonly settings: SettingsService;
   
   // Internal bridge reference (for advanced usage)
   public readonly _bridge: PlatformBridgeAPI;
@@ -297,6 +300,9 @@ class MobilePlatformAPI {
     this.message = new MobileMessageService();
     this.cache = cacheService; // Use unified cache service
     this.document = mobileDocumentService; // Unified document service
+    
+    // Settings service - refresh callback will be set by main.ts after render function is ready
+    this.settings = createSettingsService(this.storage);
     
     // Unified renderer service with IframeRenderHost
     const resourceService = this.resource;

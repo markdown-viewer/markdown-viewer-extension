@@ -515,6 +515,14 @@
     "message": "Palaikomi formatai",
     "description": "Heading for supported formats section"
   },
+  "settings_table_merge_empty": {
+    "message": "Automatiškai sujungti tuščius lentelės langelius",
+    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
+  },
+  "settings_table_merge_empty_note": {
+    "message": "Įjungus, tušti langeliai bus sujungti su viršuje esančiu langeliu peržiūroje ir DOCX eksporte.",
+    "description": "Helper note for the table merge option"
+  },
   "settings_theme_changed": {
     "message": "Tema sėkmingai pakeista. Norėdami pamatyti pakeitimus, perkraukite puslapį.",
     "description": "Message shown when theme is changed"

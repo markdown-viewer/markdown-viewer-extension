@@ -359,11 +359,17 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         return;
       }
 
-      if (msg.type === 'THEME_CHANGED') {
+      if (msg.type === 'SETTING_CHANGED') {
         const payload = msg.payload && typeof msg.payload === 'object' ? (msg.payload as Record<string, unknown>) : null;
-        const themeId = payload && typeof payload.themeId === 'string' ? payload.themeId : null;
-        if (themeId) {
-          void handleSetTheme(themeId);
+        const key = payload?.key as string | undefined;
+        const value = payload?.value;
+        
+        if (key === 'themeId' && typeof value === 'string') {
+          void handleSetTheme(value);
+        } else {
+          // Other settings changed - just re-render with scroll preservation
+          const scrollLine = scrollSyncController?.getCurrentLine() ?? 0;
+          void renderMarkdown(rawMarkdown, scrollLine, true);
         }
         return;
       }

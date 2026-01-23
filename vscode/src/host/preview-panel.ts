@@ -503,6 +503,8 @@ export class MarkdownPreviewPanel {
                   next.preferredLocale = value;
                 } else if (key === 'docxHrAsPageBreak') {
                   next.docxHrAsPageBreak = value;
+                } else if (key === 'tableMergeEmpty') {
+                  next.tableMergeEmpty = value;
                 } else if (key === 'docxEmojiStyle') {
                   next.docxEmojiStyle = value;
                 } else if (key === 'frontmatterDisplay') {
@@ -895,6 +897,7 @@ export class MarkdownPreviewPanel {
     const theme = globalState?.get<string>('storage.selectedTheme') || 'default';
     const locale = (typeof settings.preferredLocale === 'string' && settings.preferredLocale) ? settings.preferredLocale : 'auto';
     const docxHrAsPageBreak = (typeof settings.docxHrAsPageBreak === 'boolean') ? settings.docxHrAsPageBreak : true;
+    const tableMergeEmpty = (typeof settings.tableMergeEmpty === 'boolean') ? settings.tableMergeEmpty : true;
     const storedEmojiStyle = settings.docxEmojiStyle;
     const docxEmojiStyle: EmojiStyle = (storedEmojiStyle === 'apple' || storedEmojiStyle === 'windows' || storedEmojiStyle === 'system') ? storedEmojiStyle : 'system';
     const storedFrontmatterDisplay = settings.frontmatterDisplay;
@@ -904,6 +907,7 @@ export class MarkdownPreviewPanel {
       theme,
       locale,
       docxHrAsPageBreak,
+      tableMergeEmpty,
       docxEmojiStyle,
       frontmatterDisplay,
       fontSize: config.get('fontSize', 16),

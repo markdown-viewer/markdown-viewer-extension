@@ -76,6 +76,9 @@ export type RenderMarkdownOptions = {
 
   /** Frontmatter display mode: 'hide', 'table', or 'raw' */
   frontmatterDisplay?: FrontmatterDisplay;
+  
+  /** Enable auto-merge of empty table cells */
+  tableMergeEmpty?: boolean;
 };
 
 // Global document instance for incremental updates
@@ -150,6 +153,7 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
     onHeadings,
     onStreamingComplete,
     frontmatterDisplay = 'hide',
+    tableMergeEmpty = false,
   } = options;
 
   const taskManager = providedTaskManager ?? new AsyncTaskManager(translate);
@@ -170,7 +174,7 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   const updateResult = doc.update(markdown);
   
   // Create processor for rendering
-  const processor = createMarkdownProcessor(renderer, taskManager, translate);
+  const processor = createMarkdownProcessor(renderer, taskManager, translate, { tableMergeEmpty });
   
   if (isFirstRender) {
     // First render: render all blocks with streaming
