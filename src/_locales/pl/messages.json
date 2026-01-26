@@ -516,11 +516,11 @@
     "description": "Title for supported file formats section in settings"
   },
   "settings_table_merge_empty": {
-    "message": "Automatycznie scalaj puste komórki tabeli",
+    "message": "Inteligentne scalanie komórek tabeli",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Po włączeniu puste komórki zostaną scalone z komórką powyżej w podglądzie i eksporcie DOCX.",
+    "message": "Po włączeniu struktura tabeli zostanie przeanalizowana, a puste komórki zostaną inteligentnie scalone.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

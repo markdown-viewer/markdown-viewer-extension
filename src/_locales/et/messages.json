@@ -516,11 +516,11 @@
     "description": "Heading for supported formats section"
   },
   "settings_table_merge_empty": {
-    "message": "Ühenda tühjad tabelilahtrid automaatselt",
+    "message": "Nutikas tabelilahtrite ühendamine",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Kui see on lubatud, ühendatakse tühjad lahtrid eelvaates ja DOCX-i eksportimisel nende kohal oleva lahtriga.",
+    "message": "Kui see on lubatud, analüüsitakse tabeli struktuuri ja tühjad lahtrid ühendatakse nutikalt.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

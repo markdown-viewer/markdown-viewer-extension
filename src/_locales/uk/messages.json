@@ -516,11 +516,11 @@
     "description": "Heading for supported formats section"
   },
   "settings_table_merge_empty": {
-    "message": "Автоматично об'єднувати порожні комірки таблиці",
+    "message": "Розумне об'єднання комірок таблиці",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Якщо увімкнено, порожні комірки будуть об'єднані з коміркою вище в попередньому перегляді та експорті DOCX.",
+    "message": "Якщо увімкнено, структура таблиці буде проаналізована і порожні комірки будуть інтелектуально об'єднані.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

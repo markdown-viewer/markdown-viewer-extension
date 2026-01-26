@@ -516,11 +516,11 @@
     "description": "支持的格式部分标题"
   },
   "settings_table_merge_empty": {
-    "message": "自动合并空表格单元格",
+    "message": "智能表格单元格合并",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "启用后，空单元格将在预览和 DOCX 导出中与上方单元格合并。",
+    "message": "启用后，将分析表格结构并智能合并空单元格。",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

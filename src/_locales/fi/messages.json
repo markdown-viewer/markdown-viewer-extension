@@ -516,11 +516,11 @@
     "description": "Title for supported file formats section in settings"
   },
   "settings_table_merge_empty": {
-    "message": "Yhdistä tyhjät taulukon solut automaattisesti",
+    "message": "Älykäs taulukon solujen yhdistäminen",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Kun käytössä, tyhjät solut yhdistetään yläpuolella olevaan soluun esikatselussa ja DOCX-viennissä.",
+    "message": "Kun käytössä, taulukon rakenne analysoidaan ja tyhjät solut yhdistetään älykkäästi.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

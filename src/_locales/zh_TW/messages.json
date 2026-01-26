@@ -516,11 +516,11 @@
     "description": "Title for supported file formats section in settings"
   },
   "settings_table_merge_empty": {
-    "message": "自動合併空白表格儲存格",
+    "message": "智慧表格儲存格合併",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "啟用後，空白儲存格將在預覽和 DOCX 匯出中與上方儲存格合併。",
+    "message": "啟用後，將分析表格結構並智慧合併空儲存格。",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

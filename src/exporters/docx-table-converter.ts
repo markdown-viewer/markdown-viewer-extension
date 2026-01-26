@@ -21,7 +21,7 @@ import {
 import type { DOCXThemeStyles, DOCXTableNode } from '../types/docx';
 import type { InlineResult, InlineNode } from './docx-inline-converter';
 import { 
-  calculateMergeInfoFromStrings, 
+  calculateMergeInfoFromStringsWithAnalysis, 
   extractTextFromAstCell,
   type CellMergeInfo 
 } from '../utils/table-merge-utils';
@@ -86,10 +86,16 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
 
     // Calculate merge info for data rows if merge is enabled
     let mergeInfo: CellMergeInfo[][] | null = null;
+    let groupHeaderRows = new Set<number>();
     if (enableMerge && rowCount > 1) {
       const cellMatrix = extractCellMatrix(tableRows);
       if (cellMatrix.length > 0 && cellMatrix[0].length > 0) {
-        mergeInfo = calculateMergeInfoFromStrings(cellMatrix);
+        const result = calculateMergeInfoFromStringsWithAnalysis(cellMatrix);
+        mergeInfo = result.mergeInfo;
+        // Get group header rows for potential styling
+        if (result.analysis) {
+          groupHeaderRows = new Set(result.analysis.groupHeaders.rows);
+        }
       }
     }
 
@@ -195,6 +201,15 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
               }
             }
             
+            // Calculate horizontal merge (colspan) for this cell
+            let colSpan: number | undefined;
+            if (!isHeaderRow && mergeInfo && dataRowIndex >= 0 && dataRowIndex < mergeInfo.length) {
+              const cellInfo = mergeInfo[dataRowIndex]?.[colIndex];
+              if (cellInfo && cellInfo.colspan > 1) {
+                colSpan = cellInfo.colspan;
+              }
+            }
+            
             // Apply last row bottom border if this cell is in last row OR spans to last row
             if (!isHeaderRow && (isLastRow || cellSpansToLastRow)) {
               if (borderStyles.lastRowBottom && borderStyles.lastRowBottom.style !== BorderStyle.NONE) {
@@ -208,7 +223,8 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
               margins: cellStyles.margins || defaultMargins,
               borders,
               shading,
-              rowSpan,  // Add vertical merge span
+              rowSpan,      // Add vertical merge span
+              columnSpan: colSpan,  // Add horizontal merge span
             };
 
             cells.push(new TableCell(cellConfig));

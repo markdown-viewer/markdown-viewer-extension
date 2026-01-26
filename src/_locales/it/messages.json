@@ -516,11 +516,11 @@
     "description": "Title for supported file formats section in settings"
   },
   "settings_table_merge_empty": {
-    "message": "Unisci automaticamente le celle vuote della tabella",
+    "message": "Unione intelligente delle celle",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Quando abilitato, le celle vuote verranno unite con la cella soprastante nell'anteprima e nell'esportazione DOCX.",
+    "message": "Quando abilitato, la struttura della tabella verrà analizzata e le celle vuote verranno unite in modo intelligente.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

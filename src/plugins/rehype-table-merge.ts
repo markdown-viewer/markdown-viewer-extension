@@ -3,13 +3,19 @@
  * 
  * When enabled, empty cells in table body will be merged with
  * the cell above them using the rowspan attribute.
+ * 
+ * Uses table structure analysis to:
+ * - Only merge tree-structure tables (not comparison, sparse, etc.)
+ * - Only merge tree columns (not remark/notes columns)
+ * - Respect group header rows as merge boundaries
+ * 
  * Table headers are not affected.
  */
 
 import { visit } from 'unist-util-visit';
 import type { Root, Element, ElementContent } from 'hast';
 import { 
-  calculateMergeInfoFromStrings, 
+  calculateMergeInfoFromStringsWithAnalysis, 
   extractTextFromHastCell,
   type CellMergeInfo 
 } from '../utils/table-merge-utils';
@@ -81,7 +87,7 @@ function extractCellMatrix(rows: Element[]): string[][] {
 /**
  * Apply merge information to table rows
  */
-function applyMergeToRows(rows: Element[], mergeInfo: CellMergeInfo[][]): void {
+function applyMergeToRows(rows: Element[], mergeInfo: CellMergeInfo[][], groupHeaderRows: Set<number>): void {
   const totalRows = rows.length;
   
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
@@ -90,6 +96,9 @@ function applyMergeToRows(rows: Element[], mergeInfo: CellMergeInfo[][]): void {
     const rowMergeInfo = mergeInfo[rowIndex];
     
     if (!rowMergeInfo) continue;
+    
+    // Check if this is a group header row
+    const isGroupHeader = groupHeaderRows.has(rowIndex);
     
     // Process cells in reverse order so removal doesn't affect indices
     const cellsToRemove: number[] = [];
@@ -103,23 +112,50 @@ function applyMergeToRows(rows: Element[], mergeInfo: CellMergeInfo[][]): void {
       if (!info.shouldRender) {
         // Mark for removal
         cellsToRemove.push(colIndex);
-      } else if (info.rowspan > 1) {
-        // Add rowspan attribute
+      } else {
         if (!cell.properties) {
           cell.properties = {};
         }
-        cell.properties.rowspan = info.rowspan;
         
-        // If this cell spans to the last row, add a CSS class for proper border styling
-        if (rowIndex + info.rowspan >= totalRows) {
-          const existingClass = cell.properties.className;
-          if (Array.isArray(existingClass)) {
-            existingClass.push('merged-to-last');
-          } else if (typeof existingClass === 'string') {
-            cell.properties.className = [existingClass, 'merged-to-last'];
-          } else {
-            cell.properties.className = ['merged-to-last'];
+        // Add rowspan attribute if > 1
+        if (info.rowspan > 1) {
+          cell.properties.rowspan = info.rowspan;
+        
+          // If this cell spans to the last row, add a CSS class for proper border styling
+          if (rowIndex + info.rowspan >= totalRows) {
+            const existingClass = cell.properties.className;
+            if (Array.isArray(existingClass)) {
+              existingClass.push('merged-to-last');
+            } else if (typeof existingClass === 'string') {
+              cell.properties.className = [existingClass, 'merged-to-last'];
+            } else {
+              cell.properties.className = ['merged-to-last'];
+            }
           }
+        }
+        
+        // Add colspan attribute if > 1
+        if (info.colspan > 1) {
+          cell.properties.colspan = info.colspan;
+        }
+      }
+      
+      // Mark group header cells with a CSS class for styling
+      if (isGroupHeader) {
+        if (!cell.properties) {
+          cell.properties = {};
+        }
+        const existingClass = cell.properties.className;
+        if (Array.isArray(existingClass)) {
+          if (!existingClass.includes('group-header')) {
+            existingClass.push('group-header');
+          }
+        } else if (typeof existingClass === 'string') {
+          if (existingClass !== 'group-header') {
+            cell.properties.className = [existingClass, 'group-header'];
+          }
+        } else {
+          cell.properties.className = ['group-header'];
         }
       }
     }
@@ -172,11 +208,14 @@ export default function rehypeTableMerge(options: RehypeTableMergeOptions = {}) 
       
       if (cellMatrix.length === 0 || cellMatrix[0].length === 0) return;
 
-      // Calculate merge information
-      const mergeInfo = calculateMergeInfoFromStrings(cellMatrix);
+      // Calculate merge information with structure analysis
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(cellMatrix);
+      
+      // Get group header rows for styling
+      const groupHeaderRows = new Set(analysis?.groupHeaders.rows || []);
 
       // Apply merge to DOM
-      applyMergeToRows(dataRows, mergeInfo);
+      applyMergeToRows(dataRows, mergeInfo, groupHeaderRows);
     });
   };
 }

@@ -516,11 +516,11 @@
     "description": "Heading for supported formats section"
   },
   "settings_table_merge_empty": {
-    "message": "Gabungkan sel jadual kosong secara automatik",
+    "message": "Penggabungan sel jadual pintar",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Apabila didayakan, sel kosong akan digabungkan dengan sel di atasnya dalam pratonton dan eksport DOCX.",
+    "message": "Apabila didayakan, struktur jadual akan dianalisis dan sel kosong akan digabungkan secara pintar.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {

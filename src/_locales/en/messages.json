@@ -415,14 +415,6 @@
     "message": "When enabled, Markdown separators (---) will create a new page in exported Word documents.",
     "description": "Helper note for the DOCX hr page break option"
   },
-  "settings_table_merge_empty": {
-    "message": "Auto-merge empty table cells",
-    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
-  },
-  "settings_table_merge_empty_note": {
-    "message": "When enabled, empty cells will be merged with the cell above them in preview and DOCX export.",
-    "description": "Helper note for the table merge option"
-  },
   "settings_frontmatter_display": {
     "message": "Frontmatter display:",
     "description": "Label for frontmatter display mode selector"
@@ -522,6 +514,14 @@
   "settings_supported_formats_title": {
     "message": "Supported Formats",
     "description": "Heading for supported formats section"
+  },
+  "settings_table_merge_empty": {
+    "message": "Smart table cell merge",
+    "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
+  },
+  "settings_table_merge_empty_note": {
+    "message": "When enabled, table structure will be analyzed and empty cells will be intelligently merged.",
+    "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {
     "message": "Theme changed successfully. Please reload the page to see the changes.",

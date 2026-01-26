@@ -516,11 +516,11 @@
     "description": "Heading for supported formats section"
   },
   "settings_table_merge_empty": {
-    "message": "Аўтааб'яднанне пустых вочак табліцы",
+    "message": "Разумнае аб'яднанне вочак табліцы",
     "description": "Checkbox label for enabling automatic vertical merging of empty table cells"
   },
   "settings_table_merge_empty_note": {
-    "message": "Калі ўключана, пустыя вочкі будуць аб'яднаны з вочкай над імі ў папярэднім праглядзе і экспарце DOCX.",
+    "message": "Калі ўключана, структура табліцы будзе прааналізавана і пустыя вочкі будуць разумна аб'яднаны.",
     "description": "Helper note for the table merge option"
   },
   "settings_theme_changed": {
