@@ -299,6 +299,18 @@
     "message": "Recent documents",
     "description": "History documents title"
   },
+  "clipboard_open": {
+    "message": "Open from Clipboard",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_empty": {
+    "message": "Clipboard is empty",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_read_failed": {
+    "message": "Failed to read clipboard",
+    "description": "Error when clipboard read fails"
+  },
   "language": {
     "message": "Language",
     "description": "Menu item for language"

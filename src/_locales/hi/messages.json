@@ -163,6 +163,18 @@
     "message": "सूची से सभी हाल की फ़ाइलें हटाएं?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "क्लिपबोर्ड खाली है",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "क्लिपबोर्ड से खोलें",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "क्लिपबोर्ड पढ़ने में विफल",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "बंद करें",
     "description": "Close button text/tooltip"

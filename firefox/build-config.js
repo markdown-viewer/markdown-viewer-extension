@@ -61,6 +61,7 @@ export const createBuildConfig = () => {
     entryPoints: {
       'core/content-detector': 'chrome/src/webview/content-detector.ts',
       'core/main': 'firefox/src/webview/main.ts',
+      'core/clipboard-main': 'firefox/src/webview/clipboard-main.ts',
       'core/background': 'firefox/src/host/background.ts',
       'ui/popup/popup': 'firefox/src/popup/popup.ts',  // Firefox popup with Firefox platform
       'ui/styles': 'src/ui/styles.css'
@@ -100,7 +101,8 @@ export const createBuildConfig = () => {
                 { src: 'firefox/manifest.json', dest: 'dist/firefox/manifest.json', log: '📄 Copied manifest.json from firefox/' },
                 { src: 'chrome/src/popup/popup.html', dest: 'dist/firefox/ui/popup/popup.html' },
                 { src: 'chrome/src/popup/popup.css', dest: 'dist/firefox/ui/popup/popup.css' },
-                { src: 'firefox/src/host/background.html', dest: 'dist/firefox/ui/background.html', log: '📄 Copied background.html' }
+                { src: 'firefox/src/host/background.html', dest: 'dist/firefox/ui/background.html', log: '📄 Copied background.html' },
+                { src: 'firefox/src/webview/clipboard-preview.html', dest: 'dist/firefox/ui/clipboard-preview.html', log: '📄 Copied clipboard-preview.html' }
               ];
 
               fileCopies.push(...copyDirectory('icons', 'dist/firefox/icons'));

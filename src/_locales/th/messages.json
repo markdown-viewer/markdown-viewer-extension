@@ -163,6 +163,18 @@
     "message": "ลบไฟล์ล่าสุดทั้งหมดออกจากรายการ?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "คลิปบอร์ดว่างเปล่า",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "เปิดจากคลิปบอร์ด",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "ไม่สามารถอ่านคลิปบอร์ดได้",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "ปิด",
     "description": "Close button text/tooltip"

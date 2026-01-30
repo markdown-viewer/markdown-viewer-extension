@@ -163,6 +163,18 @@
     "message": "Выдаліць усе нядаўнія файлы са спісу?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Буфер абмену пусты",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Адкрыць з буфера абмену",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Не ўдалося прачытаць буфер абмену",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Закрыць",
     "description": "Close button text/tooltip"

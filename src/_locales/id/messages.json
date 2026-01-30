@@ -163,6 +163,18 @@
     "message": "Hapus semua file terbaru dari daftar?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Papan klip kosong",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Buka dari Papan Klip",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Gagal membaca papan klip",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Tutup",
     "description": "Close button text/tooltip"

@@ -163,6 +163,18 @@
     "message": "Alle zuletzt geöffneten Dateien aus der Liste entfernen?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Zwischenablage ist leer",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Aus Zwischenablage öffnen",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Zwischenablage konnte nicht gelesen werden",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Schließen",
     "description": "Close button text/tooltip"

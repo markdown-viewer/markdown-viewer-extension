@@ -163,6 +163,18 @@
     "message": "Xóa tất cả tệp gần đây khỏi danh sách?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Bộ nhớ tạm trống",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Mở từ bộ nhớ tạm",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Không thể đọc bộ nhớ tạm",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Đóng",
     "description": "Close button text/tooltip"

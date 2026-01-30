@@ -493,6 +493,51 @@ h1.clickable-title:hover {
   background: var(--color-bg-hover);
 }
 
+/* Clipboard Item */
+.clipboard-item {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 12px;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-light);
+  margin-bottom: 10px;
+}
+
+.clipboard-item:hover {
+  background: var(--color-primary-subtle);
+  transform: translateX(2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.clipboard-item:active {
+  background: var(--color-primary-subtle);
+}
+
+.clipboard-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.clipboard-icon {
+  font-size: 16px;
+}
+
+.clipboard-item-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.clipboard-item-preview {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .history-item-url {
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);

@@ -163,6 +163,18 @@
     "message": "¿Eliminar todos los archivos recientes de la lista?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "El portapapeles está vacío",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Abrir desde portapapeles",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Error al leer el portapapeles",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Cerrar",
     "description": "Close button text/tooltip"

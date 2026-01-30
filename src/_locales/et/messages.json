@@ -163,6 +163,18 @@
     "message": "Eemaldada kõik hiljutised failid loendist?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Lõikelaud on tühi",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Ava lõikelaualt",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Lõikelaua lugemine ebaõnnestus",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Sulge",
     "description": "Close button text/tooltip"

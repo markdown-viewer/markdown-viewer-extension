@@ -299,6 +299,18 @@
     "message": "最近访问的文档",
     "description": "历史文档标题"
   },
+  "clipboard_open": {
+    "message": "从剪贴板打开",
+    "description": "剪贴板项标题"
+  },
+  "clipboard_empty": {
+    "message": "剪贴板为空",
+    "description": "剪贴板为空错误"
+  },
+  "clipboard_read_failed": {
+    "message": "读取剪贴板失败",
+    "description": "读取剪贴板失败错误"
+  },
   "language": {
     "message": "语言",
     "description": "Menu item for language"

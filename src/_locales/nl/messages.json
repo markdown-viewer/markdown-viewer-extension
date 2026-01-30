@@ -163,6 +163,18 @@
     "message": "Alle recente bestanden uit de lijst verwijderen?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Klembord is leeg",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Openen vanuit klembord",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Kan klembord niet lezen",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Sluiten",
     "description": "Close button text/tooltip"

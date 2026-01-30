@@ -55,6 +55,7 @@ export const createBuildConfig = () => {
     entryPoints: {
       'core/content-detector': 'chrome/src/webview/content-detector.ts',
       'core/main': 'chrome/src/webview/main.ts',
+      'core/clipboard-main': 'chrome/src/webview/clipboard-main.ts',
       'core/background': 'chrome/src/host/background.ts',
       'core/offscreen-render-worker': 'chrome/src/webview/offscreen-render-worker.ts',
       'ui/popup/popup': 'chrome/src/popup/popup.ts',
@@ -96,7 +97,8 @@ export const createBuildConfig = () => {
                 { src: 'chrome/manifest.json', dest: 'dist/chrome/manifest.json', log: '📄 Copied manifest.json from chrome/' },
                 { src: 'chrome/src/popup/popup.html', dest: 'dist/chrome/ui/popup/popup.html' },
                 { src: 'chrome/src/popup/popup.css', dest: 'dist/chrome/ui/popup/popup.css' },
-                { src: 'chrome/src/webview/offscreen-render.html', dest: 'dist/chrome/ui/offscreen-render.html' }
+                { src: 'chrome/src/webview/offscreen-render.html', dest: 'dist/chrome/ui/offscreen-render.html' },
+                { src: 'chrome/src/webview/clipboard-preview.html', dest: 'dist/chrome/ui/clipboard-preview.html' }
               ];
 
               fileCopies.push(...copyDirectory('icons', 'dist/chrome/icons'));

@@ -163,6 +163,18 @@
     "message": "Tüm son dosyalar listeden kaldırılsın mı?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Pano boş",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Panodan Aç",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Pano okunamadı",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Kapat",
     "description": "Close button text/tooltip"

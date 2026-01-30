@@ -109,13 +109,20 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // Initialize file state service (unified across platforms)
   const currentUrl = getCurrentDocumentUrl();
   
+  // Check if this is a clipboard preview (should not persist state)
+  const isClipboardPreview = currentUrl.includes('clipboard-preview.html');
+  
   // Set file key for scroll position persistence (used by viewer-host)
   setCurrentFileKey(currentUrl);
   
   const saveFileState = (state: FileState): void => {
+    // Skip saving state for clipboard preview
+    if (isClipboardPreview) return;
     platform.fileState.set(currentUrl, state);
   };
   const getFileState = (): Promise<FileState> => {
+    // Return empty state for clipboard preview
+    if (isClipboardPreview) return Promise.resolve({});
     return platform.fileState.get(currentUrl);
   };
 

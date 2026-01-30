@@ -163,6 +163,18 @@
     "message": "最近のファイルをすべて削除しますか？",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "クリップボードは空です",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "クリップボードから開く",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "クリップボードの読み取りに失敗しました",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "閉じる",
     "description": "Close button text/tooltip"

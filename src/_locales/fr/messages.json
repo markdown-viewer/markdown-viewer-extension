@@ -163,6 +163,18 @@
     "message": "Supprimer tous les fichiers récents de la liste ?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Le presse-papiers est vide",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Ouvrir depuis le presse-papiers",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Échec de lecture du presse-papiers",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Fermer",
     "description": "Close button text/tooltip"

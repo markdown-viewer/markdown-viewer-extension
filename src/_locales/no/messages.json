@@ -163,6 +163,18 @@
     "message": "Fjerne alle nylige filer fra listen?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Utklippstavlen er tom",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Åpne fra utklippstavle",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Kunne ikke lese utklippstavlen",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Lukk",
     "description": "Close button text/tooltip"

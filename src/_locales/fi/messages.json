@@ -163,6 +163,18 @@
     "message": "Poista kaikki viimeaikaiset tiedostot listalta?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Leikepöytä on tyhjä",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Avaa leikepöydältä",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Leikepöydän lukeminen epäonnistui",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Sulje",
     "description": "Close button text/tooltip"

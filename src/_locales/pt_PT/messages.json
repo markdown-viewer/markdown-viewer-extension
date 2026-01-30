@@ -163,6 +163,18 @@
     "message": "Remover todos os ficheiros recentes da lista?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Área de transferência vazia",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Abrir da área de transferência",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Falha ao ler área de transferência",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Fechar",
     "description": "Close button text/tooltip"

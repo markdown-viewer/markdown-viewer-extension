@@ -163,6 +163,18 @@
     "message": "確定要清除所有最近開啟的檔案記錄嗎？",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "剪貼簿為空",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "從剪貼簿開啟",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "讀取剪貼簿失敗",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "關閉",
     "description": "Close button text/tooltip"

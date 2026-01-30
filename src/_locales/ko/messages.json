@@ -163,6 +163,18 @@
     "message": "모든 최근 파일을 목록에서 제거하시겠습니까?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "클립보드가 비어 있습니다",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "클립보드에서 열기",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "클립보드 읽기 실패",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "닫기",
     "description": "Close button text/tooltip"

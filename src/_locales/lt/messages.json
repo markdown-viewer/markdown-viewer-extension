@@ -163,6 +163,18 @@
     "message": "Pašalinti visus naujausius failus iš sąrašo?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Iškarpinė tuščia",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Atidaryti iš iškarpinės",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Nepavyko perskaityti iškarpinės",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Uždaryti",
     "description": "Close button text/tooltip"

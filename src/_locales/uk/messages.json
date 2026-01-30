@@ -163,6 +163,18 @@
     "message": "Видалити всі останні файли зі списку?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Буфер обміну порожній",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Відкрити з буфера обміну",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Не вдалося прочитати буфер обміну",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Закрити",
     "description": "Close button text/tooltip"

@@ -163,6 +163,18 @@
     "message": "Usunąć wszystkie ostatnie pliki z listy?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Schowek jest pusty",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Otwórz ze schowka",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Nie udało się odczytać schowka",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Zamknij",
     "description": "Close button text/tooltip"

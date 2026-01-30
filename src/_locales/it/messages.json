@@ -163,6 +163,18 @@
     "message": "Rimuovere tutti i file recenti dalla lista?",
     "description": "Confirmation message for clearing recent files"
   },
+  "clipboard_empty": {
+    "message": "Gli appunti sono vuoti",
+    "description": "Error when clipboard is empty"
+  },
+  "clipboard_open": {
+    "message": "Apri dagli appunti",
+    "description": "Clipboard item title in history"
+  },
+  "clipboard_read_failed": {
+    "message": "Impossibile leggere gli appunti",
+    "description": "Error when clipboard read fails"
+  },
   "close": {
     "message": "Chiudi",
     "description": "Close button text/tooltip"
