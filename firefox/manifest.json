@@ -70,6 +70,7 @@
         "ui/styles.css",
         "ui/background.html",
         "core/main.js",
+        "icons/icon16.png",
         "*.woff2",
         "*.woff",
         "*.ttf",

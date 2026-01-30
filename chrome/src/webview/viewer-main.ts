@@ -145,6 +145,25 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     }
   }
 
+  // Set favicon to extension icon
+  function setFavicon(): void {
+    // Remove existing favicon if any
+    const existingLink = document.querySelector("link[rel*='icon']");
+    if (existingLink) {
+      existingLink.remove();
+    }
+    
+    // Create new favicon link
+    // Use browser API for Firefox, chrome API for Chrome
+    const runtime = typeof browser !== 'undefined' ? browser : chrome;
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/png';
+    link.href = runtime.runtime.getURL('icons/icon16.png');
+    document.head.appendChild(link);
+  }
+  setFavicon();
+
   // Initialize TOC manager
   const tocManager = createTocManager(saveFileState, getFileState);
   const { generateTOC, setupTocToggle, updateActiveTocItem, setupResponsiveToc } = tocManager;
