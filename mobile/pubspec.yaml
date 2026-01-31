@@ -84,3 +84,5 @@ flutter:
     - build/mobile/themes/layout-schemes/
     - build/mobile/themes/color-schemes/
     - build/mobile/themes/table-styles/
+    # DrawIO stencils
+    - build/mobile/stencils/

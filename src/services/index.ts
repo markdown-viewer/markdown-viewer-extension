@@ -25,5 +25,8 @@ export { BaseDocumentService } from './document-service';
 export { DirectResourceService, ProxyResourceService } from './resource-service';
 export type { ResourceService } from './resource-service';
 
+export { StencilsService, getStencilsService } from './stencils-service';
+export type { StencilManifest, StencilManifestEntry } from './stencils-service';
+
 export { SettingsService, createSettingsService } from './settings-service';
 export type { RefreshCallback, SettingsServiceConfig } from './settings-service';

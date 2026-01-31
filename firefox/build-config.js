@@ -108,6 +108,7 @@ export const createBuildConfig = () => {
               fileCopies.push(...copyDirectory('icons', 'dist/firefox/icons'));
               fileCopies.push(...copyDirectory('src/_locales', 'dist/firefox/_locales'));
               fileCopies.push(...copyDirectory('src/themes', 'dist/firefox/themes'));
+              fileCopies.push(...copyDirectory('node_modules/@markdown-viewer/drawio2svg/resources/stencils', 'dist/firefox/stencils'));
 
               // Copy pre-bundled library files
               for (const lib of PREBUNDLED_LIBS) {

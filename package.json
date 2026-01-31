@@ -54,6 +54,7 @@
   },
   "dependencies": {
     "@antv/infographic": "^0.2.7",
+    "@markdown-viewer/drawio2svg": "^1.1.1",
     "@trbn/jsoncanvas": "^1.0.6",
     "@viz-js/viz": "^3.24.0",
     "buffer": "^6.0.3",

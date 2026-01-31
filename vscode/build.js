@@ -221,6 +221,10 @@ function copyAssets() {
   copyDirectory('src/themes', path.join(outdir, 'webview', 'themes'));
   console.log('  • themes');
 
+  // Copy DrawIO stencils
+  copyDirectory('node_modules/@markdown-viewer/drawio2svg/resources/stencils', path.join(outdir, 'webview', 'stencils'));
+  console.log('  • stencils');
+
   // Create iframe-render.html with inlined JS (for diagram rendering)
   // Mermaid is inlined first, then the worker script
   const mermaidJs = fs.readFileSync(path.join(projectRoot, 'node_modules/mermaid/dist/mermaid.min.js'), 'utf8');

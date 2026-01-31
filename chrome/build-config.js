@@ -104,6 +104,7 @@ export const createBuildConfig = () => {
               fileCopies.push(...copyDirectory('icons', 'dist/chrome/icons'));
               fileCopies.push(...copyDirectory('src/_locales', 'dist/chrome/_locales'));
               fileCopies.push(...copyDirectory('src/themes', 'dist/chrome/themes'));
+              fileCopies.push(...copyDirectory('node_modules/@markdown-viewer/drawio2svg/resources/stencils', 'dist/chrome/stencils'));
 
               // Copy mermaid library (loaded separately via script tag)
               fileCopies.push({ 

@@ -237,6 +237,10 @@ function copyResources() {
   copyDirectory('src/_locales', `${DIST_DIR}/_locales`);
   console.log('  • _locales');
 
+  // Copy DrawIO stencils
+  copyDirectory('node_modules/@markdown-viewer/drawio2svg/resources/stencils', `${DIST_DIR}/stencils`);
+  console.log('  • stencils');
+
   // Copy app icons for Flutter
   const iconsDir = `${DIST_DIR}/icons`;
   if (!fs.existsSync(iconsDir)) {
