@@ -19,6 +19,8 @@ export interface RoughSvgOptions {
   hachureGap?: number;
   /** Default border color when none specified */
   defaultBorderColor?: string;
+  /** Only process markers (arrows), skip other elements */
+  markersOnly?: boolean;
 }
 
 const DEFAULT_OPTIONS: Required<RoughSvgOptions> = {
@@ -28,6 +30,7 @@ const DEFAULT_OPTIONS: Required<RoughSvgOptions> = {
   fillWeight: 0.5,
   hachureGap: 4,
   defaultBorderColor: '#333',
+  markersOnly: false,
 };
 
 /**
@@ -91,6 +94,9 @@ export function applyRoughEffect(svgString: string, options: RoughSvgOptions = {
     }
     return false;
   };
+
+  // If markersOnly is true, skip to marker processing
+  if (!opts.markersOnly) {
 
   // Process rect elements
   svgElement.querySelectorAll('rect').forEach(rect => {
@@ -267,6 +273,37 @@ export function applyRoughEffect(svgString: string, options: RoughSvgOptions = {
     } else {
       path.parentNode?.replaceChild(node, path);
     }
+  });
+
+  } // end of !markersOnly block
+
+  // Process marker elements (arrow heads)
+  const insertRoughNode = (node: SVGGElement, parent: Element, reference: Element): void => {
+    const paths = node.querySelectorAll('path');
+    if (paths.length === 0) {
+      parent.insertBefore(node, reference);
+      return;
+    }
+    paths.forEach(p => parent.insertBefore(p.cloneNode(true), reference));
+  };
+
+  svgElement.querySelectorAll('marker path').forEach(path => {
+    const stroke = getStroke(path as SVGElement) || opts.defaultBorderColor;
+    const fill = getFill(path as SVGElement);
+    const d = path.getAttribute('d');
+    if (!d) return;
+
+    const node = rc.path(d, {
+      ...roughOptions,
+      stroke,
+      fill: fill || 'none',
+      fillStyle: 'hachure',
+      fillWeight: opts.fillWeight,
+      hachureGap: opts.hachureGap,
+    });
+
+    insertRoughNode(node, path.parentNode!, path);
+    path.remove();
   });
 
   // Remove from DOM and serialize

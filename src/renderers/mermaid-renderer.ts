@@ -79,6 +79,20 @@ export class MermaidRenderer extends BaseRenderer {
   }
 
   /**
+   * Check if the diagram type has arrows that need rough processing
+   * @param code - Mermaid diagram code
+   * @returns true if the diagram has arrows
+   */
+  private hasArrows(code: string): boolean {
+    const trimmed = code.trim().toLowerCase();
+    // These diagram types have arrow markers
+    return trimmed.startsWith('flowchart') ||
+           trimmed.startsWith('graph') ||
+           trimmed.startsWith('classdiagram') ||
+           trimmed.startsWith('statediagram');
+  }
+
+  /**
    * Preprocess Mermaid code to convert \n to <br> for line breaks
    * @param code - Mermaid diagram code
    * @returns Preprocessed code with \n replaced by <br>
@@ -93,12 +107,13 @@ export class MermaidRenderer extends BaseRenderer {
    * Apply rough.js hand-drawn effect to SVG
    * @param svgString - Original SVG string
    * @param themeConfig - Theme configuration
+   * @param markersOnly - Only process markers (arrows), skip other elements
    * @returns SVG with hand-drawn effect
    */
-  private applyRoughEffectToSvg(svgString: string, themeConfig: RendererThemeConfig | null): string {
+  private applyRoughEffectToSvg(svgString: string, themeConfig: RendererThemeConfig | null, markersOnly = false): string {
     const isHandDrawn = themeConfig?.diagramStyle === 'handDrawn';
     if (!isHandDrawn) return svgString;
-    return applyRoughEffect(svgString, this.roughOptions);
+    return applyRoughEffect(svgString, { ...this.roughOptions, markersOnly });
   }
 
   /**
@@ -182,9 +197,16 @@ export class MermaidRenderer extends BaseRenderer {
     // Calculate scale for PNG dimensions
     const scale = this.calculateCanvasScale(themeConfig);
 
-    // Apply rough.js hand-drawn effect only for sequence diagrams
-    // (Mermaid's native handDrawn doesn't support sequence diagrams well)
-    const processedSvg = this.isSequenceDiagram(code) ? this.applyRoughEffectToSvg(svg, themeConfig) : svg;
+    // Apply rough.js hand-drawn effect:
+    // - Sequence diagrams: full rough effect (Mermaid's native handDrawn doesn't support them well)
+    // - Diagrams with arrows (flowchart, graph, classDiagram, stateDiagram): only process arrow markers
+    // - Other diagrams: no processing needed
+    let processedSvg = svg;
+    if (this.isSequenceDiagram(code)) {
+      processedSvg = this.applyRoughEffectToSvg(svg, themeConfig, false);
+    } else if (this.hasArrows(code)) {
+      processedSvg = this.applyRoughEffectToSvg(svg, themeConfig, true);
+    }
 
     // Render SVG to canvas as PNG
     const canvas = await this.renderSvgToCanvas(processedSvg, captureWidth * scale, captureHeight * scale, fontFamily);
