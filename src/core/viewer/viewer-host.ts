@@ -673,6 +673,8 @@ export async function exportDocxFlow(options: DocxExportFlowOptions): Promise<vo
     onSuccess?.(docxFilename);
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
+    // Silently ignore user cancellation
+    if (errMsg === 'Download cancelled by user') return;
     // eslint-disable-next-line no-console
     console.error('[ViewerHost] DOCX export failed:', errMsg);
     onError?.(errMsg);

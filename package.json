@@ -9,6 +9,7 @@
     "build:firefox": "node firefox/build.js",
     "build:mobile": "node mobile/build.js",
     "build:vscode": "node vscode/build.js",
+    "build:obsidian": "node obsidian/build.js",
     "build:app": "node mobile/build-app.js all",
     "build:ios": "node mobile/build-app.js ios",
     "build:ios:sim": "node mobile/build-app.js ios:sim",
@@ -53,7 +54,7 @@
     "url": "https://github.com/markdown-viewer/markdown-viewer-extension/issues"
   },
   "dependencies": {
-    "@antv/infographic": "^0.2.7",
+    "@antv/infographic": "^0.2.13",
     "@markdown-viewer/drawio2svg": "^1.2.0",
     "@trbn/jsoncanvas": "^1.0.6",
     "@viz-js/viz": "^3.24.0",

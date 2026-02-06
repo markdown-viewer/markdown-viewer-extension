@@ -45,16 +45,13 @@ export class HtmlPlugin extends BasePlugin {
 
     const tasks = images.map(async (img) => {
       const src = img.getAttribute('src');
-      console.log('[HtmlPlugin] Processing image:', src, 'isLocal:', src ? isLocalImageSrc(src) : false);
       if (!src || !isLocalImageSrc(src)) {
         return;
       }
 
       try {
         const resolvedPath = resolveLocalPath(src, docService);
-        console.log('[HtmlPlugin] Resolved path:', resolvedPath);
         const base64 = await docService.readFile(resolvedPath, { binary: true });
-        console.log('[HtmlPlugin] Read success, base64 length:', base64?.length);
         const mimeType = getImageMimeType(src);
         img.setAttribute('src', `data:${mimeType};base64,${base64}`);
       } catch (error) {

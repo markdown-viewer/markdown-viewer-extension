@@ -222,7 +222,7 @@ class DocxExporter {
             settings.get('tableLayout'),
           ]);
           this.docxHrDisplay = hrDisplay;
-          this.docxEmojiStyle = emojiStyle === 'native' ? 'system' : 'system'; // Map to internal naming
+          this.docxEmojiStyle = emojiStyle;
           this.frontmatterDisplay = frontmatterDisplay;
           this.tableMergeEmpty = tableMergeEmpty;
           this.tableLayout = tableLayout || 'center';

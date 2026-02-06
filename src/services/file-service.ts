@@ -108,7 +108,10 @@ export class FileService {
     });
 
     // 4. Trigger actual download
-    await this.channel.send('DOCX_DOWNLOAD_FINALIZE', { token });
+    const result = await this.channel.send('DOCX_DOWNLOAD_FINALIZE', { token }) as { success?: boolean; cancelled?: boolean } | undefined;
+    if (result && !result.success && result.cancelled) {
+      throw new Error('Download cancelled by user');
+    }
   }
 
   /**

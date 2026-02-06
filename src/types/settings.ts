@@ -26,7 +26,7 @@ export interface SettingTypes {
   frontmatterDisplay: 'hide' | 'table' | 'raw';
   preferredLocale: string;
   docxHrDisplay: 'pageBreak' | 'line' | 'hide';
-  docxEmojiStyle: 'native' | 'twemoji';
+  docxEmojiStyle: 'apple' | 'windows' | 'system';
 }
 
 /**
@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS: SettingTypes = {
   frontmatterDisplay: 'hide',
   preferredLocale: 'auto',
   docxHrDisplay: 'hide',
-  docxEmojiStyle: 'twemoji',
+  docxEmojiStyle: 'system',
 };
 
 /**

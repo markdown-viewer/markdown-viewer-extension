@@ -62,10 +62,15 @@ export class SvgPlugin extends BasePlugin {
 
   /**
    * Check if content is a URL (for image nodes)
+   * SVG code block content (containing <svg> tags) is never a URL.
    * @param content - Extracted content
    * @returns True if content is a URL
    */
   isUrl(content: string): boolean {
+    // SVG markup from code blocks is not a URL
+    if (content.includes('<svg')) {
+      return false;
+    }
     return content.startsWith('http://') || 
            content.startsWith('https://') ||
            content.startsWith('file://') ||

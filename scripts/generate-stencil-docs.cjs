@@ -6,6 +6,7 @@ const stencilData = JSON.parse(fs.readFileSync(path.join(__dirname, '../temp/ste
 
 const names = stencilData.names;
 const specialStyles = stencilData.specialStyles || {};
+const sizes = stencilData.sizes || {};
 
 // Group stencils by category
 const categories = {};
@@ -50,9 +51,16 @@ function generateCategoryMarkdown(category, stencils) {
     // Sort stencils for consistent output
     stencils.sort();
     
-    // Simple list of full names
+    // Simple list of full names with size
     for (const fullName of stencils) {
-        lines.push(`- \`${fullName}\``);
+        const size = sizes[fullName];
+        if (size) {
+            const w = Math.round(size.width);
+            const h = Math.round(size.height);
+            lines.push(`- \`${fullName}\` (${w}×${h})`);
+        } else {
+            lines.push(`- \`${fullName}\``);
+        }
     }
     
     lines.push('');
@@ -118,6 +126,25 @@ console.log(`\nTotal: ${totalFiles} category files created in ${outputDir}`);
 
 // Also create an index file
 const indexLines = ['# drawio Stencil Reference', ''];
+
+// Add size usage instructions
+indexLines.push('## About Stencil Sizes');
+indexLines.push('');
+indexLines.push('Each stencil is listed with its **original size** in pixels, e.g., `mxgraph.gcp2.bigquery` (172×153).');
+indexLines.push('');
+indexLines.push('When using stencils in diagrams, you should **scale them proportionally** to fit your layout:');
+indexLines.push('');
+indexLines.push('```xml');
+indexLines.push('<!-- Original: 172×153, scaled to height 30 (ratio preserved) -->');
+indexLines.push('<mxCell style="shape=mxgraph.gcp2.bigquery;..." vertex="1">');
+indexLines.push('  <mxGeometry width="34" height="30" as="geometry"/>');
+indexLines.push('</mxCell>');
+indexLines.push('```');
+indexLines.push('');
+indexLines.push('**Scale formula:** If original is W×H and target height is T, then: `width = W × (T / H)`');
+indexLines.push('');
+indexLines.push('## Stencil Categories');
+indexLines.push('');
 indexLines.push('| Category | Count | File |');
 indexLines.push('|----------|-------|------|');
 

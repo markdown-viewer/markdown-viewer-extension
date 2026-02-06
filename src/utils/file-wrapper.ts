@@ -6,7 +6,7 @@
 /**
  * Get the file type from extension
  * @param filePath - The file path
- * @returns The file type (mermaid, vega, vega-lite, dot, infographic, html, or markdown)
+ * @returns The file type (mermaid, vega, vega-lite, dot, infographic, svg, or markdown)
  */
 export function getFileType(filePath: string): string {
   const ext = filePath.toLowerCase().split('.').pop() || '';
@@ -31,8 +31,6 @@ export function getFileType(filePath: string): string {
       return 'drawio';
     case 'svg':
       return 'svg';
-    case 'html':
-      return 'html';
     case 'md':
     case 'markdown':
     default:
@@ -51,16 +49,6 @@ export function wrapFileContent(content: string, filePath: string): string {
   
   // If already markdown, return as-is
   if (fileType === 'markdown') {
-    return content;
-  }
-  
-  // If it's HTML, we don't support wrapping (per requirements)
-  if (fileType === 'html') {
-    return content;
-  }
-  
-  // SVG files are embedded directly as HTML
-  if (fileType === 'svg') {
     return content;
   }
   
@@ -85,16 +73,11 @@ export function isFileSupportedBySettings(
     return true;
   }
   
-  // HTML is never supported
-  if (fileType === 'html') {
-    return false;
-  }
-  
   // Check if the file type is in supported extensions
   if (!supportedExtensions) {
     // Default settings: support mermaid, vega, vega-lite, dot, infographic
-    // Not supported: svg, html
-    return fileType !== 'svg' && fileType !== 'html';
+    // Not supported: svg
+    return fileType !== 'svg';
   }
   
   // Map file type to settings key

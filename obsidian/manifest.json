@@ -1,0 +1,9 @@
+{
+  "id": "markdown-viewer-extension",
+  "name": "Markdown Viewer",
+  "version": "1.5.1",
+  "minAppVersion": "1.0.0",
+  "description": "Advanced Markdown Viewer with Mermaid, Vega, DrawIO, DOCX export and more",
+  "author": "Markdown Viewer Team",
+  "isDesktopOnly": false
+}
