@@ -35,7 +35,8 @@ let currentMarkdown = '';
 let currentFilename = '';
 let currentFilePath = ''; // File path for state persistence (used by FileStateService)
 let currentThemeId = 'default'; // Current theme ID (loaded via shared loadAndApplyTheme)
-let currentTaskManager: AsyncTaskManager | null = null; // Track current task manager for cancellation
+// Stable ref object so renderMarkdownFlow can abort previous renders across calls
+const currentTaskManagerRef: { current: AsyncTaskManager | null } = { current: null };
 let currentZoomLevel = 1; // Store current zoom level for applying after content render
 let scrollSyncController: ScrollSyncController | null = null; // Scroll sync controller
 
@@ -199,6 +200,7 @@ async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
   const newFilePath = filePath || newFilename; // Fallback to filename if no path
   const fileChanged = currentFilename !== newFilename;
 
+
   currentMarkdown = content;
   currentFilename = newFilename;
   currentFilePath = newFilePath;
@@ -219,10 +221,15 @@ async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
     }
   }
 
-  // Update theme if provided (Flutter sends themeId, we load it ourselves)
+  // Apply theme inline if provided and different from current
+  // (avoids race condition with separate setTheme call triggering rerender)
   if (themeId && themeId !== currentThemeId) {
     currentThemeId = themeId;
-    // Theme change will be applied via handleSetTheme, not here
+    try {
+      await loadAndApplyTheme(themeId);
+    } catch (error) {
+      console.error('[Mobile] Failed to apply theme in loadMarkdown:', error);
+    }
   }
 
   const container = document.getElementById('markdown-content');
@@ -242,7 +249,7 @@ async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
     renderer: pluginRenderer,
     translate: (key: string, subs?: string | string[]) => Localization.translate(key, subs),
     platform,
-    currentTaskManagerRef: { current: currentTaskManager },
+    currentTaskManagerRef,
     targetLine: savedScrollLine,
     onHeadings: (headings) => {
       bridge.postMessage('HEADINGS_UPDATED', headings);

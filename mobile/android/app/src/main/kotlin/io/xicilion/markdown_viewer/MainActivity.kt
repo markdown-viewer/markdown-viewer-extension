@@ -59,16 +59,19 @@ class MainActivity : FlutterActivity() {
                 val filename = getFilenameFromUri(uri)
                 
                 if (content != null) {
-                    // If Flutter is ready, send directly via channel
                     if (methodChannel != null) {
+                        // Send via channel and clear pending to avoid duplicate delivery
                         methodChannel?.invokeMethod("onFileReceived", mapOf(
                             "content" to content,
                             "filename" to filename
                         ))
+                        pendingFileContent = null
+                        pendingFileName = null
+                    } else {
+                        // Store as pending for when Flutter is ready
+                        pendingFileContent = content
+                        pendingFileName = filename
                     }
-                    // Also store as pending in case Flutter isn't ready yet
-                    pendingFileContent = content
-                    pendingFileName = filename
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

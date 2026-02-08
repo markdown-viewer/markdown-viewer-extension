@@ -313,9 +313,6 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
             _webViewReady = true;
           });
 
-          // Send theme data to WebView (Flutter loads from assets, not WebView fetch)
-          await _sendThemeData(_currentTheme);
-
           // Apply saved font size (zoom level) before loading content
           final savedFontSize = settingsService.fontSize;
           await _controller.runJavaScript(
@@ -324,9 +321,16 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
           
           // Load pending content if any
           if (_pendingContent != null) {
+            // Skip separate _sendThemeData: loadMarkdown payload includes themeId,
+            // and WebView's handleLoadMarkdown will apply the theme before rendering.
+            // Sending theme separately would cause a race condition (theme rerender
+            // competing with the initial content render).
             await _loadMarkdownIntoWebView(_pendingContent!, _pendingFilename ?? 'document.md');
             _pendingContent = null;
             _pendingFilename = null;
+          } else {
+            // No pending content: send theme data to WebView normally
+            await _sendThemeData(_currentTheme);
           }
           return;
         }
@@ -529,6 +533,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
         } else if (key == 'markdownViewerSettings') {
           // Return all viewer settings for DOCX export and other features
           result['markdownViewerSettings'] = {
+            'themeId': settingsService.theme,
             'docxHrDisplay': settingsService.hrDisplay,
             'docxEmojiStyle': settingsService.emojiStyle,
             'frontmatterDisplay': settingsService.frontmatterDisplay,
@@ -556,6 +561,9 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
         if (items.containsKey('markdownViewerSettings')) {
           final viewerSettings = items['markdownViewerSettings'] as Map?;
           if (viewerSettings != null) {
+            if (viewerSettings.containsKey('themeId')) {
+              settingsService.theme = viewerSettings['themeId'] as String;
+            }
             if (viewerSettings.containsKey('docxHrDisplay')) {
               settingsService.hrDisplay = viewerSettings['docxHrDisplay'] as String;
             }
@@ -959,8 +967,9 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       // Prepare filePath for JS side state persistence
       final escapedFilePath = _escapeJs(_currentFilePath ?? filename);
       
-      // Send themeId only - WebView loads theme data itself using shared loadAndApplyTheme
-      final escapedTheme = _escapeJs(_currentTheme);
+      // Read theme from settingsService (ground truth) instead of _currentTheme,
+      // which may lag behind when settings page updates theme asynchronously.
+      final escapedTheme = _escapeJs(settingsService.theme);
       
       // Call loadMarkdown with object payload (filePath used by FileStateService)
       await _controller.runJavaScript("""

@@ -227,8 +227,14 @@ export function createScrollSyncController(options: ScrollSyncControllerOptions)
     // Only report when the line changes enough to matter.
     const normalizedLine = Math.max(0, Math.floor(currentLine));
     if (lastReportedLine !== null && Math.floor(lastReportedLine) === normalizedLine) {
-      targetLine = currentLine;
-      return;
+      // Exception: detect scroll-to-top. Transitions like 0.5 → 0.0 are
+      // normally swallowed (both floor to 0), but we must report 0 so that
+      // restore uses the fast scrollTo({top:0}) path instead of scrollToLine(0.5).
+      const scrollTop = window.scrollY || window.pageYOffset || 0;
+      if (scrollTop >= 1 || lastReportedLine <= 0) {
+        targetLine = currentLine;
+        return;
+      }
     }
     
     targetLine = currentLine;
