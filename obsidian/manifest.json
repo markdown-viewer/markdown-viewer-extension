@@ -1,9 +1,9 @@
 {
   "id": "markdown-viewer-extension",
   "name": "Markdown Viewer",
-  "version": "1.5.1",
+  "version": "2.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Advanced Markdown Viewer with Mermaid, Vega, DrawIO, DOCX export and more",
+  "description": "Markdown to perfect Word in one click — Mermaid, Graphviz, Vega, Infographic, LaTeX (editable), code highlighting, local processing",
   "author": "Markdown Viewer Team",
   "isDesktopOnly": false
 }

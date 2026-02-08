@@ -1,7 +1,7 @@
 {
   "name": "markdown-viewer-extension",
   "displayName": "Markdown Viewer Extension",
-  "version": "1.5.1",
+  "version": "2.0.0",
   "description": "Markdown to perfect Word in one click — Mermaid, Graphviz, Vega, Infographic, LaTeX (editable), code highlighting, local processing",
   "type": "module",
   "scripts": {
@@ -44,7 +44,7 @@
     "name": "Markdown Viewer Team",
     "url": "https://github.com/markdown-viewer"
   },
-  "license": "ISC",
+  "license": "GPL-3.0-only",
   "homepage": "https://github.com/markdown-viewer/markdown-viewer-extension",
   "repository": {
     "type": "git",
@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@antv/infographic": "^0.2.13",
-    "@markdown-viewer/drawio2svg": "^1.2.0",
+    "@markdown-viewer/drawio2svg": "^1.3.0",
     "@trbn/jsoncanvas": "^1.0.6",
     "@viz-js/viz": "^3.24.0",
     "buffer": "^6.0.3",
