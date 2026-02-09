@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown'dan mükemmel Word'e tek tıkla — Mermaid, Vega, drawio, canvas, infografik, Graphviz, LaTeX (düzenlenebilir), kod vurgulama, yerel işleme",
+    "message": "Markdown'dan mükemmel Word'e tek tıkla — Mermaid, Vega, drawio, canvas, infografik, Graphviz, LaTeX (düzenlenebilir), kod vurgulama, yerel işleme.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {

@@ -2,7 +2,7 @@
   "name": "markdown-viewer-extension",
   "displayName": "Markdown Viewer Extension",
   "version": "2.0.0",
-  "description": "Markdown to perfect Word in one click — Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing",
+  "description": "Markdown to perfect Word in one click — Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing.",
   "type": "module",
   "scripts": {
     "build:chrome": "node chrome/build.js",

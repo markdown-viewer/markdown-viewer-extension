@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown をワンクリックで完璧な Word に — Mermaid、Vega、drawio、canvas、インフォグラフィック、Graphviz、LaTeX（編集可能）、コードハイライト、ローカル処理",
+    "message": "Markdown をワンクリックで完璧な Word に — Mermaid、Vega、drawio、canvas、インフォグラフィック、Graphviz、LaTeX（編集可能）、コードハイライト、ローカル処理.",
     "description": "Chrome ウェブストアに表示される説明"
   },
   "extensionName": {

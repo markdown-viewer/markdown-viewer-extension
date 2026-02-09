@@ -196,7 +196,7 @@
     "description": "导出中提示"
   },
   "extensionDescription": {
-    "message": "Markdown 一键导出完美 Word — Mermaid 流程图、Vega 图表、drawio、canvas、信息图、Graphviz、LaTeX 公式自动转为可编辑格式，代码高亮，本地处理",
+    "message": "Markdown 一键导出完美 Word — Mermaid 流程图、Vega 图表、drawio、canvas、信息图、Graphviz、LaTeX 公式自动转为可编辑格式，代码高亮，本地处理.",
     "description": "扩展简介"
   },
   "extensionName": {

@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown 一鍵匯出完美 Word — Mermaid 流程圖、Vega 圖表、drawio、canvas、資訊圖、Graphviz、LaTeX 公式自動轉為可編輯格式，程式碼高亮，本地處理",
+    "message": "Markdown 一鍵匯出完美 Word — Mermaid 流程圖、Vega 圖表、drawio、canvas、資訊圖、Graphviz、LaTeX 公式自動轉為可編輯格式，程式碼高亮，本地處理.",
     "description": "擴充功能簡介"
   },
   "extensionName": {

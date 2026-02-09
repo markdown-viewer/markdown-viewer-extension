@@ -3,7 +3,7 @@
   "name": "Markdown Viewer",
   "version": "2.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Markdown to perfect Word in one click — Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing",
+  "description": "Markdown to perfect Word in one click — Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing.",
   "author": "Markdown Viewer Team",
   "isDesktopOnly": false
 }

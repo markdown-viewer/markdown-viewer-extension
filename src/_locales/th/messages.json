@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown สู่ Word สมบูรณ์แบบในคลิกเดียว — Mermaid, Vega, drawio, canvas, อินโฟกราฟิก, Graphviz, LaTeX (แก้ไขได้), ไฮไลท์โค้ด, ประมวลผลในเครื่อง",
+    "message": "Markdown สู่ Word สมบูรณ์แบบในคลิกเดียว — Mermaid, Vega, drawio, canvas, อินโฟกราฟิก, Graphviz, LaTeX (แก้ไขได้), ไฮไลท์โค้ด, ประมวลผลในเครื่อง.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
