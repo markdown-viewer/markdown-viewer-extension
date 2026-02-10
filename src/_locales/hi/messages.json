@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "एक क्लिक में Markdown से परफेक्ट Word — Mermaid, Vega, drawio, canvas, इन्फोग्राफिक, Graphviz, LaTeX (संपादन योग्य), कोड हाइलाइटिंग, स्थानीय प्रोसेसिंग.",
+    "message": "Markdown से परफेक्ट Word — Mermaid, Vega, drawio, canvas, इन्फोग्राफिक, Graphviz, LaTeX (संपादन योग्य), कोड हाइलाइटिंग, स्थानीय प्रोसेसिंग.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {

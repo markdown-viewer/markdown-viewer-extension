@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown sang Word hoàn hảo chỉ với một click — Mermaid, Vega, drawio, canvas, infographic, Graphviz, LaTeX (có thể chỉnh sửa), tô sáng mã, xử lý cục bộ.",
+    "message": "Markdown sang Word hoàn hảo — Mermaid, Vega, drawio, canvas, infographic, Graphviz, LaTeX (có thể chỉnh sửa), tô sáng mã, xử lý cục bộ.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {

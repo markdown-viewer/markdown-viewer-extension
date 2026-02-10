@@ -196,7 +196,7 @@
     "description": "Fallback message when DOCX export fails"
   },
   "extensionDescription": {
-    "message": "Markdown täiuslikuks Wordiks ühe klõpsuga — Mermaid, Vega, drawio, canvas, infograafika, Graphviz, LaTeX (redigeeritav), koodi esiletõstmine, kohalik töötlemine.",
+    "message": "Markdown täiuslikuks Wordiks — Mermaid, Vega, drawio, canvas, infograafika, Graphviz, LaTeX (redigeeritav), koodi esiletõstmine, kohalik töötlemine.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {

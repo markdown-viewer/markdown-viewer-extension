@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown till perfekt Word med ett klick — Mermaid, Vega, drawio, canvas, infografik, Graphviz, LaTeX (redigerbar), kodmarkering, lokal bearbetning.",
+    "message": "Markdown till perfekt Word — Mermaid, Vega, drawio, canvas, infografik, Graphviz, LaTeX (redigerbar), kodmarkering, lokal bearbetning.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {

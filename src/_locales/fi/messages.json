@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown täydelliseksi Wordiksi yhdellä napsautuksella — Mermaid, Vega, drawio, canvas, infografiikka, Graphviz, LaTeX (muokattava), koodin korostus, paikallinen käsittely.",
+    "message": "Markdown täydelliseksi Wordiksi — Mermaid, Vega, drawio, canvas, infografiikka, Graphviz, LaTeX (muokattava), koodin korostus, paikallinen käsittely.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {

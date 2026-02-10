@@ -196,7 +196,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown을 클릭 한 번으로 완벽한 Word로 — Mermaid, Vega, drawio, canvas, 인포그래픽, Graphviz, LaTeX(편집 가능), 코드 강조, 로컬 처리.",
+    "message": "Markdown을 완벽한 Word로 — Mermaid, Vega, drawio, canvas, 인포그래픽, Graphviz, LaTeX(편집 가능), 코드 강조, 로컬 처리.",
     "description": "Chrome 웹 스토어에 표시되는 설명"
   },
   "extensionName": {
