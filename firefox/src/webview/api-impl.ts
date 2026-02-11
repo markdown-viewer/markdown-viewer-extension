@@ -325,6 +325,23 @@ class FirefoxPlatformAPI {
       const blob = new Blob([byteArray], { type: mimeType });
       const url = URL.createObjectURL(blob);
 
+      // Check if downloads permission is available (it's optional)
+      const hasDownloadsPermission = await browser.permissions.contains({ permissions: ['downloads'] });
+      if (!hasDownloadsPermission) {
+        // Fallback: use <a> element download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        return;
+      }
+
       // Use browser.downloads API
       await browser.downloads.download({
         url,

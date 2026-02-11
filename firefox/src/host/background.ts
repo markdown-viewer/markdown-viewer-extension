@@ -988,6 +988,20 @@ async function handleDocxDownloadFinalizeAsync(
     const blob = new Blob([bytes], { type: mimeType });
     const blobUrl = URL.createObjectURL(blob);
 
+    // Check if downloads permission is available (it's optional)
+    const hasDownloadsPermission = await browser.permissions.contains({ permissions: ['downloads'] });
+    if (!hasDownloadsPermission) {
+      // No downloads permission - encode data and send back for fallback download
+      URL.revokeObjectURL(blobUrl);
+      const base64Data = btoa(String.fromCharCode(...bytes));
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+      uploadSessions.delete(token);
+      return createResponseEnvelope(message.id, {
+        ok: true,
+        data: { fallback: true, dataUrl, filename, mimeType },
+      });
+    }
+
     // Start download and return immediately without waiting
     // Firefox's downloads.download with saveAs:true may block until user interaction
     browser.downloads.download({

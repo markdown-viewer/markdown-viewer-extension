@@ -342,7 +342,7 @@ function handleUploadOperationEnvelope(
   }
 }
 
-function handleDocxDownloadFinalizeEnvelope(
+async function handleDocxDownloadFinalizeEnvelope(
   message: { id: string; type: string; payload: unknown },
   sendResponse: (response: unknown) => void
 ): boolean {
@@ -372,6 +372,19 @@ function handleDocxDownloadFinalizeEnvelope(
     const mimeType = (metadata.mimeType as string) || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
     const dataUrl = `data:${mimeType};base64,${data}`;
+
+    // Check if downloads permission is available (it's optional)
+    const hasDownloadsPermission = await chrome.permissions.contains({ permissions: ['downloads'] });
+    if (!hasDownloadsPermission) {
+      // No downloads permission - send data back to content script for fallback download
+      uploadSessions.delete(token);
+      sendResponseEnvelope(message.id, sendResponse, {
+        ok: true,
+        data: { fallback: true, dataUrl, filename, mimeType },
+      });
+      return true;
+    }
+
     chrome.downloads.download(
       {
         url: dataUrl,

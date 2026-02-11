@@ -108,9 +108,22 @@ export class FileService {
     });
 
     // 4. Trigger actual download
-    const result = await this.channel.send('DOCX_DOWNLOAD_FINALIZE', { token }) as { success?: boolean; cancelled?: boolean } | undefined;
+    const result = await this.channel.send('DOCX_DOWNLOAD_FINALIZE', { token }) as { success?: boolean; cancelled?: boolean; fallback?: boolean; dataUrl?: string; filename?: string } | undefined;
     if (result && !result.success && result.cancelled) {
       throw new Error('Download cancelled by user');
+    }
+
+    // Handle fallback when downloads permission is not available
+    if (result && result.fallback && result.dataUrl) {
+      const a = document.createElement('a');
+      a.href = result.dataUrl;
+      a.download = result.filename || filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 100);
     }
   }
 

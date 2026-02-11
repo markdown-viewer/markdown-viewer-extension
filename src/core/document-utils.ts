@@ -98,11 +98,6 @@ export async function saveToHistory(platform: PlatformAPI): Promise<void> {
   try {
     const url = getCurrentDocumentUrl();
     
-    // Skip clipboard preview pages (they should not be added to history)
-    if (url.includes('clipboard-preview.html')) {
-      return;
-    }
-    
     const title = document.title || extractFileName(url);
     
     const result = await platform.storage.get(['markdownHistory']) as { markdownHistory?: HistoryEntry[] };

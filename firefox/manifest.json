@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "browser_specific_settings": {
@@ -18,14 +18,15 @@
   "permissions": [
     "storage",
     "unlimitedStorage",
-    "downloads",
     "tabs",
     "activeTab",
     "scripting",
     "webRequest",
     "webRequestBlocking",
-    "menus",
-    "clipboardRead"
+    "menus"
+  ],
+  "optional_permissions": [
+    "downloads"
   ],
   "host_permissions": [
     "file:///*",
