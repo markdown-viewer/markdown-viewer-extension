@@ -3,7 +3,7 @@ name: markdown_viewer_mobile
 description: "Markdown to perfect Word in one click — Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing"
 publish_to: 'none'
 
-version: 2.0.0+2
+version: 2.0.1+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
