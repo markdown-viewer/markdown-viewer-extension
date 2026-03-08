@@ -5,6 +5,7 @@
  */
 import { BasePlugin } from './base-plugin';
 import { sanitizeAndCheck } from '../utils/html-sanitizer';
+import { loadImageAsDataUrl } from '../utils/image-loader';
 import type { DocumentService } from '../types/platform';
 
 /**
@@ -45,7 +46,23 @@ export class HtmlPlugin extends BasePlugin {
 
     const tasks = images.map(async (img) => {
       const src = img.getAttribute('src');
-      if (!src || !isLocalImageSrc(src)) {
+      if (!src) return;
+
+      // Remote images: convert via <img> + canvas in main webview
+      // (render worker srcdoc iframe has sandbox restrictions)
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        try {
+          const dataUrl = await loadImageAsDataUrl(src);
+          if (dataUrl) {
+            img.setAttribute('src', dataUrl);
+          }
+        } catch (error) {
+          console.warn(`[HtmlPlugin] Failed to inline remote image: ${src}`, error);
+        }
+        return;
+      }
+
+      if (!isLocalImageSrc(src)) {
         return;
       }
 

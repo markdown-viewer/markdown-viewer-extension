@@ -544,6 +544,31 @@ export function createInlineConverter({
   async function convertSvgImageFromUrl(url: string, alt?: string): Promise<ImageRun | TextRun> {
     console.log('[DOCX] convertSvgImageFromUrl called:', { url, alt });
     try {
+      // Remote SVG: pass URL directly to renderer (uses renderFromUrl internally)
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        if (!renderer) {
+          reportResourceProgress();
+          return new TextRun({ text: '[SVG 图片 - 渲染器不可用]', italics: true, color: '666666' });
+        }
+        const pngResult = await renderer.render('svg', url, { outputFormat: 'png' });
+        const binaryString = atob(pngResult.base64);
+        const buffer = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          buffer[i] = binaryString.charCodeAt(i);
+        }
+        const displayWidth = Math.round(pngResult.width / 4);
+        const displayHeight = Math.round(pngResult.height / 4);
+        const { width: constrainedWidth, height: constrainedHeight } =
+          calculateImageDimensions(displayWidth, displayHeight);
+        reportResourceProgress();
+        return new ImageRun({
+          data: buffer,
+          transformation: { width: constrainedWidth, height: constrainedHeight },
+          type: 'png',
+          altText: { title: alt || 'SVG Image', description: alt || 'SVG image', name: alt || 'svg-image' },
+        });
+      }
+      // Local SVG: fetch content then convert
       const svgContent = await getSvgContent(url, fetchImageAsBuffer);
       console.log('[DOCX] Got SVG content, length:', svgContent.length);
       return await convertSvgImageContent(svgContent, alt);

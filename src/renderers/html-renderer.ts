@@ -14,7 +14,7 @@
  */
 import { BaseRenderer } from './base-renderer';
 import { sanitizeHtml, hasHtmlContent } from '../utils/html-sanitizer';
-import { getFetchService } from './worker/services';
+import { loadImageAsDataUrl } from '../utils/image-loader';
 import type { RendererThemeConfig, RenderResult } from '../types/index';
 
 export class HtmlRenderer extends BaseRenderer {
@@ -39,7 +39,6 @@ export class HtmlRenderer extends BaseRenderer {
    * @param element - HTML element containing images
    */
   private async convertRemoteImagesToBase64(element: HTMLElement): Promise<void> {
-    const fetchService = getFetchService();
     const images = element.querySelectorAll('img[src]');
     
     const fetchPromises = Array.from(images).map(async (img) => {
@@ -56,7 +55,8 @@ export class HtmlRenderer extends BaseRenderer {
         return;
       }
       
-      const base64 = await fetchService.fetchAsDataUrl(src);
+      // Use <img> + canvas to load (bypasses fetch/CSP restrictions)
+      const base64 = await loadImageAsDataUrl(src);
       if (base64) {
         img.setAttribute('src', base64);
       }
