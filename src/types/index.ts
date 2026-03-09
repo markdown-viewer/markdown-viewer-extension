@@ -184,6 +184,25 @@ export type {
 export { DEFAULT_SETTINGS } from './settings';
 
 // =============================================================================
+// Format Types
+// =============================================================================
+
+export type {
+  FormatDefinition,
+  SupportedExtensions,
+} from './formats';
+
+export {
+  SUPPORTED_FORMATS,
+  EXTENSION_TO_FILE_TYPE,
+  DOT_EXTENSION_TO_FILE_TYPE,
+  ALL_SUPPORTED_EXTENSIONS,
+  ALL_FORMAT_EXTENSIONS,
+  SUPPORTED_LANGUAGE_IDS,
+  getDefaultSupportedExtensions,
+} from './formats';
+
+// =============================================================================
 // Toolbar Types
 // =============================================================================
 

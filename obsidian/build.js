@@ -350,6 +350,10 @@ async function main() {
   process.chdir(projectRoot);
 
   try {
+    // Sync supported formats
+    const { default: syncFormats } = await import('../scripts/sync-formats.js');
+    syncFormats();
+
     // Clean output
     if (fs.existsSync(outdir)) fs.rmSync(outdir, { recursive: true, force: true });
     fs.mkdirSync(path.join(outdir, 'webview'), { recursive: true });

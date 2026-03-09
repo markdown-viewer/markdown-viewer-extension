@@ -163,18 +163,6 @@
     "message": "Remove all recent files from the list?",
     "description": "Confirmation message for clearing recent files"
   },
-  "clipboard_empty": {
-    "message": "Clipboard is empty",
-    "description": "Error when clipboard is empty"
-  },
-  "clipboard_open": {
-    "message": "Open from Clipboard",
-    "description": "Clipboard item title in history"
-  },
-  "clipboard_read_failed": {
-    "message": "Failed to read clipboard",
-    "description": "Error when clipboard read fails"
-  },
   "close": {
     "message": "Close",
     "description": "Close button text/tooltip"

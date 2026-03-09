@@ -39,7 +39,7 @@ globalThis.platform = {
 import CacheStorage from '../../../src/utils/cache-storage';
 import { toSimpleCacheStats } from '../../../src/utils/cache-stats';
 import { bootstrapRenderWorker } from '../../../src/renderers/worker/worker-bootstrap';
-import { DirectFetchService } from '../../../src/renderers/worker/services';
+
 import { RenderChannel } from '../../../src/messaging/channels/render-channel';
 import { ManualDispatchTransport } from './manual-dispatch-transport';
 import type {
@@ -60,13 +60,13 @@ let globalCacheStorage: CacheStorage | null = null;
 const injectedTabs = new Set<number>();
 
 // Supported file extensions for CSP modification
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.mermaid', '.vega', '.vl', '.vega-lite', '.gv', '.dot', '.infographic'];
+import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
 
 function shouldModifyCSP(url: string): boolean {
   try {
     const urlObj = new URL(url);
     const pathname = urlObj.pathname.toLowerCase();
-    return SUPPORTED_EXTENSIONS.some(ext => pathname.endsWith(ext));
+    return ALL_SUPPORTED_EXTENSIONS.some(ext => pathname.endsWith(ext));
   } catch {
     return false;
   }
@@ -118,17 +118,10 @@ const renderChannel = new RenderChannel(renderTransport, {
   },
 });
 
-// Firefox background page can fetch directly (has full DOM access)
-const directFetchService = new DirectFetchService();
-
 // Initialize render worker when DOM is ready
 const renderWorker = bootstrapRenderWorker(renderChannel, {
   getCanvas: () => document.getElementById('png-canvas') as HTMLCanvasElement | null,
   getReady: () => true,
-  // Inject services for renderers
-  services: {
-    fetch: directFetchService,
-  },
 });
 
 // Initialize when background page loads

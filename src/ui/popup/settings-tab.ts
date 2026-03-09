@@ -8,6 +8,11 @@ import type { LocaleInfo, LocaleRegistry } from '../../utils/localization';
 import { translate, applyI18nText, getUiLocale } from './i18n-helpers';
 import { storageGet, storageSet } from './storage-helper';
 import type { EmojiStyle } from '../../types/docx.js';
+import {
+  SUPPORTED_FORMATS,
+  getDefaultSupportedExtensions,
+  type SupportedExtensions,
+} from '../../types/formats';
 
 // Helper: Send message compatible with both Chrome and Firefox
 function safeSendMessage(message: unknown): void {
@@ -115,19 +120,6 @@ interface ThemeRegistry {
 }
 
 /**
- * Supported file extensions
- */
-interface SupportedExtensions {
-  mermaid: boolean;
-  vega: boolean;
-  vegaLite: boolean;
-  dot: boolean;
-  infographic: boolean;
-  canvas: boolean;
-  drawio: boolean;
-}
-
-/**
  * Frontmatter display mode
  */
 export type FrontmatterDisplay = 'hide' | 'table' | 'raw';
@@ -188,15 +180,7 @@ export function createSettingsTabManager({
     preferredLocale: DEFAULT_SETTING_LOCALE,
     docxHrDisplay: 'hide',
     docxEmojiStyle: 'system',
-    supportedExtensions: {
-      mermaid: true,
-      vega: true,
-      vegaLite: true,
-      dot: true,
-      infographic: true,
-      canvas: true,
-      drawio: true,
-    },
+    supportedExtensions: getDefaultSupportedExtensions(),
     frontmatterDisplay: 'hide',
     tableMergeEmpty: true,
     tableLayout: 'center',
@@ -343,56 +327,14 @@ export function createSettingsTabManager({
     loadAutoRefreshSettingsUI();
 
     // Load supported file extensions checkboxes
-    const ext = settings.supportedExtensions || {
-      mermaid: true,
-      vega: true,
-      vegaLite: true,
-      dot: true,
-      infographic: true,
-      canvas: true,
-      drawio: true,
-    };
+    const ext = settings.supportedExtensions || getDefaultSupportedExtensions();
 
-    const supportMermaidEl = document.getElementById('support-mermaid') as HTMLInputElement | null;
-    if (supportMermaidEl) {
-      supportMermaidEl.checked = ext.mermaid;
-      addExtensionChangeListener(supportMermaidEl, 'mermaid');
-    }
-
-    const supportVegaEl = document.getElementById('support-vega') as HTMLInputElement | null;
-    if (supportVegaEl) {
-      supportVegaEl.checked = ext.vega;
-      addExtensionChangeListener(supportVegaEl, 'vega');
-    }
-
-    const supportVegaLiteEl = document.getElementById('support-vega-lite') as HTMLInputElement | null;
-    if (supportVegaLiteEl) {
-      supportVegaLiteEl.checked = ext.vegaLite;
-      addExtensionChangeListener(supportVegaLiteEl, 'vegaLite');
-    }
-
-    const supportDotEl = document.getElementById('support-dot') as HTMLInputElement | null;
-    if (supportDotEl) {
-      supportDotEl.checked = ext.dot;
-      addExtensionChangeListener(supportDotEl, 'dot');
-    }
-
-    const supportInfographicEl = document.getElementById('support-infographic') as HTMLInputElement | null;
-    if (supportInfographicEl) {
-      supportInfographicEl.checked = ext.infographic;
-      addExtensionChangeListener(supportInfographicEl, 'infographic');
-    }
-
-    const supportCanvasEl = document.getElementById('support-canvas') as HTMLInputElement | null;
-    if (supportCanvasEl) {
-      supportCanvasEl.checked = ext.canvas;
-      addExtensionChangeListener(supportCanvasEl, 'canvas');
-    }
-
-    const supportDrawioEl = document.getElementById('support-drawio') as HTMLInputElement | null;
-    if (supportDrawioEl) {
-      supportDrawioEl.checked = ext.drawio;
-      addExtensionChangeListener(supportDrawioEl, 'drawio');
+    for (const format of SUPPORTED_FORMATS) {
+      const el = document.getElementById(`support-${format.fileType}`) as HTMLInputElement | null;
+      if (el) {
+        el.checked = ext[format.fileType] ?? true;
+        addExtensionChangeListener(el, format.fileType);
+      }
     }
   }
 
@@ -574,20 +516,12 @@ export function createSettingsTabManager({
   /**
    * Add change listener for extension checkbox
    */
-  function addExtensionChangeListener(el: HTMLInputElement, key: keyof SupportedExtensions): void {
+  function addExtensionChangeListener(el: HTMLInputElement, key: string): void {
     if (!el.dataset.listenerAdded) {
       el.dataset.listenerAdded = 'true';
       el.addEventListener('change', async () => {
         if (!settings.supportedExtensions) {
-          settings.supportedExtensions = {
-            mermaid: true,
-            vega: true,
-            vegaLite: true,
-            dot: true,
-            infographic: true,
-            canvas: true,
-            drawio: true,
-          };
+          settings.supportedExtensions = getDefaultSupportedExtensions();
         }
         settings.supportedExtensions[key] = el.checked;
         await saveSettingsToStorage();
@@ -850,23 +784,12 @@ export function createSettingsTabManager({
       }
 
       // Load supported file extensions from checkboxes
-      const supportMermaidEl = document.getElementById('support-mermaid') as HTMLInputElement | null;
-      const supportVegaEl = document.getElementById('support-vega') as HTMLInputElement | null;
-      const supportVegaLiteEl = document.getElementById('support-vega-lite') as HTMLInputElement | null;
-      const supportDotEl = document.getElementById('support-dot') as HTMLInputElement | null;
-      const supportInfographicEl = document.getElementById('support-infographic') as HTMLInputElement | null;
-      const supportCanvasEl = document.getElementById('support-canvas') as HTMLInputElement | null;
-      const supportDrawioEl = document.getElementById('support-drawio') as HTMLInputElement | null;
-
-      settings.supportedExtensions = {
-        mermaid: supportMermaidEl?.checked ?? true,
-        vega: supportVegaEl?.checked ?? true,
-        vegaLite: supportVegaLiteEl?.checked ?? true,
-        dot: supportDotEl?.checked ?? true,
-        infographic: supportInfographicEl?.checked ?? true,
-        canvas: supportCanvasEl?.checked ?? true,
-        drawio: supportDrawioEl?.checked ?? true,
-      };
+      const extResult: SupportedExtensions = {};
+      for (const format of SUPPORTED_FORMATS) {
+        const el = document.getElementById(`support-${format.fileType}`) as HTMLInputElement | null;
+        extResult[format.fileType] = el?.checked ?? true;
+      }
+      settings.supportedExtensions = extResult;
 
       await storageSet({
         markdownViewerSettings: settings
@@ -903,15 +826,7 @@ export function createSettingsTabManager({
         preferredLocale: DEFAULT_SETTING_LOCALE,
         docxHrDisplay: 'hide',
         docxEmojiStyle: 'system',
-        supportedExtensions: {
-          mermaid: true,
-          vega: true,
-          vegaLite: true,
-          dot: true,
-          infographic: true,
-          canvas: true,
-          drawio: true,
-        },
+        supportedExtensions: getDefaultSupportedExtensions(),
         tableMergeEmpty: true,
         tableLayout: 'center',
       };

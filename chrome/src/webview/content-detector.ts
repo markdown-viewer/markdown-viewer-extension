@@ -5,33 +5,18 @@
 // Use browser API if available (Firefox), otherwise use chrome API
 const runtime = typeof browser !== 'undefined' ? browser : chrome;
 
-/**
- * Supported file extensions configuration
- */
-interface SupportedExtensions {
-  mermaid: boolean;
-  vega: boolean;
-  vegaLite: boolean;
-  dot: boolean;
-  infographic: boolean;
-  canvas: boolean;
-  drawio: boolean;
-}
+import {
+  DOT_EXTENSION_TO_FILE_TYPE,
+  ALL_SUPPORTED_EXTENSIONS,
+  getDefaultSupportedExtensions,
+  type SupportedExtensions,
+} from '../../../src/types/formats';
 
 /**
- * Map file extension to settings key
+ * Map file extension to fileType
  */
-function getExtensionSettingsKey(ext: string): keyof SupportedExtensions | null {
-  const map: Record<string, keyof SupportedExtensions> = {
-    '.mermaid': 'mermaid',
-    '.vega': 'vega',
-    '.vl': 'vegaLite',
-    '.vega-lite': 'vegaLite',    '.gv': 'dot',    '.dot': 'dot',
-    '.infographic': 'infographic',
-    '.canvas': 'canvas',
-    '.drawio': 'drawio',
-  };
-  return map[ext] || null;
+function getExtensionFileType(ext: string): string | null {
+  return DOT_EXTENSION_TO_FILE_TYPE[ext] || null;
 }
 
 /**
@@ -39,22 +24,14 @@ function getExtensionSettingsKey(ext: string): keyof SupportedExtensions | null 
  */
 function getMatchedExtension(path: string): string | null {
   const lowerPath = path.toLowerCase();
-  const extensions = [
-    '.md', '.markdown',
-    '.mermaid',
-    '.vega',
-    '.vl', '.vega-lite',
-    '.gv', '.dot',
-    '.infographic',
-    '.canvas',
-    '.drawio',
-    '.html'
-  ];
-  
-  for (const ext of extensions) {
+  // Check format registry extensions + .html
+  for (const ext of ALL_SUPPORTED_EXTENSIONS) {
     if (lowerPath.endsWith(ext)) {
       return ext;
     }
+  }
+  if (lowerPath.endsWith('.html')) {
+    return '.html';
   }
   return null;
 }
@@ -180,8 +157,8 @@ async function detectAndInject(): Promise<void> {
   }
 
   // For other extensions, check settings
-  const settingsKey = getExtensionSettingsKey(matchedExt);
-  if (!settingsKey) {
+  const fileType = getExtensionFileType(matchedExt);
+  if (!fileType) {
     return;
   }
 
@@ -190,19 +167,9 @@ async function detectAndInject(): Promise<void> {
     const settings = result.markdownViewerSettings as { supportedExtensions?: SupportedExtensions } | undefined;
     
     // Default settings if not configured
-    const defaultExtensions: SupportedExtensions = {
-      mermaid: true,
-      vega: true,
-      vegaLite: true,
-      dot: true,
-      infographic: true,
-      canvas: true,
-      drawio: true,
-    };
-
-    const extensions = settings?.supportedExtensions || defaultExtensions;
+    const extensions: SupportedExtensions = settings?.supportedExtensions || getDefaultSupportedExtensions();
     
-    if (extensions[settingsKey]) {
+    if (extensions[fileType]) {
       injectContentScript();
     }
   } catch (error) {

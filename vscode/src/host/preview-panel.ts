@@ -458,10 +458,6 @@ export class MarkdownPreviewPanel {
           // Read local file content (for SVG plugin, etc.)
           response = await this._handleReadLocalFile(payload as { filePath: string });
           break;
-        case 'FETCH_REMOTE_IMAGE':
-          // Fetch remote image (for DOCX export, bypasses webview CSP)
-          response = await this._handleFetchRemoteImage(payload as { url: string });
-          break;
         case 'OPEN_RELATIVE_FILE':
           // Open relative file in VS Code
           if (payload && (payload as { path: string }).path && this._document) {
@@ -868,25 +864,6 @@ export class MarkdownPreviewPanel {
       const content = Buffer.from(data).toString('utf-8');
       return { content, contentType };
     }
-  }
-
-  /**
-   * Handle FETCH_REMOTE_IMAGE request - fetch image from URL (bypasses webview CSP)
-   */
-  private async _handleFetchRemoteImage(payload: { url: string }): Promise<{ content: string; contentType: string }> {
-    const { url } = payload;
-    
-    // Use Node.js https/http modules to fetch the image
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const content = Buffer.from(arrayBuffer).toString('base64');
-    const contentType = response.headers.get('content-type') || 'image/png';
-    
-    return { content, contentType };
   }
 
   private _getConfiguration(): Record<string, unknown> {

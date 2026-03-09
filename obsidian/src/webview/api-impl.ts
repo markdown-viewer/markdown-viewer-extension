@@ -84,12 +84,6 @@ class ObsidianDocumentService extends BaseDocumentService {
     return (response as { content: string }).content;
   }
 
-  async fetchRemote(url: string): Promise<Uint8Array> {
-    // In Obsidian desktop, we can fetch directly (no strict CSP like VSCode)
-    const response = await fetch(url);
-    return new Uint8Array(await response.arrayBuffer());
-  }
-
   override resolvePath(relativePath: string): string {
     return relativePath;
   }

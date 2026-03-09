@@ -400,7 +400,7 @@ function initializeUI(): void {
       }
       // Anchor links
       else if (href.startsWith('#')) {
-        const targetId = href.slice(1);
+        const targetId = decodeURIComponent(href.slice(1));
         const targetEl = document.getElementById(targetId);
         if (targetEl) {
           targetEl.scrollIntoView({ behavior: 'smooth' });

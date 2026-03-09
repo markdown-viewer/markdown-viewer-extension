@@ -3,6 +3,8 @@
  * Wraps non-markdown file formats (mermaid, vega, etc.) into markdown format for rendering
  */
 
+import { EXTENSION_TO_FILE_TYPE } from '../types/formats';
+
 /**
  * Get the file type from extension
  * @param filePath - The file path
@@ -10,32 +12,8 @@
  */
 export function getFileType(filePath: string): string {
   const ext = filePath.toLowerCase().split('.').pop() || '';
-  
-  switch (ext) {
-    case 'mermaid':
-    case 'mmd':
-      return 'mermaid';
-    case 'vega':
-      return 'vega';
-    case 'vl':
-    case 'vega-lite':
-      return 'vega-lite';
-    case 'gv':
-    case 'dot':
-      return 'dot';
-    case 'infographic':
-      return 'infographic';
-    case 'canvas':
-      return 'canvas';
-    case 'drawio':
-      return 'drawio';
-    case 'svg':
-      return 'svg';
-    case 'md':
-    case 'markdown':
-    default:
-      return 'markdown';
-  }
+  if (ext === 'svg') return 'svg';
+  return EXTENSION_TO_FILE_TYPE[ext] || 'markdown';
 }
 
 /**
@@ -75,26 +53,9 @@ export function isFileSupportedBySettings(
   
   // Check if the file type is in supported extensions
   if (!supportedExtensions) {
-    // Default settings: support mermaid, vega, vega-lite, dot, infographic
-    // Not supported: svg
+    // Default settings: all registered formats supported, svg not
     return fileType !== 'svg';
   }
   
-  // Map file type to settings key
-  const settingsKeyMap: Record<string, keyof typeof supportedExtensions> = {
-    'mermaid': 'mermaid',
-    'vega': 'vega',
-    'vega-lite': 'vegaLite',
-    'dot': 'dot',
-    'infographic': 'infographic',
-    'canvas': 'canvas',
-    'drawio': 'drawio',
-  };
-  
-  const settingsKey = settingsKeyMap[fileType];
-  if (settingsKey) {
-    return supportedExtensions[settingsKey] ?? false;
-  }
-  
-  return false;
+  return supportedExtensions[fileType] ?? false;
 }

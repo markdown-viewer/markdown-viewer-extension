@@ -39,6 +39,10 @@ async function checkMissingKeys() {
   }
 }
 
+// Sync supported formats
+const { default: syncFormats } = await import('../scripts/sync-formats.js');
+syncFormats();
+
 /**
  * Copy directory recursively
  */

@@ -31,6 +31,11 @@ export class SvgRenderer extends BaseRenderer {
    * @returns Render result with base64, width, height, format
    */
   async render(svg: string, themeConfig: RendererThemeConfig | null): Promise<RenderResult> {
+    // Remote URL: load via <img> tag (no fetch needed, bypasses CSP connect-src)
+    if (svg.startsWith('http://') || svg.startsWith('https://')) {
+      return this.renderFromUrl(svg, themeConfig);
+    }
+
     // Validate input
     this.validateInput(svg);
 
@@ -71,5 +76,33 @@ export class SvgRenderer extends BaseRenderer {
       height: canvas.height,
       format: 'png'
     };
+  }
+
+  /**
+   * Render remote SVG by loading via <img> tag and drawing to canvas.
+   * Avoids fetch() entirely — uses browser's native image loading.
+   */
+  private async renderFromUrl(url: string, themeConfig: RendererThemeConfig | null): Promise<RenderResult> {
+    const scale = this.calculateCanvasScale(themeConfig);
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const width = Math.ceil(img.naturalWidth * scale);
+        const height = Math.ceil(img.naturalHeight * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const pngDataUrl = canvas.toDataURL('image/png', 1.0);
+        const base64Data = pngDataUrl.replace(/^data:image\/png;base64,/, '');
+        resolve({ base64: base64Data, width, height, format: 'png' });
+      };
+      img.onerror = () => reject(new Error(`Failed to load remote SVG: ${url}`));
+      img.src = url;
+    });
   }
 }

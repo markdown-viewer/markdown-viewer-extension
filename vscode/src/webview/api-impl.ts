@@ -75,7 +75,6 @@ import type { ReadFileOptions } from '../../../src/types/platform';
  * - window.location.href is vscode-webview:// URL, NOT the file path
  * - Document path is provided by extension host
  * - Must use READ_LOCAL_FILE message for all file reads (host resolves paths)
- * - Must use FETCH_REMOTE_IMAGE for remote resources (CSP blocks direct fetch)
  * - Image URIs need rewriting to vscode-webview-resource:// URLs
  */
 class VSCodeDocumentService extends BaseDocumentService {
@@ -118,20 +117,6 @@ class VSCodeDocumentService extends BaseDocumentService {
     
     const result = response as { content: string; contentType?: string };
     return result.content;
-  }
-
-  async fetchRemote(url: string): Promise<Uint8Array> {
-    // VS Code: Must proxy through host due to CSP restrictions
-    const response = await serviceChannel.send('FETCH_REMOTE_IMAGE', { url });
-    const { content } = response as { content: string; contentType: string };
-    
-    // Decode base64 to Uint8Array
-    const binaryString = atob(content);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
   }
 
   override resolvePath(relativePath: string): string {
@@ -363,21 +348,6 @@ export class VSCodePlatformAPI {
         // Service request handler for proxying render worker requests
         // VSCode srcdoc iframe cannot fetch external resources directly due to CSP
         serviceRequestHandler: async (type, payload) => {
-          if (type === 'FETCH_REMOTE_URL') {
-            const { url } = payload as { url: string };
-            try {
-              // Proxy through extension host which can fetch external resources
-              const response = await serviceChannel.send('FETCH_REMOTE_IMAGE', { url });
-              const { content, contentType } = response as { content: string; contentType: string };
-              
-              // Convert base64 to data URL
-              const dataUrl = `data:${contentType};base64,${content}`;
-              return { dataUrl };
-            } catch (error) {
-              return { dataUrl: null };
-            }
-          }
-          
           // Handle resource fetch requests (e.g., DrawIO stencils)
           if (type === 'FETCH_RESOURCE') {
             const { path } = payload as { path: string };

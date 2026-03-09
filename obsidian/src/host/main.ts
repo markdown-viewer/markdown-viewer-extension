@@ -8,6 +8,7 @@
 import { Plugin, WorkspaceLeaf, TFile, addIcon } from 'obsidian';
 import { MarkdownPreviewView, VIEW_TYPE } from './preview-view';
 import { getFileType } from '../../../src/utils/file-wrapper';
+import { ALL_FORMAT_EXTENSIONS } from '../../../src/types/formats';
 
 // Custom icon derived from icons/icon.svg (M letter, scaled to 100×100)
 const MARKDOWN_VIEWER_ICON = '<path fill="currentColor" d="M15.2 77.8v-55.7h13.9L50 43l20.9-20.9h13.9v55.7H70.9V41.9L50 62.7 29 42v36z"/>';
@@ -29,7 +30,7 @@ export default class MarkdownViewerPlugin extends Plugin {
     // Register non-markdown file extensions so Obsidian recognizes them as files
     try {
       this.registerExtensions(
-        ['mermaid', 'mmd', 'vega', 'vl', 'gv', 'dot', 'infographic', 'drawio', 'svg'],
+        [...ALL_FORMAT_EXTENSIONS, 'svg'],
         VIEW_TYPE
       );
     } catch {

@@ -94,5 +94,4 @@ export abstract class BaseDocumentService implements DocumentService {
 
   abstract readFile(absolutePath: string, options?: ReadFileOptions): Promise<string>;
   abstract readRelativeFile(relativePath: string, options?: ReadFileOptions): Promise<string>;
-  abstract fetchRemote(url: string): Promise<Uint8Array>;
 }

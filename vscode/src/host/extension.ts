@@ -8,21 +8,19 @@ import * as vscode from 'vscode';
 import { MarkdownPreviewPanel } from './preview-panel';
 import { CacheStorage } from './cache-storage';
 import { registerNumberHeadingsCommand } from './markdown-tools';
+import { SUPPORTED_LANGUAGE_IDS } from '../../../src/types/formats';
 
 let outputChannel: vscode.OutputChannel;
 let cacheStorage: CacheStorage;
 let renderStatusBarItem: vscode.StatusBarItem;
 let renderStatusTimeout: ReturnType<typeof setTimeout> | null = null;
 
-// Supported language IDs for preview
-const SUPPORTED_LANGUAGES = ['markdown', 'mermaid', 'vega', 'graphviz', 'infographic', 'canvas', 'drawio'];
-
 /**
  * Helper to check if a document is supported for preview
  * Also supports .md files that may have different languageId (e.g., prompt files in .github/)
  */
 export const isSupportedDocument = (document: vscode.TextDocument): boolean => {
-  if (SUPPORTED_LANGUAGES.includes(document.languageId)) {
+  if (SUPPORTED_LANGUAGE_IDS.includes(document.languageId)) {
     return true;
   }
   // Also support .md files regardless of languageId

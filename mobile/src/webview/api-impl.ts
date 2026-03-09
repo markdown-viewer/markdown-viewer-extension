@@ -129,19 +129,6 @@ class MobileDocumentService extends BaseDocumentService {
     return (result as { content: string }).content;
   }
 
-  async fetchRemote(url: string): Promise<Uint8Array> {
-    // Proxy through Flutter native layer to avoid CORS restrictions
-    // on Android real devices (WebView loaded from local asset origin)
-    const result = await hostServiceChannel.send('FETCH_REMOTE', { url });
-    const base64 = (result as { content: string }).content;
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-  }
-
   override resolvePath(relativePath: string): string {
     // For Mobile, return relative path as-is - Flutter will resolve
     // This is similar to VS Code behavior

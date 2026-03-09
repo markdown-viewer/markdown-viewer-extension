@@ -87,7 +87,6 @@ import type { ReadFileOptions } from '../../../src/types/platform';
  * This is a browser-level security policy that cannot be bypassed via manifest.json.
  * 
  * Supported:
- * - fetchRemote(): Works for http/https URLs
  * - readRelativeFile(): Works for http/https documents (resolves relative to document URL)
  * 
  * Not supported:
@@ -103,7 +102,11 @@ class FirefoxDocumentService extends BaseDocumentService {
   async readRelativeFile(relativePath: string, options?: ReadFileOptions): Promise<string> {
     // Resolve relative path based on current document location and fetch
     const absoluteUrl = new URL(relativePath, window.location.href).href;
-    const data = await this.fetchRemote(absoluteUrl);
+    const response = await fetch(absoluteUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const data = new Uint8Array(await response.arrayBuffer());
     
     // Convert to string (base64 for binary, text otherwise)
     if (options?.binary) {
@@ -114,15 +117,6 @@ class FirefoxDocumentService extends BaseDocumentService {
       return btoa(binaryString);
     }
     return new TextDecoder().decode(data);
-  }
-
-  async fetchRemote(url: string): Promise<Uint8Array> {
-    // Network URLs can be fetched directly from content script
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    return new Uint8Array(await response.arrayBuffer());
   }
 }
 

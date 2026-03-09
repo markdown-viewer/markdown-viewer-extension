@@ -420,7 +420,7 @@ function initializeUI(): void {
       if (href.startsWith('http://') || href.startsWith('https://')) {
         obsidianBridge.postMessage('OPEN_URL', { url: href });
       } else if (href.startsWith('#')) {
-        const el = document.getElementById(href.slice(1));
+        const el = document.getElementById(decodeURIComponent(href.slice(1)));
         if (el) el.scrollIntoView({ behavior: 'smooth' });
       } else {
         obsidianBridge.postMessage('OPEN_RELATIVE_FILE', { path: href });

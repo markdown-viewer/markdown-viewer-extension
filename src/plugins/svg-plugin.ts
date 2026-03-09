@@ -71,9 +71,11 @@ export class SvgPlugin extends BasePlugin {
     if (content.includes('<svg')) {
       return false;
     }
-    return content.startsWith('http://') || 
-           content.startsWith('https://') ||
-           content.startsWith('file://') ||
+    // Remote URLs are passed directly to the renderer for loading via <img>
+    if (content.startsWith('http://') || content.startsWith('https://')) {
+      return false;
+    }
+    return content.startsWith('file://') ||
            content.startsWith('data:') ||
            content.includes('/') || // Relative paths
            content.includes('\\'); // Windows paths
@@ -82,7 +84,7 @@ export class SvgPlugin extends BasePlugin {
   /**
    * Fetch SVG content from URL
    * Uses DocumentService for unified file access across all platforms.
-   * @param url - URL to fetch (http://, https://, file://, data:, or relative path)
+   * @param url - URL to fetch (file://, data:, or relative path)
    * @returns SVG content
    */
   async fetchContent(url: string): Promise<string> {
@@ -103,13 +105,6 @@ export class SvgPlugin extends BasePlugin {
     const doc = (globalThis.platform as { document?: DocumentService } | undefined)?.document;
     if (!doc) {
       throw new Error('DocumentService not available - platform not initialized');
-    }
-
-    // Handle http:// and https:// URLs
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      // Use DocumentService.fetchRemote for CSP-safe remote fetch
-      const data = await doc.fetchRemote(url);
-      return new TextDecoder().decode(data);
     }
 
     // Handle local file:// URLs or relative paths

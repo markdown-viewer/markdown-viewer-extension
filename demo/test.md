@@ -580,6 +580,12 @@ digraph G {
   <img src="../icons/icon128.png">
 </div>
 
+### 10.5 远程图片
+
+<div>
+  <img src="https://picsum.photos/400/300">
+</div>
+
 ---
 
 ## 11. Infographic 图表

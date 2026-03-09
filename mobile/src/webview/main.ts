@@ -276,6 +276,13 @@ function setupLinkHandling(): void {
     if (href.startsWith('http://') || href.startsWith('https://')) {
       bridge.postMessage('OPEN_URL', { url: href });
     }
+    // Anchor links - in-page navigation
+    else if (href.startsWith('#')) {
+      const targetEl = document.getElementById(decodeURIComponent(href.slice(1)));
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
     // Relative links
     else {
       // Check if it's a markdown file

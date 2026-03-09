@@ -162,7 +162,7 @@ export interface ReadFileOptions {
  * 
  * Platform implementations:
  * - Chrome/Firefox: Uses window.location.href as base, READ_LOCAL_FILE message
- * - VS Code: Uses host-provided paths, READ_LOCAL_FILE/FETCH_REMOTE_IMAGE messages
+ * - VS Code: Uses host-provided paths, READ_LOCAL_FILE messages
  * - Mobile: Uses Flutter bridge, READ_RELATIVE_FILE message
  */
 export interface DocumentService {
@@ -197,14 +197,6 @@ export interface DocumentService {
    * @returns File content (string or base64 if binary)
    */
   readRelativeFile(relativePath: string, options?: ReadFileOptions): Promise<string>;
-  
-  /**
-   * Fetch a remote resource (HTTP/HTTPS).
-   * On VS Code, this bypasses CSP by proxying through the host.
-   * @param url - Remote URL
-   * @returns Binary content as Uint8Array
-   */
-  fetchRemote(url: string): Promise<Uint8Array>;
   
   // === Path Resolution ===
   

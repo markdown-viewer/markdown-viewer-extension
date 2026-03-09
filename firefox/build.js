@@ -46,6 +46,10 @@ const version = syncVersion();
 console.log(`🔨 Building Firefox Extension... v${version}\n`);
 
 try {
+  // Sync supported formats
+  const { default: syncFormats } = await import('../scripts/sync-formats.js');
+  syncFormats();
+
   // Check translations
   await checkMissingKeys();
 

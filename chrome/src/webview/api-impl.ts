@@ -121,15 +121,6 @@ export class ChromeDocumentService extends BaseDocumentService {
     return response.content;
   }
 
-  async fetchRemote(url: string): Promise<Uint8Array> {
-    // Chrome content script can directly fetch network URLs
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    return new Uint8Array(await response.arrayBuffer());
-  }
-
   override setDocumentPath(path: string, baseUrl?: string): void {
     super.setDocumentPath(path, baseUrl);
     // Chrome uses file:// URLs directly

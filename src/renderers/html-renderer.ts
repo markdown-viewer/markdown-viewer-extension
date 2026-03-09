@@ -6,15 +6,11 @@
  * 
  * Key feature: Remote images are converted to base64 data URLs before rendering
  * because SVG foreignObject cannot load external resources due to browser security.
- * 
- * Uses FetchService from worker services layer to handle cross-platform fetch:
- * - Chrome offscreen: Direct fetch (no CSP restrictions)
- * - VSCode srcdoc: Proxy fetch via host (CSP blocks direct fetch)
- * - Mobile iframe: Direct fetch (no CSP restrictions)
+ * Uses <img> + canvas approach (loadImageAsDataUrl) to bypass fetch/CSP restrictions.
  */
 import { BaseRenderer } from './base-renderer';
 import { sanitizeHtml, hasHtmlContent } from '../utils/html-sanitizer';
-import { getFetchService } from './worker/services';
+import { loadImageAsDataUrl } from '../utils/image-loader';
 import type { RendererThemeConfig, RenderResult } from '../types/index';
 
 export class HtmlRenderer extends BaseRenderer {
@@ -35,11 +31,10 @@ export class HtmlRenderer extends BaseRenderer {
 
   /**
    * Convert all remote images in HTML element to base64 data URLs
-   * Uses the injected FetchService to handle cross-platform differences.
+   * Uses <img> + canvas to bypass fetch/CSP restrictions.
    * @param element - HTML element containing images
    */
   private async convertRemoteImagesToBase64(element: HTMLElement): Promise<void> {
-    const fetchService = getFetchService();
     const images = element.querySelectorAll('img[src]');
     
     const fetchPromises = Array.from(images).map(async (img) => {
@@ -56,7 +51,8 @@ export class HtmlRenderer extends BaseRenderer {
         return;
       }
       
-      const base64 = await fetchService.fetchAsDataUrl(src);
+      // Use <img> + canvas to load (bypasses fetch/CSP restrictions)
+      const base64 = await loadImageAsDataUrl(src);
       if (base64) {
         img.setAttribute('src', base64);
       }

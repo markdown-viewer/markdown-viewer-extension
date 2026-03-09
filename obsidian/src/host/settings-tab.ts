@@ -10,31 +10,39 @@
 
 import { PluginSettingTab, App, Setting } from 'obsidian';
 import type MarkdownViewerPlugin from './main';
+import { SUPPORTED_FORMATS } from '../../../src/types/formats';
+
+/** Obsidian settings key for a format (e.g. 'mermaid' → 'support:mermaid') */
+function formatSettingsKey(fileType: string): string {
+  return `support:${fileType}`;
+}
 
 /** Plugin settings stored via Plugin.loadData/saveData */
 export interface PluginSettings {
-  // Supported file extensions for preview
-  supportMermaid: boolean;
-  supportVega: boolean;
-  supportVegaLite: boolean;
-  supportDot: boolean;
-  supportInfographic: boolean;
-  supportCanvas: boolean;
-  supportDrawio: boolean;
-
-  // Behavior
-  autoPreviewOnOpen: boolean;
+  // Dynamic format support flags (support:mermaid, support:vega, etc.)
+  [key: string]: boolean;
 }
 
-export const DEFAULT_SETTINGS: PluginSettings = {
-  supportMermaid: true,
-  supportVega: true,
-  supportVegaLite: true,
-  supportDot: true,
-  supportInfographic: true,
-  supportCanvas: true,
-  supportDrawio: true,
-  autoPreviewOnOpen: false,
+/** Build default settings from format registry */
+function buildDefaultSettings(): PluginSettings {
+  const defaults: PluginSettings = { autoPreviewOnOpen: false };
+  for (const f of SUPPORTED_FORMATS) {
+    defaults[formatSettingsKey(f.fileType)] = true;
+  }
+  return defaults;
+}
+
+export const DEFAULT_SETTINGS: PluginSettings = buildDefaultSettings();
+
+/** Display info for Obsidian settings UI */
+const FORMAT_DISPLAY: Record<string, { name: string; desc: string }> = {
+  'mermaid':     { name: 'Mermaid (.mermaid, .mmd)',   desc: 'Flowcharts, sequence diagrams, state machines, etc.' },
+  'vega':        { name: 'Vega (.vega)',               desc: 'Data-driven visualizations with Vega grammar.' },
+  'vega-lite':   { name: 'Vega-Lite (.vl)',            desc: 'Simplified data visualizations with Vega-Lite grammar.' },
+  'dot':         { name: 'Graphviz (.gv, .dot)',       desc: 'Directed and undirected graph diagrams.' },
+  'infographic': { name: 'Infographic (.infographic)', desc: 'Visual infographic layouts.' },
+  'canvas':      { name: 'Canvas (.canvas)',           desc: 'Spatial node-based diagrams.' },
+  'drawio':      { name: 'DrawIO (.drawio)',           desc: 'General purpose diagrams (draw.io format).' },
 };
 
 export class MarkdownViewerSettingTab extends PluginSettingTab {
@@ -56,26 +64,12 @@ export class MarkdownViewerSettingTab extends PluginSettingTab {
       cls: 'setting-item-description',
     });
 
-    this.addFileTypeSetting(containerEl, 'Mermaid (.mermaid, .mmd)', 'supportMermaid',
-      'Flowcharts, sequence diagrams, state machines, etc.');
-
-    this.addFileTypeSetting(containerEl, 'Vega (.vega)', 'supportVega',
-      'Data-driven visualizations with Vega grammar.');
-
-    this.addFileTypeSetting(containerEl, 'Vega-Lite (.vl)', 'supportVegaLite',
-      'Simplified data visualizations with Vega-Lite grammar.');
-
-    this.addFileTypeSetting(containerEl, 'Graphviz (.gv, .dot)', 'supportDot',
-      'Directed and undirected graph diagrams.');
-
-    this.addFileTypeSetting(containerEl, 'Infographic (.infographic)', 'supportInfographic',
-      'Visual infographic layouts.');
-
-    this.addFileTypeSetting(containerEl, 'Canvas (.canvas)', 'supportCanvas',
-      'Spatial node-based diagrams.');
-
-    this.addFileTypeSetting(containerEl, 'DrawIO (.drawio)', 'supportDrawio',
-      'General purpose diagrams (draw.io format).');
+    for (const format of SUPPORTED_FORMATS) {
+      const display = FORMAT_DISPLAY[format.fileType];
+      if (display) {
+        this.addFileTypeSetting(containerEl, display.name, formatSettingsKey(format.fileType), display.desc);
+      }
+    }
 
     // --- Behavior ---
     containerEl.createEl('h3', { text: 'Behavior' });
@@ -103,7 +97,7 @@ export class MarkdownViewerSettingTab extends PluginSettingTab {
   private addFileTypeSetting(
     container: HTMLElement,
     name: string,
-    key: keyof PluginSettings,
+    key: string,
     desc: string,
   ): void {
     new Setting(container)
@@ -113,7 +107,7 @@ export class MarkdownViewerSettingTab extends PluginSettingTab {
         toggle
           .setValue(this.plugin.settings[key] as boolean)
           .onChange(async (value) => {
-            (this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+            this.plugin.settings[key] = value;
             await this.plugin.savePluginSettings();
           })
       );

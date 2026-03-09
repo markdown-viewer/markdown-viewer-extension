@@ -1,0 +1,11 @@
+{
+  "formats": [
+    { "fileType": "mermaid", "extensions": ["mermaid", "mmd"] },
+    { "fileType": "vega", "extensions": ["vega"] },
+    { "fileType": "vega-lite", "extensions": ["vl", "vega-lite"], "languageId": "vega" },
+    { "fileType": "dot", "extensions": ["gv", "dot"], "languageId": "graphviz" },
+    { "fileType": "infographic", "extensions": ["infographic"] },
+    { "fileType": "canvas", "extensions": ["canvas"] },
+    { "fileType": "drawio", "extensions": ["drawio"] }
+  ]
+}
