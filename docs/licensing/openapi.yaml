@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: Markdown Viewer Pro Licensing API
+  version: 0.1.0
+  description: |
+    MVP licensing/billing API (Execution Baseline v0.1).
+
+    Frozen params:
+    - token_exp=90d
+    - expiring_notice=7d
+    - grace=7d
+    - max_devices=3
+
+    Frozen crypto:
+    - entitlement token signing: **Ed25519** (server private key signs; extension verifies with embedded public key)
+
+    Frozen billing (Stripe Phase 1):
+    - success page uses `session_id` to query backend and fetch `licenseKey`
+
+servers:
+  - url: https://api.example.com
+
+tags:
+  - name: licenses
+  - name: billing
+
+paths:
+  /v1/licenses/activate:
+    post:
+      tags: [licenses]
+      summary: Activate a license on a device and mint an entitlement token
+      operationId: activateLicense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateRequest'
+      responses:
+        '200':
+          description: Activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitlementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/licenses/refresh:
+    post:
+      tags: [licenses]
+      summary: Refresh entitlement token (roll 90d offline window)
+      operationId: refreshEntitlement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitlementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/licenses/deactivate:
+    post:
+      tags: [licenses]
+      summary: Deactivate current device (free one device slot)
+      operationId: deactivateDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateRequest'
+      responses:
+        '200':
+          description: Deactivated (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /v1/billing/checkout-session:
+    get:
+      tags: [billing]
+      summary: Fetch license key for a paid Stripe Checkout session (Phase 1)
+      operationId: getCheckoutSessionLicense
+      parameters:
+        - in: query
+          name: session_id
+          required: true
+          schema:
+            type: string
+          description: Stripe Checkout Session ID from success_url
+      responses:
+        '200':
+          description: Paid session; license key returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutSessionResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  responses:
+    ErrorResponse:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ActivateRequest:
+      type: object
+      required: [licenseKey, deviceId, appVersion]
+      properties:
+        licenseKey:
+          type: string
+          description: User-provided license key
+          minLength: 8
+        deviceId:
+          type: string
+          description: UUIDv4 generated and persisted by the extension
+        appVersion:
+          type: string
+        browser:
+          type: string
+          description: chrome|edge|firefox
+
+    RefreshRequest:
+      type: object
+      required: [entitlementToken, deviceId]
+      properties:
+        entitlementToken:
+          type: string
+          description: Signed token minted by activate/refresh
+        deviceId:
+          type: string
+
+    DeactivateRequest:
+      type: object
+      required: [licenseKey, deviceId]
+      properties:
+        licenseKey:
+          type: string
+        deviceId:
+          type: string
+
+    EntitlementResponse:
+      type: object
+      required: [ok, status, plan, maxDevices, entitlements, entitlementToken, serverTime]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        status:
+          $ref: '#/components/schemas/LicenseStatus'
+        plan:
+          type: string
+          example: pro_lifetime
+        maxDevices:
+          type: integer
+          example: 3
+        expiresAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: null for lifetime
+        entitlements:
+          $ref: '#/components/schemas/Entitlements'
+        entitlementToken:
+          type: string
+          description: Signed token. exp = now + 90d
+        serverTime:
+          type: string
+          format: date-time
+
+    CheckoutSessionResponse:
+      type: object
+      required: [ok, licenseKey]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        licenseKey:
+          type: string
+          description: Minted license key for the user to paste into the extension
+        plan:
+          type: string
+          nullable: true
+          example: pro_lifetime
+
+    Entitlements:
+      type: object
+      required: [pdfExport, printTemplates, mermaid, themesPro, profiles]
+      properties:
+        pdfExport: { type: boolean }
+        printTemplates: { type: boolean }
+        mermaid: { type: boolean }
+        themesPro: { type: boolean }
+        profiles: { type: boolean }
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+
+    ErrorResponse:
+      type: object
+      required: [ok, code, message]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        retryAfterSeconds:
+          type: integer
+          nullable: true
+
+    LicenseStatus:
+      type: string
+      enum: [active, revoked, expired]
+
+    ErrorCode:
+      type: string
+      description: |
+        Canonical error codes.
+        - LICENSE_INVALID
+        - LICENSE_REVOKED
+        - LICENSE_EXPIRED
+        - DEVICE_LIMIT
+        - INVALID_TOKEN
+        - DEVICE_MISMATCH
+        - CHECKOUT_SESSION_INVALID
+        - CHECKOUT_SESSION_NOT_PAID
+        - RATE_LIMITED
+      enum:
+        - LICENSE_INVALID
+        - LICENSE_REVOKED
+        - LICENSE_EXPIRED
+        - DEVICE_LIMIT
+        - INVALID_TOKEN
+        - DEVICE_MISMATCH
+        - CHECKOUT_SESSION_INVALID
+        - CHECKOUT_SESSION_NOT_PAID
+        - RATE_LIMITED
