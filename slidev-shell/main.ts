@@ -71,6 +71,11 @@ function injectGoogleFonts(fonts: { sans?: string; mono?: string; serif?: string
 async function main() {
   const { mode, themeCode, themeUrl } = await waitForData()
 
+  // Register diagram listener early — before async theme loading and Vue bootstrap.
+  // Diagram render results from the host may arrive while we're still loading;
+  // the listener stores them in a Map and a MutationObserver applies them once DOM is ready.
+  setupDiagramListener()
+
   // Load theme: prefer eval (themeCode) for blob-URL contexts,
   // fall back to <script src> (themeUrl) for strict CSP contexts
   let theme
@@ -108,7 +113,6 @@ async function main() {
 
   if (mode === 'list') {
     await bootstrapList()
-    setupDiagramListener()
     return
   }
 
@@ -120,8 +124,6 @@ async function main() {
   if ('ontouchstart' in window) {
     setupTapNavigation()
   }
-
-  setupDiagramListener()
 }
 
 /** Listen for async diagram render results from host and replace placeholders */
