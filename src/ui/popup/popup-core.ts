@@ -73,7 +73,7 @@ class PopupManager {
     const extensionTitle = document.getElementById('extension-title');
     if (extensionTitle) {
       extensionTitle.addEventListener('click', () => {
-        window.open('https://xicilion.gitbook.io/markdown-viewer-extension/', '_blank');
+        window.open('https://docu.md', '_blank');
       });
     }
 
