@@ -38,7 +38,6 @@ type ScriptNode = SuperscriptNode | SubscriptNode;
  */
 function parseScriptSyntax(text: string): Array<Text | ScriptNode> {
   const result: Array<Text | ScriptNode> = [];
-  let remaining = text;
   
   // Pattern matches ^text^ or ~text~ but not ^^ or ~~
   // Also ensures no spaces immediately after opening or before closing marker
@@ -48,6 +47,11 @@ function parseScriptSyntax(text: string): Array<Text | ScriptNode> {
   let match: RegExpExecArray | null;
   
   while ((match = pattern.exec(text)) !== null) {
+    // Keep numeric ranges like 4%~5% as plain text, do not parse as subscript.
+    if (match[0].startsWith('~') && match.index > 0 && text[match.index - 1] === '%') {
+      continue;
+    }
+
     // Add text before match
     if (match.index > lastIndex) {
       result.push({
