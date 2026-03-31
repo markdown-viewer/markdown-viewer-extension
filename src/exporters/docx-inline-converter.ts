@@ -434,10 +434,10 @@ export function createInlineConverter({
     const text = extractText(node);
 
     const linkStyle = {
+      ...parentStyle,
       style: 'Hyperlink' as const,
       color: linkColor,
       underline: { type: 'single' as const, color: linkColor },
-      ...parentStyle,
     };
 
     // Handle emoji in link text
@@ -462,10 +462,10 @@ export function createInlineConverter({
     const url = definition?.url || '#';
 
     const linkStyle = {
+      ...parentStyle,
       style: 'Hyperlink' as const,
       color: linkColor,
       underline: { type: 'single' as const, color: linkColor },
-      ...parentStyle,
     };
 
     // Handle emoji in link text
