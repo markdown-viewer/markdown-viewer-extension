@@ -53,6 +53,20 @@ function isSupportedFile(name: string): boolean {
   return SUPPORTED_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
 }
 
+function isTextFile(name: string): boolean {
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return false;
+  const ext = name.slice(dot + 1).toLowerCase();
+  return !IMAGE_EXTENSIONS.has(ext);
+}
+
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg',
+  'mp3', 'mp4', 'wav', 'ogg', 'webm', 'avi', 'mov',
+  'pdf', 'zip', 'gz', 'tar', 'rar', '7z',
+  'woff', 'woff2', 'ttf', 'otf', 'eot',
+]);
+
 // ─── Directory traversal (single level) ───
 async function readDirectory(dirHandle: FileSystemDirectoryHandle): Promise<TreeNode[]> {
   const entries: TreeNode[] = [];
@@ -125,33 +139,47 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0) {
 }
 
 // ─── File preview via embedded viewer ───
-async function openFile(fileHandle: FileSystemFileHandle) {
-  const file = await fileHandle.getFile();
-
+function sendToViewer(content: string, filename: string, codeView = false) {
   $previewEmpty.style.display = 'none';
   $previewFrame.style.display = 'block';
+  $previewFrame.src = VIEWER_URL;
 
-  if (isSupportedFile(fileHandle.name)) {
-    // Render via viewer-embed for supported formats
+  const onMessage = (event: MessageEvent) => {
+    if (event.data?.type === 'VIEWER_READY' && event.source === $previewFrame.contentWindow) {
+      window.removeEventListener('message', onMessage);
+      $previewFrame.contentWindow!.postMessage({
+        type: 'RENDER_FILE',
+        content,
+        filename,
+        codeView,
+      }, '*');
+    }
+  };
+  window.addEventListener('message', onMessage);
+}
+
+async function openFile(fileHandle: FileSystemFileHandle) {
+  const file = await fileHandle.getFile();
+  const name = fileHandle.name;
+
+  if (isSupportedFile(name)) {
     const text = await file.text();
-    $previewFrame.src = VIEWER_URL;
-
-    const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'VIEWER_READY' && event.source === $previewFrame.contentWindow) {
-        window.removeEventListener('message', onMessage);
-        $previewFrame.contentWindow!.postMessage({
-          type: 'RENDER_FILE',
-          content: text,
-          filename: fileHandle.name,
-        }, '*');
-      }
-    };
-    window.addEventListener('message', onMessage);
-  } else {
-    // Display other files directly via blob URL
-    const url = URL.createObjectURL(file);
-    $previewFrame.src = url;
+    sendToViewer(text, name);
+    return;
   }
+
+  if (isTextFile(name)) {
+    // Code/text files: wrap in code block using extension as language tag
+    const text = await file.text();
+    const ext = name.slice(name.lastIndexOf('.') + 1);
+    sendToViewer(`\`\`\`${ext}\n${text.trimEnd()}\n\`\`\``, name, true);
+    return;
+  }
+
+  // Binary files: display directly via blob URL
+  $previewEmpty.style.display = 'none';
+  $previewFrame.style.display = 'block';
+  $previewFrame.src = URL.createObjectURL(file);
 }
 
 // ─── Open workspace ───

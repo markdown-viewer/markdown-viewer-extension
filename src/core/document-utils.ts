@@ -102,6 +102,9 @@ export function extractFileName(url: string): string {
  */
 export async function saveToHistory(platform: PlatformAPI): Promise<void> {
   try {
+    // Skip history in embedded viewer mode (workspace) — URLs are not real
+    if (document.documentElement.dataset.viewerFilename) return;
+
     const url = getCurrentDocumentUrl();
     
     const title = document.title || extractFileName(url);

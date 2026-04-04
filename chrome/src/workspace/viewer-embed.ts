@@ -12,7 +12,7 @@ function onMessage(event: MessageEvent) {
   // Remove listener once we get our message
   window.removeEventListener('message', onMessage);
 
-  const { content, filename } = event.data;
+  const { content, filename, codeView } = event.data;
 
   // Hide content to prevent flash of unstyled text (same as content-detector)
   const style = document.createElement('style');
@@ -32,6 +32,23 @@ function onMessage(event: MessageEvent) {
   // Override location-based URL detection by setting a data attribute
   // so the viewer can determine file type from filename
   document.documentElement.dataset.viewerFilename = filename;
+  if (codeView) {
+    document.documentElement.dataset.codeView = '1';
+    // Add line numbers after code block is rendered with highlighting
+    const observer = new MutationObserver(() => {
+      const code = document.querySelector('#markdown-content pre code.hljs');
+      if (!code) return;
+      observer.disconnect();
+      requestAnimationFrame(() => {
+        // Count lines from the actual rendered text — always in sync
+        const text = code.textContent || '';
+        const lines = text.replace(/\n+$/, '').split('\n');
+        const nums = lines.map((_, i) => i + 1).join('\n');
+        (code as HTMLElement).dataset.lineNumbers = nums;
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
 
   // Run the standard viewer pipeline (identical to main.ts)
   const pluginRenderer = createPluginRenderer(platform);
@@ -41,6 +58,7 @@ function onMessage(event: MessageEvent) {
     themeConfigRenderer: platform.renderer,
   });
 }
+
 window.addEventListener('message', onMessage);
 
 // Notify parent that the viewer frame is ready to receive content

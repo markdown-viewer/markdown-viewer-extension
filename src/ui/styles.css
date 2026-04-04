@@ -333,6 +333,40 @@ body.toc-hidden #markdown-wrapper {
   border-radius: 0;
 }
 
+/* Code-view mode: code block flush to container edges + line numbers */
+html[data-code-view] #markdown-content {
+  padding: 0;
+}
+html[data-code-view] #markdown-content pre {
+  margin: 0;
+  border-radius: 0;
+  padding: 16px 16px 16px 60px;
+  overflow: visible;
+  white-space: pre;
+  word-break: normal;
+  position: relative;
+}
+html[data-code-view] #markdown-content pre code {
+  display: block;
+  padding-right: 16px;
+}
+html[data-code-view] #markdown-content pre code::before {
+  content: attr(data-line-numbers);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  padding: 16px 8px 16px 0;
+  text-align: right;
+  white-space: pre;
+  color: var(--color-text-tertiary, #6e7781);
+  opacity: 0.5;
+  user-select: none;
+  pointer-events: none;
+  font: inherit;
+  line-height: inherit;
+}
+
 #markdown-content blockquote {
   border-left: 4px solid #dfe2e5;
   padding: 1px 13px;
