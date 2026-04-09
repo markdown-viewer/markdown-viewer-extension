@@ -41,12 +41,20 @@ let rootDirHandle: FileSystemDirectoryHandle | null = null;
 let currentFileDir = '';
 
 // ─── Resize handle ───
+const SIDEBAR_WIDTH_KEY = 'workspace-sidebar-width';
 const $resizeHandle = document.getElementById('resize-handle')!;
 const $sidebar = document.querySelector('.sidebar') as HTMLElement;
+
+// Restore saved width
+const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+if (savedWidth) {
+  $sidebar.style.width = savedWidth + 'px';
+}
 
 $resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
   e.preventDefault();
   $resizeHandle.classList.add('active');
+  $previewFrame.style.pointerEvents = 'none';
   const startX = e.clientX;
   const startWidth = $sidebar.offsetWidth;
 
@@ -59,6 +67,8 @@ $resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
 
   const onMouseUp = () => {
     $resizeHandle.classList.remove('active');
+    $previewFrame.style.pointerEvents = '';
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String($sidebar.offsetWidth));
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
   };
