@@ -37,35 +37,6 @@ const $recentWorkspaces = document.getElementById('recent-workspaces')!;
 const $recentList = document.getElementById('recent-list')!;
 
 let activeItem: HTMLElement | null = null;
-let rootDirHandle: FileSystemDirectoryHandle | null = null;
-let currentFileDir = '';
-
-// ─── Resize handle ───
-const $resizeHandle = document.getElementById('resize-handle')!;
-const $sidebar = document.querySelector('.sidebar') as HTMLElement;
-
-$resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
-  e.preventDefault();
-  $resizeHandle.classList.add('active');
-  const startX = e.clientX;
-  const startWidth = $sidebar.offsetWidth;
-
-  const onMouseMove = (e: MouseEvent) => {
-    const newWidth = startWidth - (e.clientX - startX);
-    if (newWidth >= 160 && newWidth <= window.innerWidth * 0.5) {
-      $sidebar.style.width = newWidth + 'px';
-    }
-  };
-
-  const onMouseUp = () => {
-    $resizeHandle.classList.remove('active');
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-  };
-
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
-});
 
 // Inject folder icons into buttons
 document.getElementById('pick-icon')!.innerHTML = folderPlus;
@@ -82,19 +53,52 @@ function isSupportedFile(name: string): boolean {
   return SUPPORTED_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
 }
 
-function isTextFile(name: string): boolean {
-  const dot = name.lastIndexOf('.');
-  if (dot < 0) return false;
-  const ext = name.slice(dot + 1).toLowerCase();
-  return !IMAGE_EXTENSIONS.has(ext);
-}
+// ─── Code file → markdown language id ───
+const CODE_LANG_MAP: Record<string, string> = {
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript',
+  ts: 'typescript', mts: 'typescript', cts: 'typescript',
+  jsx: 'jsx', tsx: 'tsx',
+  py: 'python', pyw: 'python',
+  rb: 'ruby', rs: 'rust', go: 'go',
+  java: 'java', kt: 'kotlin', kts: 'kotlin', scala: 'scala',
+  c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp',
+  cs: 'csharp', fs: 'fsharp',
+  swift: 'swift', dart: 'dart', lua: 'lua', zig: 'zig',
+  r: 'r', pl: 'perl', pm: 'perl',
+  php: 'php', sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'fish',
+  ps1: 'powershell', bat: 'batch', cmd: 'batch',
+  html: 'html', htm: 'html', css: 'css', scss: 'scss', sass: 'sass', less: 'less',
+  vue: 'vue', svelte: 'svelte',
+  json: 'json', jsonc: 'jsonc', json5: 'json5',
+  yaml: 'yaml', yml: 'yaml', toml: 'toml', ini: 'ini',
+  xml: 'xml', xsl: 'xml', xslt: 'xml',
+  sql: 'sql', graphql: 'graphql', gql: 'graphql',
+  makefile: 'makefile', cmake: 'cmake',
+  tf: 'hcl', hcl: 'hcl',
+  proto: 'protobuf',
+  tex: 'latex', bib: 'bibtex',
+  diff: 'diff', patch: 'diff',
+  log: 'log', conf: 'ini', cfg: 'ini', env: 'bash',
+};
 
-const IMAGE_EXTENSIONS = new Set([
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg',
-  'mp3', 'mp4', 'wav', 'ogg', 'webm', 'avi', 'mov',
-  'pdf', 'zip', 'gz', 'tar', 'rar', '7z',
-  'woff', 'woff2', 'ttf', 'otf', 'eot',
-]);
+const CODE_NAME_MAP: Record<string, string> = {
+  Dockerfile: 'dockerfile',
+  Makefile: 'makefile',
+  CMakeLists: 'cmake',
+  Vagrantfile: 'ruby',
+  Rakefile: 'ruby',
+  Gemfile: 'ruby',
+};
+
+function getCodeLang(name: string): string | null {
+  // Check special filenames
+  if (CODE_NAME_MAP[name]) return CODE_NAME_MAP[name];
+  const base = name.includes('.') ? name.slice(0, name.indexOf('.')) : name;
+  if (CODE_NAME_MAP[base]) return CODE_NAME_MAP[base];
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return null;
+  return CODE_LANG_MAP[name.slice(dot + 1).toLowerCase()] || null;
+}
 
 // ─── Directory traversal (single level) ───
 async function readDirectory(dirHandle: FileSystemDirectoryHandle): Promise<TreeNode[]> {
@@ -112,7 +116,7 @@ async function readDirectory(dirHandle: FileSystemDirectoryHandle): Promise<Tree
 }
 
 // ─── File tree rendering ───
-function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0, parentPath = '') {
+function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0) {
   for (const node of nodes) {
     const item = document.createElement('div');
     item.className = 'tree-item';
@@ -140,7 +144,6 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0, parent
       childContainer.className = 'tree-children';
       container.appendChild(childContainer);
 
-      const dirPath = parentPath + node.name + '/';
       let loaded = false;
       item.addEventListener('click', async () => {
         const isOpen = childContainer.classList.toggle('open');
@@ -149,7 +152,7 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0, parent
         if (isOpen && !loaded) {
           loaded = true;
           const children = await readDirectory(node.handle as FileSystemDirectoryHandle);
-          renderTree(children, childContainer, depth + 1, dirPath);
+          renderTree(children, childContainer, depth + 1);
         }
       });
     } else {
@@ -162,40 +165,14 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0, parent
         if (activeItem) activeItem.classList.remove('active');
         item.classList.add('active');
         activeItem = item;
-        currentFileDir = parentPath;
         openFile(node.handle as FileSystemFileHandle);
       });
     }
   }
 }
 
-// ─── Resolve relative path against file directory ───
-function resolveRelativePath(fileDir: string, relativePath: string): string {
-  const parts = fileDir.split('/').filter(Boolean);
-  for (const seg of relativePath.split('/')) {
-    if (seg === '..') parts.pop();
-    else if (seg && seg !== '.') parts.push(seg);
-  }
-  return parts.join('/');
-}
-
-async function resolveFileFromRoot(path: string): Promise<File | null> {
-  if (!rootDirHandle) return null;
-  const segments = path.split('/').filter(Boolean);
-  if (segments.length === 0) return null;
-  let dir = rootDirHandle;
-  for (let i = 0; i < segments.length - 1; i++) {
-    try { dir = await dir.getDirectoryHandle(segments[i]); }
-    catch { return null; }
-  }
-  try {
-    const fh = await dir.getFileHandle(segments[segments.length - 1]);
-    return await fh.getFile();
-  } catch { return null; }
-}
-
 // ─── File preview via embedded viewer ───
-function sendToViewer(content: string, filename: string, codeView = false) {
+function sendToViewer(content: string, filename: string) {
   $previewEmpty.style.display = 'none';
   $previewFrame.style.display = 'block';
   $previewFrame.src = VIEWER_URL;
@@ -207,8 +184,6 @@ function sendToViewer(content: string, filename: string, codeView = false) {
         type: 'RENDER_FILE',
         content,
         filename,
-        fileDir: currentFileDir,
-        codeView,
       }, '*');
     }
   };
@@ -220,23 +195,25 @@ async function openFile(fileHandle: FileSystemFileHandle) {
   const name = fileHandle.name;
 
   if (isSupportedFile(name)) {
+    // Supported formats: render via viewer-embed as-is
     const text = await file.text();
     sendToViewer(text, name);
     return;
   }
 
-  if (isTextFile(name)) {
-    // Code/text files: wrap in code block using extension as language tag
+  const lang = getCodeLang(name);
+  if (lang) {
+    // Code files: wrap in markdown code block, same as mermaid/puml
     const text = await file.text();
-    const ext = name.slice(name.lastIndexOf('.') + 1);
-    sendToViewer(`\`\`\`${ext}\n${text.trimEnd()}\n\`\`\``, name, true);
+    sendToViewer(`\`\`\`${lang}\n${text}\n\`\`\``, 'code.md');
     return;
   }
 
-  // Binary files: display directly via blob URL
+  // Other files: display directly via blob URL
   $previewEmpty.style.display = 'none';
   $previewFrame.style.display = 'block';
-  $previewFrame.src = URL.createObjectURL(file);
+  const url = URL.createObjectURL(file);
+  $previewFrame.src = url;
 }
 
 // ─── Open workspace ───
@@ -250,9 +227,8 @@ async function openWorkspace(dirHandle: FileSystemDirectoryHandle) {
   $previewFrame.style.display = 'none';
   $previewFrame.src = 'about:blank';
 
-  rootDirHandle = dirHandle;
   const tree = await readDirectory(dirHandle);
-  renderTree(tree, $fileTree, 0, '');
+  renderTree(tree, $fileTree);
 
   // Save to recent workspaces
   saveRecentWorkspace(dirHandle);
@@ -325,18 +301,6 @@ async function pickAndOpen() {
 
 $pickBtn.addEventListener('click', pickAndOpen);
 $changeBtn.addEventListener('click', pickAndOpen);
-
-// ─── Image resolution for iframe ───
-window.addEventListener('message', async (event: MessageEvent) => {
-  if (event.data?.type !== 'RESOLVE_IMAGE' || event.source !== $previewFrame.contentWindow) return;
-  const { src, id } = event.data;
-  const resolved = resolveRelativePath(currentFileDir, src);
-  const file = await resolveFileFromRoot(resolved);
-  if (file) {
-    const url = URL.createObjectURL(file);
-    $previewFrame.contentWindow!.postMessage({ type: 'IMAGE_RESOLVED', id, url }, '*');
-  }
-});
 
 // ─── Init ───
 Localization.init().then(() => {

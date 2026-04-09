@@ -85,11 +85,25 @@ html, body {
   height: 100%;
 }
 
+/* Resize handle */
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--color-primary);
+}
+
 /* Sidebar */
 .sidebar {
   width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
-  border-right: 1px solid var(--color-border);
+  min-width: 160px;
+  max-width: 50vw;
+  border-left: 1px solid var(--color-border);
   background: var(--color-bg-surface);
   display: flex;
   flex-direction: column;

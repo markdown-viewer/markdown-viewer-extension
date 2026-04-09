@@ -30,18 +30,19 @@
 
   <!-- Workspace layout -->
   <div id="workspace" class="workspace" style="display:none;">
+    <div class="preview-pane">
+      <div id="preview-empty" class="preview-empty">
+        <p data-i18n="workspace_select_file">Select a file to preview</p>
+      </div>
+      <iframe id="preview-frame" class="preview-frame" style="display:none;"></iframe>
+    </div>
+    <div class="resize-handle" id="resize-handle"></div>
     <div class="sidebar">
       <div class="sidebar-header">
         <span id="workspace-name" class="workspace-name"></span>
         <button id="change-directory" class="sidebar-btn" title="Change directory"></button>
       </div>
       <div id="file-tree" class="file-tree"></div>
-    </div>
-    <div class="preview-pane">
-      <div id="preview-empty" class="preview-empty">
-        <p data-i18n="workspace_select_file">Select a file to preview</p>
-      </div>
-      <iframe id="preview-frame" class="preview-frame" style="display:none;"></iframe>
     </div>
   </div>
 

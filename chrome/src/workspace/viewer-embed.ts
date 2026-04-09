@@ -12,7 +12,7 @@ function onMessage(event: MessageEvent) {
   // Remove listener once we get our message
   window.removeEventListener('message', onMessage);
 
-  const { content, filename, codeView } = event.data;
+  const { content, filename, fileDir, codeView } = event.data;
 
   // Hide content to prevent flash of unstyled text (same as content-detector)
   const style = document.createElement('style');
@@ -57,9 +57,65 @@ function onMessage(event: MessageEvent) {
     pluginRenderer,
     themeConfigRenderer: platform.renderer,
   });
+
+  // Resolve relative images via parent workspace
+  if (fileDir !== undefined) {
+    resolveWorkspaceImages(fileDir);
+  }
 }
 
 window.addEventListener('message', onMessage);
+
+// ─── Resolve relative images via parent workspace ───
+function isRelativeSrc(src: string): boolean {
+  return !!src && !src.startsWith('http://') && !src.startsWith('https://') &&
+    !src.startsWith('data:') && !src.startsWith('blob:') && !src.startsWith('file:') &&
+    !src.includes('://');
+}
+
+function resolveWorkspaceImages(fileDir: string) {
+  let idCounter = 0;
+  const pending = new Map<number, HTMLImageElement>();
+
+  // Listen for resolved blob URLs from parent
+  window.addEventListener('message', (e: MessageEvent) => {
+    if (e.data?.type !== 'IMAGE_RESOLVED') return;
+    const img = pending.get(e.data.id);
+    if (img) {
+      img.src = e.data.url;
+      pending.delete(e.data.id);
+    }
+  });
+
+  function requestImage(img: HTMLImageElement) {
+    const src = img.getAttribute('src');
+    if (!src || !isRelativeSrc(src)) return;
+    const id = ++idCounter;
+    pending.set(id, img);
+    window.parent.postMessage({ type: 'RESOLVE_IMAGE', src, id }, '*');
+  }
+
+  // Watch for img elements added by the rendering pipeline
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node instanceof HTMLImageElement) {
+          requestImage(node);
+        } else if (node instanceof HTMLElement) {
+          for (const img of node.querySelectorAll<HTMLImageElement>('img')) {
+            requestImage(img);
+          }
+        }
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Also handle images already in the DOM
+  for (const img of document.querySelectorAll<HTMLImageElement>('img')) {
+    requestImage(img);
+  }
+}
 
 // Notify parent that the viewer frame is ready to receive content
 window.parent.postMessage({ type: 'VIEWER_READY' }, '*');
