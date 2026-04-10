@@ -9,7 +9,7 @@
 - **Chrome / Chromium:** https://chromewebstore.google.com/detail/markdown-viewer/jekhhoflgcfoikceikgeenibinpojaoi
 - **Firefox:** https://addons.mozilla.org/firefox/addon/markdown-viewer-extension/
 - **VS Code:** https://marketplace.visualstudio.com/items?itemName=xicilion.markdown-viewer-extension · [Open VSX](https://open-vsx.org/extension/xicilion/markdown-viewer-extension)
-- **Mobile (iOS/Android):** See [Mobile App](docs/platforms/mobile.md)
+- **Mobile (iOS/Android):** See [Mobile App](https://github.com/markdown-viewer/docs/blob/main/platforms/mobile.md)
 
 ---
 
@@ -48,12 +48,12 @@ Markdown Viewer is not just a Chrome extension anymore — it's a unified render
 
 | Platform | Best for | Docs |
 |---|---|---|
-| **Chrome Extension** | Reading local/online Markdown in browser + export | [docs/platforms/chrome.md](docs/platforms/chrome.md) |
-| **Firefox Extension** | Firefox users, same core features | [docs/platforms/firefox.md](docs/platforms/firefox.md) |
-| **VS Code Extension** | Writing + live preview + export inside editor | [docs/platforms/vscode.md](docs/platforms/vscode.md) |
-| **Mobile App** | Reading/export on the go (iOS/Android) | [docs/platforms/mobile.md](docs/platforms/mobile.md) |
+| **Chrome Extension** | Reading local/online Markdown in browser + export | [docs/platforms/chrome.md](https://github.com/markdown-viewer/docs/blob/main/platforms/chrome.md) |
+| **Firefox Extension** | Firefox users, same core features | [docs/platforms/firefox.md](https://github.com/markdown-viewer/docs/blob/main/platforms/firefox.md) |
+| **VS Code Extension** | Writing + live preview + export inside editor | [docs/platforms/vscode.md](https://github.com/markdown-viewer/docs/blob/main/platforms/vscode.md) |
+| **Mobile App** | Reading/export on the go (iOS/Android) | [docs/platforms/mobile.md](https://github.com/markdown-viewer/docs/blob/main/platforms/mobile.md) |
 
-See the full feature matrix: [docs/platforms/platform-comparison.md](docs/platforms/platform-comparison.md)
+See the full feature matrix: [docs/platforms/platform-comparison.md](https://github.com/markdown-viewer/docs/blob/main/platforms/platform-comparison.md)
 
 ## 💫 See It in Action
 
@@ -202,9 +202,9 @@ Pick one platform and install:
 1. Enable local file access in your browser extension settings
 2. ✅ Now you can double-click to open local `.md` files
 
-**VS Code:** Open any `.md` file → run the preview command (see [VS Code Extension](docs/platforms/vscode.md))
+**VS Code:** Open any `.md` file → run the preview command (see [VS Code Extension](https://github.com/markdown-viewer/docs/blob/main/platforms/vscode.md))
 
-**Mobile:** Use file picker or open from cloud drive (details in [Mobile App](docs/platforms/mobile.md))
+**Mobile:** Use file picker or open from cloud drive (details in [Mobile App](https://github.com/markdown-viewer/docs/blob/main/platforms/mobile.md))
 
 **Not needed if:**
 - Only viewing online docs (GitHub, blogs, etc.)
