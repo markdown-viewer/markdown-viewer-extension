@@ -342,8 +342,8 @@ export function extractTextFromAstCell(cell: unknown): string {
     type?: string;
   };
   
-  // Direct text value
-  if (node.type === 'text' && typeof node.value === 'string') {
+  // Leaf node with value (text, inlineCode, html, etc.)
+  if (typeof node.value === 'string') {
     return node.value;
   }
   
