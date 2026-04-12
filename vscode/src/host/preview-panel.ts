@@ -49,6 +49,11 @@ export class MarkdownPreviewPanel {
   // Flag to prevent scroll feedback loop (Preview → Editor → Preview)
   private _isScrolling = false;
 
+  // Suppress editor-driven scroll sync during anchor navigation.
+  // showTextDocument triggers onDidChangeTextEditorVisibleRanges, whose
+  // topLine differs from the heading line and would override it.
+  private _suppressEditorScrollUntil = 0;
+
   public static createOrShow(
     extensionUri: vscode.Uri,
     document: vscode.TextDocument,
@@ -169,6 +174,8 @@ export class MarkdownPreviewPanel {
 
   public setDocument(document: vscode.TextDocument, initialLine?: number): void {
     const isSameDocument = this._document?.uri.toString() === document.uri.toString();
+    // eslint-disable-next-line no-console
+    console.log('[host] setDocument', path.basename(document.fileName), 'initialLine=', initialLine, 'isSameDocument=', isSameDocument);
     
     // If same document, just scroll to the requested line (e.g., anchor navigation)
     if (isSameDocument) {
@@ -181,12 +188,13 @@ export class MarkdownPreviewPanel {
     this._document = document;
     this._panel.title = `Preview: ${path.basename(document.fileName)}`;
     
-    this.updateContent(document.getText());
-    
-    // Send scroll position immediately - ScrollSyncController will handle
-    // waiting for content to render and repositioning automatically
+    // Include scrollLine so the render flow uses it as targetLine directly,
+    // instead of relying on a separate SCROLL_TO_LINE message that may race
+    // with editor-driven scroll events.
     const line = typeof initialLine === 'number' ? initialLine : 0;
-    this.scrollToLine(line);
+    // eslint-disable-next-line no-console
+    console.log('[host] setDocument → updateContent with scrollLine=', line);
+    this.updateContent(document.getText(), line);
   }
 
   public isDocumentMatch(document: vscode.TextDocument): boolean {
@@ -214,7 +222,7 @@ export class MarkdownPreviewPanel {
     });
   }
 
-  public updateContent(content: string): void {
+  public updateContent(content: string, scrollLine?: number): void {
     // Calculate document directory webview URI for resolving relative paths
     let documentBaseUri: string | undefined;
     if (this._document) {
@@ -225,7 +233,8 @@ export class MarkdownPreviewPanel {
     this._postToWebview('UPDATE_CONTENT', {
       content,
       filename: this._document ? path.basename(this._document.fileName) : 'untitled.md',
-      documentBaseUri
+      documentBaseUri,
+      scrollLine,
     });
   }
 
@@ -276,9 +285,43 @@ export class MarkdownPreviewPanel {
    * @param line - The line number to scroll to
    */
   public scrollToLine(line: number): void {
+    // eslint-disable-next-line no-console
+    console.log('[host] scrollToLine', line, '_isScrolling=', this._isScrolling);
     // Skip if this scroll was triggered by preview scrolling editor
     if (this._isScrolling) {
       this._isScrolling = false;
+      return;
+    }
+    this._postToWebview('SCROLL_TO_LINE', { line });
+  }
+
+  /**
+   * Scroll from editor visible-range changes (subject to anchor suppression).
+   * During anchor navigation the editor cursor is moved to the heading line,
+   * which fires onDidChangeTextEditorVisibleRanges with a topLine that does
+   * NOT match the heading. Suppressing these events prevents the preview
+   * from jumping to the wrong position.
+   */
+  /**
+   * Called from onDidChangeActiveTextEditor. Subject to anchor suppression.
+   */
+  public setDocumentFromEditor(document: vscode.TextDocument, initialLine?: number): void {
+    if (Date.now() < this._suppressEditorScrollUntil) {
+      // eslint-disable-next-line no-console
+      console.log('[host] setDocumentFromEditor suppressed', path.basename(document.fileName), 'initialLine=', initialLine);
+      return;
+    }
+    this.setDocument(document, initialLine);
+  }
+
+  public scrollToLineFromEditor(line: number): void {
+    // eslint-disable-next-line no-console
+    console.log('[host] scrollToLineFromEditor', line, '_isScrolling=', this._isScrolling, 'suppressed=', Date.now() < this._suppressEditorScrollUntil);
+    if (this._isScrolling) {
+      this._isScrolling = false;
+      return;
+    }
+    if (Date.now() < this._suppressEditorScrollUntil) {
       return;
     }
     this._postToWebview('SCROLL_TO_LINE', { line });
@@ -468,6 +511,8 @@ export class MarkdownPreviewPanel {
           if (payload && (payload as { path: string }).path && this._document) {
             const relativePath = (payload as { path: string }).path;
             const fragment = (payload as { path: string; fragment?: string }).fragment;
+            // eslint-disable-next-line no-console
+            console.log('[host] OPEN_RELATIVE_FILE', relativePath, 'fragment=', fragment);
             const documentDir = path.dirname(this._document.uri.fsPath);
             const targetPath = path.resolve(documentDir, relativePath);
             const targetUri = vscode.Uri.file(targetPath);
@@ -478,16 +523,24 @@ export class MarkdownPreviewPanel {
               const doc = await vscode.workspace.openTextDocument(targetUri);
               // Find heading line number matching the fragment
               const headingLine = fragment ? findHeadingLine(doc.getText(), fragment) : undefined;
+              // eslint-disable-next-line no-console
+              console.log('[host] OPEN_RELATIVE_FILE headingLine=', headingLine, 'fragment=', fragment);
               const showOptions: vscode.TextDocumentShowOptions = {
                 viewColumn: vscode.ViewColumn.One,
               };
-              // Reveal the heading line in editor so scroll sync naturally follows
               if (typeof headingLine === 'number') {
                 const range = new vscode.Range(headingLine, 0, headingLine, 0);
                 showOptions.selection = range;
               }
-              await vscode.window.showTextDocument(doc, showOptions);
+              // Suppress editor-driven events (onDidChangeActiveTextEditor,
+              // onDidChangeTextEditorVisibleRanges) that showTextDocument fires.
+              // Their topLine ≠ headingLine and would override the correct scroll.
+              this._suppressEditorScrollUntil = Date.now() + 1000;
+              // Set document BEFORE showTextDocument so updateContent carries
+              // the correct scrollLine. showTextDocument triggers editor events
+              // that would race with this and set wrong targetLine.
               this.setDocument(doc, headingLine);
+              await vscode.window.showTextDocument(doc, showOptions);
             } else {
               // Open other files normally
               await vscode.commands.executeCommand('vscode.open', targetUri);

@@ -198,6 +198,8 @@ function handleExtensionMessage(message: ExtensionMessage): void {
 
 async function handleUpdateContent(payload: UpdateContentPayload): Promise<void> {
   const { content, filename, documentBaseUri, forceRender, scrollLine } = payload;
+  // eslint-disable-next-line no-console
+  console.log('[webview] handleUpdateContent', filename, 'scrollLine=', scrollLine, 'forceRender=', forceRender);
   const container = document.getElementById('markdown-content');
   
   if (!container) {
@@ -319,8 +321,8 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
   setCurrentFileKey(newFilename);
 
   // Render using shared flow
-  // VSCode: targetLine is set via SCROLL_TO_LINE message before UPDATE_CONTENT,
-  // or passed as scrollLine parameter during theme switch
+  // VSCode: targetLine is passed as scrollLine for anchor navigation and theme switch,
+  // or set via SCROLL_TO_LINE message for normal editor scroll sync
   await renderMarkdownFlow({
     markdown: wrappedContent,
     container: container as HTMLElement,
@@ -329,10 +331,9 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
     zoomLevel: currentZoomLevel,
     scrollController: scrollSyncController,
     renderer: pluginRenderer,
-    translate: (key: string, subs?: string | string[]) => Localization.translate(key, subs),
+    translate: (key: string, subs?: string[]) => Localization.translate(key, subs),
     platform,
     currentTaskManagerRef: { current: currentTaskManager },
-    // When scrollLine is provided (e.g., theme switch), use it; otherwise undefined
     targetLine: scrollLine,
     onHeadings: (headings) => {
       vscodeBridge.postMessage('HEADINGS_UPDATED', headings);
@@ -494,6 +495,8 @@ function initializeUI(): void {
       // Anchor links
       else if (href.startsWith('#')) {
         const targetId = decodeURIComponent(href.slice(1));
+        // eslint-disable-next-line no-console
+        console.log('[webview] anchor click #', targetId);
         const targetEl = document.getElementById(targetId);
         if (targetEl) {
           targetEl.scrollIntoView({ behavior: 'smooth' });
@@ -504,6 +507,8 @@ function initializeUI(): void {
         // Split hash fragment from path (e.g., ./file.md#section → path + fragment)
         const hashIndex = href.indexOf('#');
         if (hashIndex >= 0) {
+          // eslint-disable-next-line no-console
+          console.log('[webview] relative link click', href, '→ path=', href.slice(0, hashIndex), 'fragment=', href.slice(hashIndex + 1));
           vscodeBridge.postMessage('OPEN_RELATIVE_FILE', {
             path: href.slice(0, hashIndex),
             fragment: decodeURIComponent(href.slice(hashIndex + 1)),
@@ -953,6 +958,8 @@ function initScrollSyncController(): void {
  */
 function handleScrollToLine(payload: ScrollToLinePayload): void {
   const { line } = payload;
+  // eslint-disable-next-line no-console
+  console.log('[webview] handleScrollToLine', line);
   
   // Update FileStateService (for consistency with Chrome/Mobile)
   if (currentFilename) {

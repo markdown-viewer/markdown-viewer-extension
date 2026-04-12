@@ -238,7 +238,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (panel) {
           // Get initial line from saved position or current visible range
           const initialLine = topmostLineMonitor.getLineForEditor(editor);
-          panel.setDocument(editor.document, initialLine);
+          panel.setDocumentFromEditor(editor.document, initialLine);
         }
       }
       
@@ -263,7 +263,7 @@ export function activate(context: vscode.ExtensionContext) {
           
           const panel = MarkdownPreviewPanel.currentPanel;
           if (panel && panel.isDocumentMatch(event.textEditor.document)) {
-            panel.scrollToLine(topLine);
+            panel.scrollToLineFromEditor(topLine);
           }
         }
       }

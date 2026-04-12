@@ -508,13 +508,19 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       tableMergeEmpty,
       tableLayout,
       onHeadings,
-      // onChunkComplete / onStreamingComplete: used for VSCode event-driven scroll retries
+      // onChunkComplete / onStreamingComplete: used for event-driven scroll retries
       // (when setTargetLine is called from a SCROLL_TO_LINE event, onStreamingComplete
       //  retries the scroll after each chunk until the target block enters the DOM).
+      // When targetLine is passed directly (anchor navigation, theme switch),
+      // call setTargetLine as soon as streaming finishes so the scroll happens
+      // immediately — before waiting for diagrams to render.
       onChunkComplete: () => {
         scrollController?.onStreamingComplete();
       },
       onStreamingComplete: () => {
+        if (targetLine !== undefined && scrollController) {
+          scrollController.setTargetLine(targetLine);
+        }
         scrollController?.onStreamingComplete();
       },
     });
