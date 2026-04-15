@@ -180,7 +180,8 @@ export class InfographicRenderer extends BaseRenderer {
         base64: base64Data,
         width: canvas.width,
         height: canvas.height,
-        format: 'png'
+        format: 'png',
+        svg: svgContent
       };
     } finally {
       // Always remove the container

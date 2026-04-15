@@ -20,6 +20,12 @@ export interface ImageContextMenuOptions {
   translate?: (key: string) => string;
 }
 
+type DownloadableFile = {
+  filename: string;
+  data: string;
+  mimeType: string;
+};
+
 // ============================================================================
 // CSS (injected once)
 // ============================================================================
@@ -127,15 +133,11 @@ export function setupImageContextMenu(options: ImageContextMenuOptions): () => v
     });
 
     // SVG download (available if diagram has SVG data)
-    if (exportData?.svg) {
+    const svgContent = exportData?.svg;
+    if (svgContent) {
       addMenuItem(contextMenu, translate('save_as_svg'), () => {
         removeContextMenu();
-        const svgData = btoa(unescape(encodeURIComponent(exportData.svg!)));
-        onDownload({
-          filename: `${baseName}.svg`,
-          data: svgData,
-          mimeType: 'image/svg+xml',
-        });
+        onDownload(createTextDownloadFile(`${baseName}.svg`, svgContent, 'image/svg+xml'));
       });
     }
 
@@ -152,6 +154,13 @@ export function setupImageContextMenu(options: ImageContextMenuOptions): () => v
       });
     }
 
+    addMenuItem(contextMenu, translate('copy_as_png'), () => {
+      removeContextMenu();
+      void copyPng(img).catch((err) => {
+        console.error('[ImageContextMenu] Failed to copy PNG:', err);
+      });
+    });
+
     // For non-diagram images (regular markdown images), show generic "Save Image As"
     if (!pluginType && !exportData) {
       // Clear the menu items and add a single generic save option
@@ -159,6 +168,12 @@ export function setupImageContextMenu(options: ImageContextMenuOptions): () => v
       addMenuItem(contextMenu, translate('save_image_as'), () => {
         removeContextMenu();
         saveImage(img, onDownload);
+      });
+      addMenuItem(contextMenu, translate('copy_as_png'), () => {
+        removeContextMenu();
+        void copyPng(img).catch((err) => {
+          console.error('[ImageContextMenu] Failed to copy image:', err);
+        });
       });
     }
 
@@ -214,12 +229,7 @@ function savePng(
   const src = img.src;
 
   if (src.startsWith('data:image/png;base64,')) {
-    const base64Data = src.replace(/^data:image\/png;base64,/, '');
-    onDownload({
-      filename: `${baseName}.png`,
-      data: base64Data,
-      mimeType: 'image/png',
-    });
+    onDownload(createBinaryDownloadFile(`${baseName}.png`, src, 'image/png'));
     return;
   }
 
@@ -270,6 +280,43 @@ function saveImage(
   });
 }
 
+async function copyPng(img: HTMLImageElement): Promise<void> {
+  const { blob } = await extractImageAsBlob(img);
+  await writeClipboardItem({ [blob.type]: blob });
+}
+
+function canWriteClipboardItem(): boolean {
+  return typeof ClipboardItem !== 'undefined' && typeof navigator.clipboard?.write === 'function';
+}
+
+async function writeClipboardItem(items: Record<string, Blob>): Promise<void> {
+  if (!canWriteClipboardItem()) {
+    throw new Error('ClipboardItem API is not supported in this environment');
+  }
+
+  await navigator.clipboard.write([new ClipboardItem(items)]);
+}
+
+function createTextDownloadFile(filename: string, content: string, mimeType: string): DownloadableFile {
+  return {
+    filename,
+    data: toBase64(content),
+    mimeType,
+  };
+}
+
+function createBinaryDownloadFile(filename: string, dataUrl: string, mimeType: string): DownloadableFile {
+  return {
+    filename,
+    data: dataUrl.replace(/^data:[^;]+;base64,/, ''),
+    mimeType,
+  };
+}
+
+function toBase64(content: string): string {
+  return btoa(unescape(encodeURIComponent(content)));
+}
+
 /**
  * Extract image as base64 via canvas
  */
@@ -301,11 +348,48 @@ async function extractImageAsBase64(img: HTMLImageElement): Promise<{ data: stri
   };
 }
 
+async function extractImageAsBlob(img: HTMLImageElement): Promise<{ blob: Blob; mimeType: string }> {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to create canvas context');
+
+  await new Promise<void>((resolve, reject) => {
+    if (img.complete && img.naturalWidth > 0) {
+      resolve();
+    } else {
+      const onLoad = () => { img.removeEventListener('error', onError); resolve(); };
+      const onError = () => { img.removeEventListener('load', onLoad); reject(new Error('Image load failed')); };
+      img.addEventListener('load', onLoad, { once: true });
+      img.addEventListener('error', onError, { once: true });
+    }
+  });
+
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((value) => {
+      if (value) {
+        resolve(value);
+        return;
+      }
+      reject(new Error('Failed to export canvas as blob'));
+    }, 'image/png');
+  });
+
+  return {
+    blob,
+    mimeType: 'image/png',
+  };
+}
+
 /**
  * Fallback translations
  */
 function fallbackTranslation(key: string): string {
   const map: Record<string, string> = {
+    copy_as_png: 'Copy as PNG',
     save_image_as: 'Save Image As…',
     save_as_png: 'Save as PNG',
     save_as_svg: 'Save as SVG',

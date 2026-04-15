@@ -715,7 +715,8 @@ export class JsonCanvasRenderer extends BaseRenderer {
       base64: base64Data,
       width: pngCanvas.width,
       height: pngCanvas.height,
-      format: 'png'
+      format: 'png',
+      svg: svgContent
     };
   }
 }

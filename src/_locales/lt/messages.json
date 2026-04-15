@@ -155,6 +155,10 @@
     "message": "Peržiūrėti kaip Markdown",
     "description": "Context menu item to view any file as markdown"
   },
+  "copy_as_png": {
+    "message": "Copy as PNG",
+    "description": "Context menu item for copying a diagram as PNG"
+  },
   "delete": {
     "message": "Ištrinti",
     "description": "Delete button text"

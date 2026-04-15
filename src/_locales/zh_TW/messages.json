@@ -155,6 +155,10 @@
     "message": "以 Markdown 格式檢視",
     "description": "Context menu item to view any file as markdown"
   },
+  "copy_as_png": {
+    "message": "複製為 PNG",
+    "description": "Context menu item for copying a diagram as PNG"
+  },
   "delete": {
     "message": "刪除",
     "description": "Delete button text"
