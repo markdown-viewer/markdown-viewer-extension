@@ -85,9 +85,9 @@ export class HtmlRenderer extends BaseRenderer {
     const scale = this.calculateCanvasScale(themeConfig);
     
     const svgNS = 'http://www.w3.org/2000/svg';
-    // Use large canvas, scaled up for high resolution
-    const bigWidth = 2000 * scale;
-    const bigHeight = 2000 * scale;
+  // Use a larger canvas so big HTML layouts are less likely to be clipped before detection.
+  const bigWidth = 4000 * scale;
+  const bigHeight = 4000 * scale;
     
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('xmlns', svgNS);
@@ -98,11 +98,11 @@ export class HtmlRenderer extends BaseRenderer {
     fo.setAttribute('width', String(bigWidth));
     fo.setAttribute('height', String(bigHeight));
     
-    // Wrapper with red outline markers (outline is outside element, doesn't affect layout)
-    // Apply scale via CSS transform for high-res rendering
+    // Wrapper with a fixed red outline marker.
+    // Keep frame-related styles explicit while preserving the original outline-based crop behavior.
     const wrapper = document.createElement('div');
     wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-    wrapper.style.cssText = `display: inline-block; overflow: hidden; outline: 1px solid #ff0000; outline-offset: 0; transform: scale(${scale}); transform-origin: top left;`;
+    wrapper.style.cssText = `display: inline-block; margin: 0; padding: 0; width: auto; min-width: 0; max-width: none; height: auto; min-height: 0; max-height: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: 1px solid #ff0000; outline-offset: 0; box-sizing: content-box; overflow: hidden; transform: scale(${scale}); transform-origin: top left;`;
     
     const container = document.createElement('div');
     container.style.cssText = `display: inline-block; font-family: ${fontFamily};`;
