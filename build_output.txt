@@ -1,0 +1,26 @@
+
+> markdown-viewer-extension@3.2.0 build:chrome
+> node chrome/build.js
+
+🔨 Building Chrome Extension... v3.2.0
+
+📋 Syncing supported formats...
+  ✓ All format files are up to date
+📦 Checking translations...
+✅ All 183 translation keys OK
+
+📦 Copied dist/slidev-shell → dist/chrome/slidev-shell
+📦 Copied dist/themes → dist/chrome/slidev-shell/themes
+📄 Copied manifest.json from chrome/
+📦 Copied libs/mermaid.min.js
+📄 Fixed font paths in styles.css
+✅ Complete extension created in dist/chrome/
+🎯 Ready for Chrome: chrome://extensions/ → Load unpacked → select dist/chrome/
+  • LICENSE
+
+📦 Creating ZIP package...
+   chrome-v3.2.0.zip: 10.37 MB
+
+✅ Build complete!
+   Output: dist/chrome/
+   Package: dist/chrome-v3.2.0.zip

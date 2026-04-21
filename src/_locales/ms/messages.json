@@ -659,6 +659,10 @@
     "message": "Buka fail markdown untuk bermula",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Fail binari tidak boleh dipratonton",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Tukar direktori",
     "description": "Tooltip for changing the current workspace directory"

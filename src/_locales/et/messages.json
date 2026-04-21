@@ -659,6 +659,10 @@
     "message": "Alustamiseks avage markdown fail",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Binaarfaili ei saa eelvaadata",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Muuda kausta",
     "description": "Tooltip for changing the current workspace directory"

@@ -659,6 +659,10 @@
     "message": "Open een markdown-bestand om te beginnen",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Binaire bestand kan niet worden weergegeven",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Map wijzigen",
     "description": "Tooltip for changing the current workspace directory"

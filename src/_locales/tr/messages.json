@@ -659,6 +659,10 @@
     "message": "Başlamak için bir markdown dosyası açın",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "İkili dosya önizlenemiyor",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Dizini değiştir",
     "description": "Tooltip for changing the current workspace directory"

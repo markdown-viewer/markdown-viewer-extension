@@ -659,6 +659,10 @@
     "message": "Apri un file markdown per iniziare",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Il file binario non può essere visualizzato in anteprima",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Cambia directory",
     "description": "Tooltip for changing the current workspace directory"

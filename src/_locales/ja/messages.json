@@ -659,6 +659,10 @@
     "message": "マークダウンファイルを開いて始めましょう",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "バイナリファイルはプレビューできません",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "ディレクトリを変更",
     "description": "Tooltip for changing the current workspace directory"

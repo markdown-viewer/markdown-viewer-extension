@@ -659,6 +659,10 @@
     "message": "Norėdami pradėti, atidarykite markdown failą",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Dvejetainio failo peržiūra negalima",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Keisti aplanką",
     "description": "Tooltip for changing the current workspace directory"

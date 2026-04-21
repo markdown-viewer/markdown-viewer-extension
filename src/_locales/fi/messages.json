@@ -659,6 +659,10 @@
     "message": "Avaa markdown-tiedosto aloittaaksesi",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Binääritiedostoa ei voi esikatsella",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Vaihda kansiota",
     "description": "Tooltip for changing the current workspace directory"

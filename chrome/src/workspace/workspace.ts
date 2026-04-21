@@ -1,8 +1,9 @@
 // Workspace viewer — directory picker + file tree + preview
 
 import '../webview/index';
+import { fileTypeFromBuffer } from 'file-type';
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
-import Localization from '../../../src/utils/localization';
+import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localization';
 import { applyI18nText } from '../../../src/ui/popup/i18n-helpers';
 import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, getFileIcon } from './file-icons';
 import themeManager from '../../../src/utils/theme-manager';
@@ -47,6 +48,7 @@ const $searchModeToggle = document.getElementById('search-mode-toggle')!;
 const $fileSearchInput = document.getElementById('file-search-input') as HTMLInputElement;
 const $previewEmpty = document.getElementById('preview-empty')!;
 const $previewFrame = document.getElementById('preview-frame') as HTMLIFrameElement;
+const $previewEmptyText = $previewEmpty.querySelector('p');
 const $recentWorkspaces = document.getElementById('recent-workspaces')!;
 const $recentList = document.getElementById('recent-list')!;
 
@@ -145,6 +147,53 @@ const IMAGE_EXTENSIONS = new Set([
   'pdf', 'zip', 'gz', 'tar', 'rar', '7z',
   'woff', 'woff2', 'ttf', 'otf', 'eot',
 ]);
+
+const TEXT_LIKE_MIME_TYPES = new Set([
+  'application/json',
+  'application/ld+json',
+  'application/xml',
+  'application/javascript',
+  'application/typescript',
+  'application/x-javascript',
+  'application/x-sh',
+  'application/sql',
+  'image/svg+xml',
+]);
+
+function isTextMimeType(mime: string): boolean {
+  return mime.startsWith('text/') || TEXT_LIKE_MIME_TYPES.has(mime);
+}
+
+function hasNullByte(sample: Uint8Array): boolean {
+  for (let i = 0; i < sample.length; i++) {
+    if (sample[i] === 0) return true;
+  }
+  return false;
+}
+
+async function canPreviewAsText(file: File): Promise<boolean> {
+  const sampleSize = Math.min(file.size, 8192);
+  if (sampleSize === 0) return true;
+
+  const sample = new Uint8Array(await file.slice(0, sampleSize).arrayBuffer());
+  const detected = await fileTypeFromBuffer(sample);
+
+  if (!detected) {
+    // Unknown signature: treat as text unless null bytes are present.
+    return !hasNullByte(sample);
+  }
+
+  return isTextMimeType(detected.mime);
+}
+
+function showBinaryFileMessage(): void {
+  $previewFrame.src = 'about:blank';
+  $previewFrame.style.display = 'none';
+  $previewEmpty.style.display = '';
+  if ($previewEmptyText) {
+    $previewEmptyText.textContent = Localization.translate('workspace_binary_file_cannot_preview');
+  }
+}
 
 // ─── Directory traversal (single level) ───
 async function readDirectory(dirHandle: FileSystemDirectoryHandle, parentPath = ''): Promise<TreeNode[]> {
@@ -583,7 +632,7 @@ async function openFile(fileHandle: FileSystemFileHandle) {
     return;
   }
 
-  if (isTextFile(name)) {
+  if (isTextFile(name) && await canPreviewAsText(file)) {
     // Code/text files: wrap in code block using extension as language tag
     const text = await file.text();
     const ext = name.slice(name.lastIndexOf('.') + 1);
@@ -591,10 +640,7 @@ async function openFile(fileHandle: FileSystemFileHandle) {
     return;
   }
 
-  // Binary files: display directly via blob URL
-  $previewEmpty.style.display = 'none';
-  $previewFrame.style.display = 'block';
-  $previewFrame.src = URL.createObjectURL(file);
+  showBinaryFileMessage();
 }
 
 // ─── Open workspace ───
@@ -840,8 +886,27 @@ Localization.init().then(async () => {
         return;
       }
 
-      const nextSettings = changes.markdownViewerSettings.newValue as { swapPanelSide?: boolean } | undefined;
+      const oldSettings = changes.markdownViewerSettings.oldValue as { swapPanelSide?: boolean; preferredLocale?: string } | undefined;
+      const nextSettings = changes.markdownViewerSettings.newValue as { swapPanelSide?: boolean; preferredLocale?: string } | undefined;
       applyWorkspacePanelSide(Boolean(nextSettings?.swapPanelSide));
+
+      const oldLocale = oldSettings?.preferredLocale ?? DEFAULT_SETTING_LOCALE;
+      const nextLocale = nextSettings?.preferredLocale ?? DEFAULT_SETTING_LOCALE;
+      if (oldLocale !== nextLocale) {
+        void Localization.setPreferredLocale(nextLocale)
+          .then(() => {
+            applyI18nText();
+            updateSearchUI();
+            renderTreeView();
+            if (activeFilePath) {
+              void restoreLastFile(activeFilePath);
+            }
+          })
+          .catch((error) => {
+            console.error('[Workspace] Failed to update locale:', error);
+          });
+      }
+
       // Theme may have changed in the popup; re-sync dark class so the outer
       // surface follows without waiting for the next iframe render.
       void syncDarkClassFromSelectedTheme();

@@ -187,13 +187,13 @@
     "message": "导出为 DOCX",
     "description": "导出菜单中的 DOCX 项"
   },
-  "export_menu_save_markdown": {
-    "message": "保存为 Markdown",
-    "description": "导出菜单中的保存 Markdown 项"
-  },
   "export_menu_print_pdf": {
     "message": "打印为 PDF",
     "description": "导出菜单中的 PDF 打印项"
+  },
+  "export_menu_save_markdown": {
+    "message": "保存为 Markdown",
+    "description": "导出菜单中的保存 Markdown 项"
   },
   "exporting": {
     "message": "正在准备 Word 文档...",
@@ -658,6 +658,10 @@
   "welcome_message": {
     "message": "打开一个 Markdown 文件开始",
     "description": "Welcome message on empty state"
+  },
+  "workspace_binary_file_cannot_preview": {
+    "message": "二进制文件无法预览",
+    "description": "Message shown in workspace preview pane when selected file is binary"
   },
   "workspace_change_directory": {
     "message": "更换目录",

@@ -659,6 +659,10 @@
     "message": "เปิดไฟล์ markdown เพื่อเริ่มต้น",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "ไม่สามารถแสดงตัวอย่างไฟล์ไบนารีได้",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "เปลี่ยนไดเรกทอรี",
     "description": "Tooltip for changing the current workspace directory"

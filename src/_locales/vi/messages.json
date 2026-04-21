@@ -659,6 +659,10 @@
     "message": "Mở tệp markdown để bắt đầu",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Không thể xem trước tệp nhị phân",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Thay đổi thư mục",
     "description": "Tooltip for changing the current workspace directory"

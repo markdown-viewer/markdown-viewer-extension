@@ -659,6 +659,10 @@
     "message": "開啟一個 Markdown 檔案開始",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "二進位檔案無法預覽",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "更換目錄",
     "description": "Tooltip for changing the current workspace directory"

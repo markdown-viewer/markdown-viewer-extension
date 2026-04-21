@@ -187,13 +187,13 @@
     "message": "Export to DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
-  "export_menu_save_markdown": {
-    "message": "Save as Markdown",
-    "description": "Export menu item for saving current file as Markdown"
-  },
   "export_menu_print_pdf": {
     "message": "Print to PDF",
     "description": "Export menu item for printing to PDF"
+  },
+  "export_menu_save_markdown": {
+    "message": "Save as Markdown",
+    "description": "Export menu item for saving current file as Markdown"
   },
   "exporting": {
     "message": "Preparing Word document...",
@@ -658,6 +658,10 @@
   "welcome_message": {
     "message": "Open a markdown file to get started",
     "description": "Welcome message on empty state"
+  },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Binary file cannot be previewed",
+    "description": "Message shown in workspace preview pane when selected file is binary"
   },
   "workspace_change_directory": {
     "message": "Change directory",

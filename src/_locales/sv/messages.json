@@ -659,6 +659,10 @@
     "message": "Öppna en markdown-fil för att komma igång",
     "description": "Welcome message on empty state"
   },
+  "workspace_binary_file_cannot_preview": {
+    "message": "Binär fil kan inte förhandsvisas",
+    "description": "Message shown in workspace preview pane when selected file is binary"
+  },
   "workspace_change_directory": {
     "message": "Byt katalog",
     "description": "Tooltip for changing the current workspace directory"
