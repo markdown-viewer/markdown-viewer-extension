@@ -55,6 +55,7 @@ export const createBuildConfig = () => {
     entryPoints: {
       'core/content-detector': 'chrome/src/webview/content-detector.ts',
       'core/main': 'chrome/src/webview/main.ts',
+      'core/html-to-markdown': 'chrome/src/webview/html-to-markdown.ts',
       'core/background': 'chrome/src/host/background.ts',
       'core/drawio2svg': 'src/renderers/entries/drawio2svg-global.ts',
       'core/draw-uml': 'src/renderers/entries/draw-uml-global.ts',

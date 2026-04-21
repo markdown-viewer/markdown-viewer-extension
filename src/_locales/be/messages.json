@@ -191,6 +191,10 @@
     "message": "Друкаваць у PDF",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Захаваць як Markdown",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Падрыхтоўка дакумента Word...",
     "description": "Fallback message when DOCX export fails"

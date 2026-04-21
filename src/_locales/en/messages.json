@@ -187,6 +187,10 @@
     "message": "Export to DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_save_markdown": {
+    "message": "Save as Markdown",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "export_menu_print_pdf": {
     "message": "Print to PDF",
     "description": "Export menu item for printing to PDF"

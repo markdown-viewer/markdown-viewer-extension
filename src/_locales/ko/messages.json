@@ -191,6 +191,10 @@
     "message": "PDF로 인쇄",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Markdown으로 저장",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Word 문서 준비 중...",
     "description": "Toast shown during export"

@@ -191,6 +191,10 @@
     "message": "Tulosta PDF:ksi",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Tallenna Markdownina",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Valmistellaan Word-dokumenttia...",
     "description": "Toast shown during export"

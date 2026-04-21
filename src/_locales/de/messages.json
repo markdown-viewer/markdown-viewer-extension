@@ -191,6 +191,10 @@
     "message": "Als PDF drucken",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Als Markdown speichern",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Word-Dokument wird vorbereitet...",
     "description": "Toast shown during export"

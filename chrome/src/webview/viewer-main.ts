@@ -38,6 +38,12 @@ import { findHeadingLine } from '../../../src/utils/heading-slug';
 declare global {
   interface Window {
     docxExporter: DocxExporter;
+    /** Set by html-to-markdown.ts when the current tab is a rendered HTML page */
+    __mvHtmlConvertedMarkdown?: {
+      markdown: string;
+      title: string;
+      url: string;
+    };
   }
 }
 
@@ -190,8 +196,31 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const tocManager = createTocManager(saveFileState, getFileState, isMobile);
   const { generateTOC, setupTocToggle, updateActiveTocItem, setupResponsiveToc } = tocManager;
 
-  // Get the raw markdown content
-  const rawContent = document.body.textContent || '';
+  // Get the raw markdown content.
+  // When the page is a rendered HTML document the html-to-markdown content
+  // script will have already extracted and converted the article content;
+  // fall back to document.body.textContent for plain-text / raw files.
+  const htmlConverted = window.__mvHtmlConvertedMarkdown;
+  const rawContent = htmlConverted?.markdown ?? document.body.textContent ?? '';
+  if (htmlConverted?.title) {
+    document.title = htmlConverted.title;
+  }
+
+  // When taking over an HTML page, strip the original page's stylesheets and
+  // inline styles so they don't bleed into the Markdown viewer layout.
+  if (htmlConverted) {
+    // Remove external stylesheets and <style> blocks (keep our own preload style)
+    document.head.querySelectorAll<HTMLElement>('link[rel~="stylesheet"], style').forEach((el) => {
+      if (el.id !== 'markdown-viewer-preload') {
+        el.remove();
+      }
+    });
+    // Reset any inline styles the original page applied to <html> / <body>
+    document.documentElement.removeAttribute('style');
+    document.body.removeAttribute('style');
+    // Wipe the existing page content so nothing leaks through during render
+    document.body.innerHTML = '';
+  }
 
   // ── Slidev mode: .slides.md files render as presentations ────────────
   if (/\.slides\.md$/i.test(currentUrl)) {

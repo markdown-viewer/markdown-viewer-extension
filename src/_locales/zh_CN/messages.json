@@ -187,6 +187,10 @@
     "message": "导出为 DOCX",
     "description": "导出菜单中的 DOCX 项"
   },
+  "export_menu_save_markdown": {
+    "message": "保存为 Markdown",
+    "description": "导出菜单中的保存 Markdown 项"
+  },
   "export_menu_print_pdf": {
     "message": "打印为 PDF",
     "description": "导出菜单中的 PDF 打印项"

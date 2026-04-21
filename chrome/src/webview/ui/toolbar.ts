@@ -143,6 +143,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   const exportMenu = createExportMenu({
     translate,
     onExportDocx: () => exportDocxFromToolbar(),
+    onSaveMarkdown: () => triggerSaveMarkdown(),
     onPrint: () => triggerPrint(),
     getPrintDisabledTitle: () => {
       const protocol = document.location.protocol;
@@ -375,6 +376,17 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
    */
   function setupPrintButton(): void {
     // Print availability is handled by the shared export menu.
+  }
+
+  function triggerSaveMarkdown(): void {
+    const filename = getDocumentFilename().replace(/\.[^.]+$/, '') + '.md';
+    const blob = new Blob([rawMarkdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function triggerPrint(): Promise<void> {

@@ -191,6 +191,10 @@
     "message": "In ra PDF",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Lưu dưới dạng Markdown",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Đang chuẩn bị tài liệu Word...",
     "description": "Toast shown during export"

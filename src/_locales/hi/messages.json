@@ -191,6 +191,10 @@
     "message": "PDF के रूप में प्रिंट करें",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Markdown के रूप में सहेजें",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Word दस्तावेज़ तैयार हो रहा है...",
     "description": "Toast shown during export"

@@ -191,6 +191,10 @@
     "message": "พิมพ์เป็น PDF",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "บันทึกเป็น Markdown",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "กำลังเตรียมเอกสาร Word...",
     "description": "Toast shown during export"

@@ -191,6 +191,10 @@
     "message": "Spausdinti į PDF",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Išsaugoti kaip Markdown",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Ruošiamas Word dokumentas...",
     "description": "Fallback message when DOCX export fails"

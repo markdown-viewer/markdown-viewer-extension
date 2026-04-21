@@ -191,6 +191,10 @@
     "message": "Udskriv til PDF",
     "description": "Export menu item for printing to PDF"
   },
+  "export_menu_save_markdown": {
+    "message": "Gem som Markdown",
+    "description": "Export menu item for saving current file as Markdown"
+  },
   "exporting": {
     "message": "Forbereder Word-dokument...",
     "description": "Toast shown during export"
