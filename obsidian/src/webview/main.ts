@@ -88,6 +88,36 @@ const pluginRenderer = createPluginRenderer(platform);
 // Scroll sync controller (created after DOM ready)
 let scrollSyncController: ScrollSyncController | null = null;
 
+function applyNormalLayoutStyles(container: HTMLElement): void {
+  container.style.height = '100%';
+  container.style.overflow = 'hidden';
+
+  const root = container.querySelector('#vscode-root') as HTMLElement | null;
+  if (root) {
+    root.style.height = '100%';
+  }
+
+  const content = container.querySelector('#vscode-content') as HTMLElement | null;
+  if (content) {
+    content.style.height = '100%';
+  }
+
+  const wrapper = container.querySelector('#markdown-wrapper') as HTMLElement | null;
+  if (wrapper) {
+    wrapper.style.marginLeft = '0';
+    wrapper.style.marginTop = '0';
+    wrapper.style.marginRight = '0';
+    wrapper.style.height = '100%';
+    wrapper.style.overflowY = 'auto';
+    wrapper.style.overflowX = 'hidden';
+  }
+
+  const page = container.querySelector('#markdown-page') as HTMLElement | null;
+  if (page) {
+    page.style.maxWidth = 'none';
+  }
+}
+
 // ============================================================================
 // Initialization (called by host)
 // ============================================================================
@@ -111,6 +141,8 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
       </div>
     </div>
   `;
+
+  applyNormalLayoutStyles(container);
 
   contentContainer = container.querySelector('#markdown-content') as HTMLElement;
 
@@ -172,7 +204,11 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
 
     // Create scroll sync controller
     try {
-      scrollSyncController = createViewerScrollSync({ platform });
+      scrollSyncController = createViewerScrollSync({
+        containerId: 'markdown-content',
+        scrollContainerId: 'markdown-wrapper',
+        platform,
+      });
     } catch {
       // Container may not exist yet
     }
@@ -386,9 +422,9 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
     if (slidevContainer) slidevContainer.remove();
     const wrapper = rootContainer?.querySelector('#markdown-wrapper') as HTMLElement;
     if (wrapper) wrapper.style.display = '';
-    const root = rootContainer?.querySelector('#vscode-root') as HTMLElement;
-    if (root) root.style.cssText = '';
-    if (rootContainer) rootContainer.style.cssText = '';
+    if (rootContainer) {
+      applyNormalLayoutStyles(rootContainer);
+    }
   }
 
   const wrappedContent = wrapFileContent(content, newFilename);
@@ -399,7 +435,11 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
   // Create scroll controller lazily
   if (!scrollSyncController) {
     try {
-      scrollSyncController = createViewerScrollSync({ platform });
+      scrollSyncController = createViewerScrollSync({
+        containerId: 'markdown-content',
+        scrollContainerId: 'markdown-wrapper',
+        platform,
+      });
     } catch { /* container may not be ready */ }
   }
 

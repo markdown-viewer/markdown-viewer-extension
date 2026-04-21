@@ -159,6 +159,7 @@ function initScrollSyncController(): void {
   try {
     scrollSyncController = createViewerScrollSync({
       containerId: 'markdown-content',
+      scrollContainerId: 'markdown-wrapper',
       platform,
       // Default onUserScroll saves to FileStateService using currentFileKey
       // which is set via setCurrentFileKey() when loading a file

@@ -23,13 +23,16 @@
     }
     
     html {
+      height: 100%;
       overflow-x: hidden;
     }
     
     body {
+      height: 100%;
       /* Remove default padding - Flutter SafeArea handles insets */
       padding: 0;
       margin: 0;
+      overflow: hidden;
       -webkit-overflow-scrolling: touch;
       /* Use same background as content area (desktop uses gray body for contrast) */
       background-color: var(--color-bg-surface);
@@ -39,7 +42,11 @@
     #markdown-wrapper {
       margin-left: 0;
       margin-top: 0;
+      margin-right: 0;
+      height: 100vh;
       min-height: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     #markdown-page {

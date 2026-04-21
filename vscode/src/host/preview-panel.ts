@@ -1050,25 +1050,30 @@ export class MarkdownPreviewPanel {
       display: none !important;
     }
     
-    /* VS Code webview layout - use body scroll */
+    /* VS Code webview layout - use markdown wrapper scroll */
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
+      overflow: hidden;
     }
     
     #vscode-root {
-      min-height: 100%;
+      height: 100%;
     }
     
     #vscode-content {
-      /* No overflow: auto - let body scroll */
+      height: 100%;
     }
     
-    /* Reset wrapper for VS Code (no sidebar offset) */
+    /* Reset wrapper for VS Code (no sidebar offset / no toolbar gap) */
     #markdown-wrapper {
       margin-left: 0 !important;
       margin-top: 0 !important;
+      margin-right: 0 !important;
+      height: 100vh !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
     }
     
     /* Full width content for VS Code */
