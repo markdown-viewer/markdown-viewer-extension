@@ -183,6 +183,14 @@
     "message": "Compartilhar como Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Exportar para DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Imprimir em PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Preparando documento Word...",
     "description": "Toast shown during export"

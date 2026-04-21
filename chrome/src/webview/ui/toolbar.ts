@@ -5,6 +5,8 @@
 
 import { getFilenameFromURL, getDocumentFilename } from '../../../../src/core/document-utils';
 import { applyZoom as applyZoomCore } from '../../../../src/core/viewer/viewer-host';
+import { createExportMenu } from '../../../../src/ui/export-menu';
+import { printElement } from '../../../../src/ui/print-utils';
 import type {
   TranslateFunction,
   EscapeHtmlFunction,
@@ -67,6 +69,86 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
 
   // Global zoom state
   let currentZoomLevel = 100;
+
+  async function exportDocxFromToolbar(): Promise<void> {
+    const downloadBtn = document.getElementById('download-btn') as HTMLButtonElement | null;
+    if (!downloadBtn || downloadBtn.disabled) {
+      return;
+    }
+
+    // Request downloads permission only for remote files (local files use <a download> fallback)
+    if (!window.location.protocol.startsWith('file')) {
+      try {
+        await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
+      } catch {
+        // Ignore - background will fall back if permission denied
+      }
+    }
+
+    try {
+      downloadBtn.disabled = true;
+      downloadBtn.classList.add('downloading');
+
+      const originalContent = downloadBtn.innerHTML;
+      downloadBtn.setAttribute('data-original-content', originalContent);
+      const progressHTML = `
+        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
+          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+          <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
+                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
+        </svg>
+      `;
+      downloadBtn.innerHTML = progressHTML;
+
+      const markdown = rawMarkdown;
+      const filename = getDocumentFilename();
+      const exportErrorFallback = translate('docx_export_failed_default');
+      const result = await docxExporter.exportToDocx(markdown, filename, (completed, total) => {
+        const progressCircle = downloadBtn.querySelector('.download-progress-circle');
+        if (progressCircle && total > 0) {
+          const progress = completed / total;
+          const circumference = 43.98;
+          const offset = circumference * (1 - progress);
+          (progressCircle as SVGCircleElement).style.strokeDashoffset = String(offset);
+        }
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || exportErrorFallback);
+      }
+
+      downloadBtn.innerHTML = originalContent;
+      downloadBtn.disabled = false;
+      downloadBtn.classList.remove('downloading');
+      downloadBtn.removeAttribute('data-original-content');
+    } catch (error) {
+      console.error('Export error:', error);
+      const alertDetail = (error as Error)?.message ? `: ${(error as Error).message}` : '';
+      const alertMessage = translate('docx_export_failed_alert', [alertDetail])
+        || `Export failed${alertDetail}`;
+      alert(alertMessage);
+
+      const originalContent = downloadBtn.getAttribute('data-original-content') || `
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+      downloadBtn.innerHTML = originalContent;
+      downloadBtn.disabled = false;
+      downloadBtn.classList.remove('downloading');
+      downloadBtn.removeAttribute('data-original-content');
+    }
+  }
+
+  const exportMenu = createExportMenu({
+    translate,
+    onExportDocx: () => exportDocxFromToolbar(),
+    onPrint: () => triggerPrint(),
+    getPrintDisabledTitle: () => {
+      const protocol = document.location.protocol;
+      return (protocol === 'file:' || protocol === 'chrome-extension:') ? null : toolbarPrintDisabledTitle;
+    },
+  });
 
   function getScrollContainer(): HTMLElement | null {
     return document.getElementById('markdown-wrapper') as HTMLElement | null;
@@ -269,88 +351,22 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       })();
     }
 
-    // Download button (DOCX export)
     const downloadBtn = document.getElementById('download-btn') as HTMLButtonElement | null;
     if (downloadBtn) {
-      downloadBtn.addEventListener('click', async () => {
-        // Prevent multiple clicks
-        if (downloadBtn.disabled) {
-          return;
-        }
+      downloadBtn.addEventListener('click', () => {
+        exportMenu.showAtAnchor(downloadBtn);
+      });
 
-        // Request downloads permission only for remote files (local files use <a download> fallback)
-        if (!window.location.protocol.startsWith('file')) {
-          try {
-            await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
-          } catch {
-            // Ignore - background will fall back if permission denied
-          }
-        }
-
-        try {
-          // Disable button and show progress indicator
-          downloadBtn.disabled = true;
-          downloadBtn.classList.add('downloading');
-
-          // Add progress indicator to button
-          const originalContent = downloadBtn.innerHTML;
-          const progressHTML = `
-          <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-            <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
-            <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
-                    stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-          </svg>
-        `;
-          downloadBtn.innerHTML = progressHTML;
-
-          // Get the original markdown content
-          const markdown = rawMarkdown;
-
-          // Generate filename from document title or URL
-          const filename = getDocumentFilename();
-
-          // Export to DOCX with progress callback
-          const exportErrorFallback = translate('docx_export_failed_default');
-          const result = await docxExporter.exportToDocx(markdown, filename, (completed, total) => {
-            // Update progress circle
-            const progressCircle = downloadBtn.querySelector('.download-progress-circle');
-            if (progressCircle && total > 0) {
-              const progress = completed / total;
-              const circumference = 43.98; // 2 * PI * 7
-              const offset = circumference * (1 - progress);
-              (progressCircle as SVGCircleElement).style.strokeDashoffset = String(offset);
-            }
-          });
-
-          if (!result.success) {
-            throw new Error(result.error || exportErrorFallback);
-          }
-
-          // Restore button after successful download
-          downloadBtn.innerHTML = originalContent;
-          downloadBtn.disabled = false;
-          downloadBtn.classList.remove('downloading');
-        } catch (error) {
-          console.error('Export error:', error);
-          const alertDetail = (error as Error)?.message ? `: ${(error as Error).message}` : '';
-          const alertMessage = translate('docx_export_failed_alert', [alertDetail])
-            || `Export failed${alertDetail}`;
-          alert(alertMessage);
-
-          // Restore button on error
-          const originalContent = `
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        `;
-          downloadBtn.innerHTML = originalContent;
-          downloadBtn.disabled = false;
-          downloadBtn.classList.remove('downloading');
+      downloadBtn.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          exportMenu.showAtAnchor(downloadBtn);
+        } else if (event.key === 'Escape') {
+          exportMenu.hide();
         }
       });
     }
 
-    // Print button
     setupPrintButton();
   }
 
@@ -358,39 +374,21 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
    * Setup print button handler
    */
   function setupPrintButton(): void {
-    const printBtn = document.getElementById('print-btn') as HTMLButtonElement | null;
-    if (printBtn) {
-      // Check if this is a remote file - disable print for remote files
-      const isLocalFile = document.location.protocol === 'file:';
-      
-      if (!isLocalFile) {
-        printBtn.disabled = true;
-        printBtn.title = toolbarPrintDisabledTitle;
-        printBtn.style.opacity = '0.5';
-        printBtn.style.cursor = 'not-allowed';
-      } else {
-        printBtn.addEventListener('click', async () => {
-          const contentDiv = document.getElementById('markdown-content');
-          if (!contentDiv) {
-            return;
-          }
+    // Print availability is handled by the shared export menu.
+  }
 
-          try {
-            if (printBtn.disabled) {
-              return;
-            }
-            printBtn.disabled = true;
+  async function triggerPrint(): Promise<void> {
+    const contentDiv = document.getElementById('markdown-page') as HTMLElement | null;
+    const protocol = document.location.protocol;
+    if (!contentDiv || (protocol !== 'file:' && protocol !== 'chrome-extension:')) {
+      return;
+    }
 
-            // For local files, use simple browser print
-            window.print();
-          } catch (error) {
-            console.error('Print request failed:', error);
-            alert(`Failed to open print preview: ${(error as Error).message}`);
-          } finally {
-            printBtn.disabled = false;
-          }
-        });
-      }
+    try {
+      await printElement(contentDiv, document.title || getFilenameFromURL());
+    } catch (error) {
+      console.error('Print request failed:', error);
+      alert(`Failed to open print preview: ${(error as Error).message}`);
     }
   }
 
@@ -425,10 +423,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       // Ctrl/Cmd + S: Download as DOCX
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        const downloadBtn = document.getElementById('download-btn') as HTMLButtonElement | null;
-        if (downloadBtn && !downloadBtn.disabled) {
-          downloadBtn.click();
-        }
+        void exportDocxFromToolbar();
         return;
       }
 
@@ -514,16 +509,14 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
       </button>
     </div>
     <div class="toolbar-right">
-      <button id="download-btn" class="toolbar-btn" title="${downloadTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <button id="print-btn" class="toolbar-btn" title="${printTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M5 7V3h10v4M5 14H3V9h14v5h-2M5 14v3h10v-3M5 14h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <button id="download-btn" class="toolbar-btn toolbar-menu-trigger" title="${downloadTitleAttr}" aria-haspopup="menu" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg class="toolbar-menu-caret" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
     </div>
   </div>
   <div id="table-of-contents" class="${initialTocClass}"></div>

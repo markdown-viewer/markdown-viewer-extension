@@ -183,6 +183,14 @@
     "message": "Word के रूप में साझा करें",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "DOCX में निर्यात करें",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "PDF के रूप में प्रिंट करें",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Word दस्तावेज़ तैयार हो रहा है...",
     "description": "Toast shown during export"

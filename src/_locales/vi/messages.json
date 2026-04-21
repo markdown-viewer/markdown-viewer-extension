@@ -183,6 +183,14 @@
     "message": "Chia sẻ dưới dạng Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Xuất sang DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "In ra PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Đang chuẩn bị tài liệu Word...",
     "description": "Toast shown during export"

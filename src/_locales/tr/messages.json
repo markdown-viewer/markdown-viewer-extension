@@ -183,6 +183,14 @@
     "message": "Word olarak paylaş",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "DOCX olarak dışa aktar",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "PDF olarak yazdır",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Word belgesi hazırlanıyor...",
     "description": "Toast shown during export"

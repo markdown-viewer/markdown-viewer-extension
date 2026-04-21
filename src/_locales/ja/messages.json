@@ -183,6 +183,14 @@
     "message": "Wordで共有",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "DOCX にエクスポート",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "PDF に印刷",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Word文書を準備中...",
     "description": "Toast shown during export"

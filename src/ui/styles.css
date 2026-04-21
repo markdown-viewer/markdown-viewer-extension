@@ -146,6 +146,10 @@ body {
   justify-content: flex-end;
 }
 
+.toolbar-menu-container {
+  position: relative;
+}
+
 .toolbar-btn {
   background: transparent;
   background-color: transparent;
@@ -208,6 +212,55 @@ body {
 .toolbar-btn svg {
   fill: none;
   stroke: currentColor;
+}
+
+.toolbar-menu-trigger {
+  gap: 6px;
+}
+
+.toolbar-menu-caret {
+  width: 12px;
+  height: 12px;
+}
+
+.toolbar-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-toolbar);
+  z-index: 1002;
+}
+
+.toolbar-menu[hidden] {
+  display: none;
+}
+
+.toolbar-menu-item {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.toolbar-menu-item:hover {
+  background: var(--gray-100);
+}
+
+.toolbar-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .file-name {
@@ -711,6 +764,25 @@ html[data-code-view] #markdown-content pre code::before {
 /* Print Styles - Only show content area */
 @media print {
 
+  :root {
+    /* Match DOCX image sizing strategy: keep tall media within one printable page. */
+    --print-max-media-height: 9.5in;
+  }
+
+  html,
+  body,
+  #vscode-root,
+  #vscode-content,
+  #markdown-wrapper,
+  #markdown-page {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* Hide toolbar, TOC and overlay completely when printing */
   #toolbar,
   #table-of-contents,
@@ -722,11 +794,13 @@ html[data-code-view] #markdown-content pre code::before {
   #markdown-wrapper {
     margin-left: 0 !important;
     margin-top: 0 !important;
+    margin-right: 0 !important;
   }
 
   /* Optimize content area for printing */
   #markdown-page {
     margin: 0 auto !important;
+    overflow: visible !important;
   }
 
   #markdown-content {
@@ -734,14 +808,16 @@ html[data-code-view] #markdown-content pre code::before {
     margin: 0 auto !important;
     padding: 20px !important;
     zoom: 1 !important;
-    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   /* Adjust body for print */
   body {
-    background-color: white !important;
     margin: 0 !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   /* Hide processing indicators when printing */
@@ -760,7 +836,8 @@ html[data-code-view] #markdown-content pre code::before {
 
   #markdown-content pre,
   #markdown-content blockquote,
-  #markdown-content table {
+  #markdown-content table,
+  #markdown-content .diagram-block {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -785,7 +862,24 @@ html[data-code-view] #markdown-content pre code::before {
   #markdown-content img {
     max-width: 100% !important;
     height: auto !important;
+    max-height: var(--print-max-media-height) !important;
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+
+  #markdown-content .diagram-block {
+    overflow: visible !important;
+  }
+
+  #markdown-content .diagram-block img,
+  #markdown-content .diagram-block svg {
+    max-height: var(--print-max-media-height) !important;
+  }
+
+  /* Override the shared width:100% rule so small SVG diagrams keep their natural size in print. */
+  #markdown-content .diagram-block svg {
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
   }
 }

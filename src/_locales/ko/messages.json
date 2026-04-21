@@ -183,6 +183,14 @@
     "message": "Word로 공유",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "DOCX로 내보내기",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "PDF로 인쇄",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Word 문서 준비 중...",
     "description": "Toast shown during export"

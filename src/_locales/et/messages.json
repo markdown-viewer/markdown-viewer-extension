@@ -183,6 +183,14 @@
     "message": "Jaga Wordina",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Ekspordi DOCX-ina",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Prindi PDF-ina",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Word dokumendi ettevalmistamine...",
     "description": "Fallback message when DOCX export fails"

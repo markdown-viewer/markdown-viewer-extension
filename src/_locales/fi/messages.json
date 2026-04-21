@@ -183,6 +183,14 @@
     "message": "Jaa Word-muodossa",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Vie DOCX-muotoon",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Tulosta PDF:ksi",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Valmistellaan Word-dokumenttia...",
     "description": "Toast shown during export"

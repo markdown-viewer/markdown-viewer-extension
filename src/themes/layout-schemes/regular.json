@@ -11,7 +11,7 @@
   },
   
   "headings": {
-    "h1": { "fontSize": "26pt", "spacingBefore": "0pt", "spacingAfter": "14pt" },
+    "h1": { "fontSize": "26pt", "spacingBefore": "0pt", "spacingAfter": "14pt", "alignment": "center" },
     "h2": { "fontSize": "21pt", "spacingBefore": "20pt", "spacingAfter": "10pt" },
     "h3": { "fontSize": "17pt", "spacingBefore": "16pt", "spacingAfter": "8pt" },
     "h4": { "fontSize": "14pt", "spacingBefore": "12pt", "spacingAfter": "6pt" },

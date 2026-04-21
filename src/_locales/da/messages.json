@@ -183,6 +183,14 @@
     "message": "Del som Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Eksporter til DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Udskriv til PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Forbereder Word-dokument...",
     "description": "Toast shown during export"

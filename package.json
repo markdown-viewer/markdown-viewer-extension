@@ -246,6 +246,18 @@
         "icon": "$(gear)"
       },
       {
+        "command": "markdownViewer.print",
+        "title": "Print",
+        "category": "Markdown Viewer",
+        "icon": "$(print)"
+      },
+      {
+        "command": "markdownViewer.openExportMenu",
+        "title": "Open Export Menu",
+        "category": "Markdown Viewer",
+        "icon": "$(save-as)"
+      },
+      {
         "command": "markdownViewer.refresh",
         "title": "Refresh Preview",
         "category": "Markdown Viewer",
@@ -391,7 +403,7 @@
           "group": "navigation"
         },
         {
-          "command": "markdownViewer.exportDocx",
+          "command": "markdownViewer.openExportMenu",
           "when": "activeWebviewPanelId == markdownViewerAdvanced",
           "group": "navigation@1"
         },
@@ -420,6 +432,10 @@
         {
           "command": "markdownViewer.exportDocx",
           "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md"
+        },
+        {
+          "command": "markdownViewer.print",
+          "when": "activeWebviewPanelId == markdownViewerAdvanced"
         }
       ]
     },

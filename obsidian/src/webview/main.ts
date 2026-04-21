@@ -34,6 +34,7 @@ import {
 // Settings panel (reused from VSCode)
 import { createSettingsPanel, type SettingsPanel, type ThemeOption, type LocaleOption } from '../../../vscode/src/webview/settings-panel';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
+import { printElement } from '../../../src/ui/print-utils';
 
 // Make platform globally available (required by loadAndApplyTheme)
 globalThis.platform = platform;
@@ -147,37 +148,27 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
   contentContainer = container.querySelector('#markdown-content') as HTMLElement;
 
   try {
-    console.debug('[MV Viewer] initialize() start');
-
     // Listen for host messages FIRST (remove previous listener to avoid duplicates on re-open)
     if (unsubscribeBridge) {
       unsubscribeBridge();
     }
     unsubscribeBridge = obsidianBridge.addListener((message) => {
       const msg = message as HostMessage;
-      console.debug('[MV Viewer] ◀ Received from host:', msg.type);
       handleHostMessage(msg);
     });
 
     // Initialize platform services
-    console.debug('[MV Viewer] platform.init()...');
     await platform.init();
-    console.debug('[MV Viewer] platform.init() done');
-
-    console.debug('[MV Viewer] Localization.init()...');
     await Localization.init();
-    console.debug('[MV Viewer] Localization.init() done');
 
     // Load saved theme
     currentThemeId = await themeManager.loadSelectedTheme();
-    console.debug('[MV Viewer] Theme loaded:', currentThemeId);
 
     // Load saved settings from host
     try {
       const loaded = await obsidianBridge.sendRequest<typeof savedSettings>('LOAD_SETTINGS', {});
       if (loaded) {
         savedSettings = { ...savedSettings, ...loaded };
-        console.debug('[MV Viewer] Settings loaded:', savedSettings);
       }
       // Apply saved locale
       if (savedSettings.locale && savedSettings.locale !== 'auto') {
@@ -193,7 +184,6 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
     // Apply theme
     try {
       await loadAndApplyTheme(currentThemeId);
-      console.debug('[MV Viewer] Theme applied');
     } catch (error) {
       console.warn('[MV Viewer] Failed to load theme:', error);
     }
@@ -214,9 +204,7 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
     }
 
     // Notify host that viewer is ready
-    console.debug('[MV Viewer] ▶ Sending READY to host');
     obsidianBridge.postMessage('READY', {});
-    console.debug('[MV Viewer] Initialization complete!');
   } catch (error) {
     console.error('[MV Viewer] Init failed:', error);
   }
@@ -255,6 +243,12 @@ function handleHostMessage(message: HostMessage): void {
           error: error instanceof Error ? error.message : String(error),
         });
       });
+      break;
+    case 'OPEN_EXPORT_MENU':
+      handleOpenExportMenu();
+      break;
+    case 'PRINT':
+      handlePrint();
       break;
     case 'SET_THEME':
       handleSetTheme((payload as { themeId: string }).themeId);
@@ -329,7 +323,6 @@ async function inlineLocalImages(container: HTMLElement): Promise<void> {
 // ============================================================================
 
 async function handleUpdateContent(payload: UpdateContentPayload): Promise<void> {
-  console.debug('[MV Viewer] handleUpdateContent:', payload?.filename, 'length:', payload?.content?.length);
   const { content, filename, documentPath, documentBaseUri, forceRender, scrollLine } = payload;
   const container = contentContainer;
   if (!container) {
@@ -524,6 +517,14 @@ async function handleExportDocx(): Promise<void> {
   });
 }
 
+async function handlePrint(): Promise<void> {
+  const page = rootContainer?.querySelector('#markdown-page') as HTMLElement | null;
+  if (!page) {
+    return;
+  }
+  await printElement(page, currentFilename || document.title || 'Markdown Viewer');
+}
+
 // ============================================================================
 // Settings Panel
 // ============================================================================
@@ -536,6 +537,16 @@ function handleOpenSettings(): void {
       settingsPanel.showAtPosition(window.innerWidth - 300, 40);
     }
   }
+}
+
+function handleOpenExportMenu(): void {
+  handleExportDocx().catch((error) => {
+    console.error('[MV Viewer] DOCX export unhandled error:', error);
+    obsidianBridge.postMessage('EXPORT_DOCX_RESULT', {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 // ============================================================================

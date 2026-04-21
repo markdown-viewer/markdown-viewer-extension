@@ -183,6 +183,14 @@
     "message": "分享為 Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "匯出為 DOCX",
+    "description": "匯出選單中的 DOCX 項"
+  },
+  "export_menu_print_pdf": {
+    "message": "列印為 PDF",
+    "description": "匯出選單中的 PDF 列印項"
+  },
   "exporting": {
     "message": "正在準備 Word 文件...",
     "description": "Toast shown during export"

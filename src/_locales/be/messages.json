@@ -183,6 +183,14 @@
     "message": "Падзяліцца як Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Экспартаваць у DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Друкаваць у PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Падрыхтоўка дакумента Word...",
     "description": "Fallback message when DOCX export fails"

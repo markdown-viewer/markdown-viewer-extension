@@ -6,6 +6,7 @@
  */
 
 import { getDiagramExport } from './diagram-export-registry';
+import { showActionMenu } from './action-menu';
 
 // ============================================================================
 // Types
@@ -27,49 +28,6 @@ type DownloadableFile = {
 };
 
 // ============================================================================
-// CSS (injected once)
-// ============================================================================
-
-let cssInjected = false;
-
-function injectCSS(): void {
-  if (cssInjected) return;
-  cssInjected = true;
-
-  const style = document.createElement('style');
-  style.textContent = `
-.image-context-menu {
-  position: absolute;
-  z-index: 10000;
-  background: var(--vscode-menu-background, var(--color-bg-surface, #ffffff));
-  color: var(--vscode-menu-foreground, var(--color-text-primary, #1a1a1a));
-  border: 1px solid var(--vscode-menu-border, var(--color-border, #e2e8f0));
-  border-radius: 4px;
-  padding: 4px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  min-width: 180px;
-  font-size: 13px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-.image-context-menu-item {
-  padding: 6px 20px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.image-context-menu-item:hover {
-  background: var(--vscode-menu-selectionBackground, var(--color-primary, #2563eb));
-  color: var(--vscode-menu-selectionForeground, #ffffff);
-}
-.image-context-menu-separator {
-  height: 1px;
-  margin: 4px 8px;
-  background: var(--vscode-menu-separatorBackground, var(--color-border, #e2e8f0));
-}
-`;
-  document.head.appendChild(style);
-}
-
-// ============================================================================
 // Setup
 // ============================================================================
 
@@ -80,23 +38,15 @@ function injectCSS(): void {
 export function setupImageContextMenu(options: ImageContextMenuOptions): () => void {
   const { container, onDownload, translate: translateFn } = options;
 
-  injectCSS();
-
-  let contextMenu: HTMLElement | null = null;
+  let hideMenu: (() => void) | null = null;
 
   function translate(key: string): string {
     return translateFn?.(key) || fallbackTranslation(key);
   }
 
   function removeContextMenu(): void {
-    if (contextMenu) {
-      contextMenu.remove();
-      contextMenu = null;
-    }
-  }
-
-  function onDocumentClick(): void {
-    removeContextMenu();
+    hideMenu?.();
+    hideMenu = null;
   }
 
   function onScroll(): void {
@@ -117,105 +67,79 @@ export function setupImageContextMenu(options: ImageContextMenuOptions): () => v
     const pluginType = diagramEl?.dataset?.pluginType || img.dataset?.pluginType;
     const exportData = sourceHash ? getDiagramExport(sourceHash) : undefined;
 
-    // Build context menu
-    contextMenu = document.createElement('div');
-    contextMenu.className = 'image-context-menu';
-    contextMenu.style.left = `${e.pageX}px`;
-    contextMenu.style.top = `${e.pageY}px`;
-
-    // Derive base filename from the image alt text or plugin type
     const baseName = pluginType || 'image';
+    const items: Array<{ label: string; onSelect: () => void }> = [];
 
-    // PNG download (always available for images)
-    addMenuItem(contextMenu, translate('save_as_png'), () => {
-      removeContextMenu();
-      savePng(img, baseName, onDownload);
+    items.push({
+      label: translate('save_as_png'),
+      onSelect: () => savePng(img, baseName, onDownload),
     });
 
-    // SVG download (available if diagram has SVG data)
     const svgContent = exportData?.svg;
     if (svgContent) {
-      addMenuItem(contextMenu, translate('save_as_svg'), () => {
-        removeContextMenu();
-        onDownload(createTextDownloadFile(`${baseName}.svg`, svgContent, 'image/svg+xml'));
+      items.push({
+        label: translate('save_as_svg'),
+        onSelect: () => onDownload(createTextDownloadFile(`${baseName}.svg`, svgContent, 'image/svg+xml')),
       });
     }
 
-    // DrawIO download (available for plantuml diagrams)
     if (exportData?.drawioXml) {
-      addMenuItem(contextMenu, translate('save_as_drawio'), () => {
-        removeContextMenu();
-        const drawioData = btoa(unescape(encodeURIComponent(exportData.drawioXml!)));
-        onDownload({
-          filename: `${baseName}.drawio`,
-          data: drawioData,
-          mimeType: 'application/xml',
-        });
+      items.push({
+        label: translate('save_as_drawio'),
+        onSelect: () => {
+          const drawioData = btoa(unescape(encodeURIComponent(exportData.drawioXml!)));
+          onDownload({
+            filename: `${baseName}.drawio`,
+            data: drawioData,
+            mimeType: 'application/xml',
+          });
+        },
       });
     }
 
-    addMenuItem(contextMenu, translate('copy_as_png'), () => {
-      removeContextMenu();
-      void copyPng(img).catch((err) => {
-        console.error('[ImageContextMenu] Failed to copy PNG:', err);
-      });
-    });
-
-    // For non-diagram images (regular markdown images), show generic "Save Image As"
-    if (!pluginType && !exportData) {
-      // Clear the menu items and add a single generic save option
-      contextMenu.innerHTML = '';
-      addMenuItem(contextMenu, translate('save_image_as'), () => {
-        removeContextMenu();
-        saveImage(img, onDownload);
-      });
-      addMenuItem(contextMenu, translate('copy_as_png'), () => {
-        removeContextMenu();
+    items.push({
+      label: translate('copy_as_png'),
+      onSelect: () => {
         void copyPng(img).catch((err) => {
-          console.error('[ImageContextMenu] Failed to copy image:', err);
+          console.error('[ImageContextMenu] Failed to copy PNG:', err);
         });
+      },
+    });
+
+    if (!pluginType && !exportData) {
+      items.length = 0;
+      items.push({
+        label: translate('save_image_as'),
+        onSelect: () => saveImage(img, onDownload),
+      });
+      items.push({
+        label: translate('copy_as_png'),
+        onSelect: () => {
+          void copyPng(img).catch((err) => {
+            console.error('[ImageContextMenu] Failed to copy image:', err);
+          });
+        },
       });
     }
 
-    document.body.appendChild(contextMenu);
-
-    // Ensure menu stays within viewport
-    requestAnimationFrame(() => {
-      if (!contextMenu) return;
-      const rect = contextMenu.getBoundingClientRect();
-      if (rect.right > window.innerWidth) {
-        contextMenu.style.left = `${e.pageX - rect.width}px`;
-      }
-      if (rect.bottom > window.innerHeight) {
-        contextMenu.style.top = `${e.pageY - rect.height}px`;
-      }
+    const handle = showActionMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items,
     });
+    hideMenu = handle.hide;
   }
 
   // Event listeners
-  document.addEventListener('click', onDocumentClick);
   document.addEventListener('scroll', onScroll, true);
   container.addEventListener('contextmenu', onContextMenu);
 
   // Return cleanup function
   return () => {
     removeContextMenu();
-    document.removeEventListener('click', onDocumentClick);
     document.removeEventListener('scroll', onScroll, true);
     container.removeEventListener('contextmenu', onContextMenu);
   };
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function addMenuItem(menu: HTMLElement, label: string, onClick: () => void): void {
-  const item = document.createElement('div');
-  item.className = 'image-context-menu-item';
-  item.textContent = label;
-  item.addEventListener('click', onClick);
-  menu.appendChild(item);
 }
 
 /**

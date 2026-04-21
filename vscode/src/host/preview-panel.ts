@@ -6,6 +6,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import type { CacheStorage } from './cache-storage';
 import type { EmojiStyle } from '../../../src/types/docx.js';
@@ -38,6 +40,11 @@ export class MarkdownPreviewPanel {
   // Progress callbacks
   private _exportProgressCallback: ((progress: number) => void) | null = null;
   private _renderProgressCallback: ((completed: number, total: number) => void) | null = null;
+
+  // Progress tracking for webview-initiated DOCX exports (no host-side resolver)
+  private _webviewExportProgressReporter: vscode.Progress<{ increment?: number; message?: string }> | null = null;
+  private _webviewExportDoneResolver: (() => void) | null = null;
+  private _webviewExportLastPercent = 0;
 
   // Webview ready state
   private _isWebviewReady = false;
@@ -252,6 +259,34 @@ export class MarkdownPreviewPanel {
       // Queue the operation for when webview is ready
       this._pendingOperations.push(() => {
         this._postToWebview('OPEN_SETTINGS');
+      });
+    }
+  }
+
+  public openExportMenu(): void {
+    if (this._isWebviewReady) {
+      this._postToWebview('OPEN_EXPORT_MENU');
+    } else {
+      this._pendingOperations.push(() => {
+        this._postToWebview('OPEN_EXPORT_MENU');
+      });
+    }
+  }
+
+  public print(): void {
+    // Read the bundled styles.css to inline into the standalone print HTML
+    const stylesPath = vscode.Uri.joinPath(this._extensionUri, 'webview', 'styles.css');
+    let inlineCSS = '';
+    try {
+      inlineCSS = fs.readFileSync(stylesPath.fsPath, 'utf8');
+    } catch {
+      // styles not found, proceed without base CSS
+    }
+    if (this._isWebviewReady) {
+      this._postToWebview('PRINT', { inlineCSS });
+    } else {
+      this._pendingOperations.push(() => {
+        this._postToWebview('PRINT', { inlineCSS });
       });
     }
   }
@@ -498,9 +533,33 @@ export class MarkdownPreviewPanel {
         case 'EXPORT_PROGRESS':
           // DOCX export progress update
           if (this._exportProgressCallback && payload) {
+            // Command-initiated export: forward to withProgress callback
             const { completed, total } = payload as { completed: number; total: number };
             const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
             this._exportProgressCallback(progress);
+          } else if (payload) {
+            // Webview-initiated export: start a withProgress notification on first message
+            const { completed, total } = payload as { completed: number; total: number };
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            if (!this._webviewExportProgressReporter) {
+              this._webviewExportLastPercent = 0;
+              vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Exporting to DOCX', cancellable: false },
+                (progressReporter) => {
+                  this._webviewExportProgressReporter = progressReporter;
+                  return new Promise<void>((resolve) => {
+                    this._webviewExportDoneResolver = resolve;
+                  });
+                }
+              );
+            }
+            if (this._webviewExportProgressReporter) {
+              const increment = percent - this._webviewExportLastPercent;
+              if (increment > 0) {
+                this._webviewExportProgressReporter.report({ increment, message: `${percent}%` });
+                this._webviewExportLastPercent = percent;
+              }
+            }
           }
           break;
 
@@ -509,6 +568,20 @@ export class MarkdownPreviewPanel {
           if (this._exportResultResolver) {
             const result = payload as { success: boolean } | undefined;
             this._exportResultResolver(result?.success ?? false);
+          } else {
+            // Webview-initiated export (from export menu button)
+            const result = payload as { success: boolean; filename?: string; error?: string } | undefined;
+            if (this._webviewExportDoneResolver) {
+              this._webviewExportDoneResolver();
+              this._webviewExportProgressReporter = null;
+              this._webviewExportDoneResolver = null;
+              this._webviewExportLastPercent = 0;
+            }
+            if (result?.success) {
+              vscode.window.showInformationMessage(result.filename ? `Exported: ${result.filename}` : 'DOCX exported successfully');
+            } else {
+              vscode.window.showErrorMessage(`DOCX export failed${result?.error ? ': ' + result.error : ''}`);
+            }
           }
           break;
 
@@ -527,6 +600,35 @@ export class MarkdownPreviewPanel {
           }
           response = { success: true };
           break;
+
+        case 'NOTIFY':
+          // Show a notification message from the webview
+          if (payload) {
+            const notify = payload as { type?: string; message: string };
+            if (notify.message) {
+              if (notify.type === 'error') {
+                vscode.window.showErrorMessage(notify.message);
+              } else {
+                vscode.window.showInformationMessage(notify.message);
+              }
+            }
+          }
+          break;
+
+        case 'PRINT_HTML_RESULT': {
+          // Webview serialized its rendered HTML — save to temp file and open in browser
+          const printPayload = payload as { html: string; filename?: string } | undefined;
+          if (printPayload?.html) {
+            const tmpFile = path.join(os.tmpdir(), `mv-print-${Date.now()}.html`);
+            try {
+              fs.writeFileSync(tmpFile, printPayload.html, 'utf8');
+              vscode.env.openExternal(vscode.Uri.file(tmpFile));
+            } catch (err) {
+              vscode.window.showErrorMessage(`Print failed: ${String(err)}`);
+            }
+          }
+          break;
+        }
 
         case 'READ_LOCAL_FILE':
           // Read local file content (for SVG plugin, etc.)
@@ -1079,6 +1181,25 @@ export class MarkdownPreviewPanel {
     /* Full width content for VS Code */
     #markdown-page {
       max-width: none !important;
+    }
+
+    @media print {
+      html, body,
+      #vscode-root,
+      #vscode-content,
+      #markdown-wrapper,
+      #markdown-page {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+
+      #markdown-wrapper {
+        margin-left: 0 !important;
+        margin-top: 0 !important;
+        margin-right: 0 !important;
+      }
     }
   </style>
 </head>

@@ -183,6 +183,14 @@
     "message": "Bendrinti kaip Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Eksportuoti į DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Spausdinti į PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Ruošiamas Word dokumentas...",
     "description": "Fallback message when DOCX export fails"

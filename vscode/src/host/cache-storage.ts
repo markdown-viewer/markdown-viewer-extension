@@ -367,6 +367,5 @@ export class CacheStorage {
     }
 
     await this._saveIndex();
-    console.log(`[CacheService] Cleaned up ${toRemove.length} entries`);
   }
 }

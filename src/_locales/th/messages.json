@@ -183,6 +183,14 @@
     "message": "แชร์เป็น Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "ส่งออกเป็น DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "พิมพ์เป็น PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "กำลังเตรียมเอกสาร Word...",
     "description": "Toast shown during export"

@@ -183,6 +183,14 @@
     "message": "Поделиться как Word",
     "description": "Menu item for exporting to DOCX"
   },
+  "export_menu_export_docx": {
+    "message": "Экспортировать в DOCX",
+    "description": "Export menu item for exporting to DOCX"
+  },
+  "export_menu_print_pdf": {
+    "message": "Печать в PDF",
+    "description": "Export menu item for printing to PDF"
+  },
   "exporting": {
     "message": "Подготовка документа Word...",
     "description": "Toast shown during export"

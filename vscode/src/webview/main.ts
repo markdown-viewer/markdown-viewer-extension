@@ -32,6 +32,8 @@ import {
 import { createSettingsPanel, type SettingsPanel, type ThemeOption, type LocaleOption } from './settings-panel';
 import { createSearchPanel, type SearchPanel, type HighlightMatch, type SearchOptions } from './search-panel';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
+import { createExportMenu, type ExportMenu } from '../../../src/ui/export-menu';
+import { printElement } from '../../../src/ui/print-utils';
 
 // Declare global types for VSCode-specific variables
 declare global {
@@ -61,6 +63,7 @@ let renderQueue: Promise<void> = Promise.resolve();
 // UI components
 let settingsPanel: SettingsPanel | null = null;
 let searchPanel: SearchPanel | null = null;
+let exportMenu: ExportMenu | null = null;
 let currentHighlights: Map<HTMLElement, HTMLElement> = new Map(); // Original element → wrapper
 
 // Create plugin renderer using shared utility
@@ -166,6 +169,14 @@ function handleExtensionMessage(message: ExtensionMessage): void {
       handleExportDocx();
       break;
 
+    case 'OPEN_EXPORT_MENU':
+      handleOpenExportMenu();
+      break;
+
+    case 'PRINT':
+      handlePrint(payload as { inlineCSS?: string } | undefined);
+      break;
+
     case 'SET_THEME':
       handleSetTheme(payload as SetThemePayload);
       break;
@@ -198,8 +209,6 @@ function handleExtensionMessage(message: ExtensionMessage): void {
 
 async function handleUpdateContent(payload: UpdateContentPayload): Promise<void> {
   const { content, filename, documentBaseUri, forceRender, scrollLine } = payload;
-  // eslint-disable-next-line no-console
-  console.log('[webview] handleUpdateContent', filename, 'scrollLine=', scrollLine, 'forceRender=', forceRender);
   const container = document.getElementById('markdown-content');
   
   if (!container) {
@@ -395,6 +404,14 @@ async function handleExportDocx(): Promise<void> {
   });
 }
 
+async function handlePrint(): Promise<void> {
+  const page = document.getElementById('markdown-page') as HTMLElement | null;
+  if (!page) {
+    return;
+  }
+  await printElement(page, currentFilename || document.title || 'Markdown Viewer');
+}
+
 // ============================================================================
 // Zoom Handling (same as Mobile)
 // ============================================================================
@@ -495,8 +512,6 @@ function initializeUI(): void {
       // Anchor links
       else if (href.startsWith('#')) {
         const targetId = decodeURIComponent(href.slice(1));
-        // eslint-disable-next-line no-console
-        console.log('[webview] anchor click #', targetId);
         const targetEl = document.getElementById(targetId);
         if (targetEl) {
           targetEl.scrollIntoView({ behavior: 'smooth' });
@@ -507,8 +522,6 @@ function initializeUI(): void {
         // Split hash fragment from path (e.g., ./file.md#section → path + fragment)
         const hashIndex = href.indexOf('#');
         if (hashIndex >= 0) {
-          // eslint-disable-next-line no-console
-          console.log('[webview] relative link click', href, '→ path=', href.slice(0, hashIndex), 'fragment=', href.slice(hashIndex + 1));
           vscodeBridge.postMessage('OPEN_RELATIVE_FILE', {
             path: href.slice(0, hashIndex),
             fragment: decodeURIComponent(href.slice(hashIndex + 1)),
@@ -593,6 +606,11 @@ function initializeUI(): void {
   });
   document.body.appendChild(settingsPanel.getElement());
 
+  exportMenu = createExportMenu({
+    translate: (key) => Localization.translate(key),
+    onExportDocx: () => handleExportDocx(),
+  });
+
   // Create search panel
   searchPanel = createSearchPanel({
     onSearch: (query: string, options: SearchOptions) => {
@@ -634,6 +652,10 @@ function handleOpenSettings(): void {
       settingsPanel.showAtPosition(window.innerWidth - 300, 10);
     }
   }
+}
+
+function handleOpenExportMenu(): void {
+  exportMenu?.showAtPosition(window.innerWidth - 220, 10);
 }
 
 /**
