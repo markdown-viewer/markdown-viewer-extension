@@ -5,6 +5,7 @@
  */
 import { BaseRenderer } from './base-renderer';
 import type { RendererThemeConfig, RenderResult } from '../types/index';
+import { isNetworkUrl } from '../utils/document-url';
 
 export class SvgRenderer extends BaseRenderer {
   constructor() {
@@ -32,7 +33,7 @@ export class SvgRenderer extends BaseRenderer {
    */
   async render(svg: string, themeConfig: RendererThemeConfig | null): Promise<RenderResult> {
     // Remote URL: load via <img> tag (no fetch needed, bypasses CSP connect-src)
-    if (svg.startsWith('http://') || svg.startsWith('https://')) {
+    if (isNetworkUrl(svg)) {
       return this.renderFromUrl(svg, themeConfig);
     }
 

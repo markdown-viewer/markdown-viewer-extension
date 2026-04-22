@@ -12,6 +12,7 @@ import { BaseRenderer } from './base-renderer';
 import { sanitizeHtml, hasHtmlContent } from '../utils/html-sanitizer';
 import { loadImageAsDataUrl } from '../utils/image-loader';
 import type { RendererThemeConfig, RenderResult } from '../types/index';
+import { isNetworkUrl } from '../utils/document-url';
 
 export class HtmlRenderer extends BaseRenderer {
   constructor() {
@@ -46,8 +47,8 @@ export class HtmlRenderer extends BaseRenderer {
         return;
       }
       
-      // Only process http/https URLs
-      if (!src.startsWith('http://') && !src.startsWith('https://')) {
+      // Only process network URLs
+      if (!isNetworkUrl(src)) {
         return;
       }
       

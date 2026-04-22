@@ -10,6 +10,11 @@
 import { visit } from 'unist-util-visit';
 import type { Root, Element } from 'hast';
 import type { DocumentService } from '../types/platform';
+import {
+  ensureRelativeDotSlash,
+  isDocumentRelativeUrl,
+  stripLeadingDotSlash,
+} from '../utils/document-url';
 
 /**
  * Detect image MIME type from base64 data using magic bytes
@@ -74,34 +79,6 @@ function fixOctetStreamDataUrl(url: string): string {
 }
 
 /**
- * Check if a URL is relative (not absolute)
- */
-function isRelativeUrl(url: string): boolean {
-  // Skip absolute URLs
-  if (url.startsWith('http://') || 
-      url.startsWith('https://') || 
-      url.startsWith('data:') || 
-      url.startsWith('blob:') ||
-      url.startsWith('file:') ||
-      url.includes('vscode-webview-resource:') ||
-      url.includes('vscode-resource:')) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Normalize relative path
- */
-function normalizePath(path: string): string {
-  // Remove leading ./
-  if (path.startsWith('./')) {
-    return path.slice(2);
-  }
-  return path;
-}
-
-/**
  * Get DocumentService from platform
  */
 function getDocumentService(): DocumentService | undefined {
@@ -131,26 +108,29 @@ export default function rehypeImageUri() {
 
       // Fix data:application/octet-stream URLs (always apply)
       if (src.toLowerCase().startsWith('data:application/octet-stream;base64,')) {
+        const fixedSrc = fixOctetStreamDataUrl(src);
         node.properties = node.properties || {};
-        node.properties.src = fixOctetStreamDataUrl(src);
+        node.properties.src = fixedSrc;
         return;
       }
 
-      // Only rewrite relative URLs if URI rewrite is needed
-      if (!needsUriRewrite || !baseUri) {
-        return;
+      // For relative URLs, always ensure they start with ./ or ../
+      // This helps resolve paths consistently across different contexts
+      if (isDocumentRelativeUrl(src)) {
+        const prefixedSrc = ensureRelativeDotSlash(src);
+        
+        // If URI rewrite is needed, convert to absolute URI
+        if (needsUriRewrite && baseUri) {
+          const normalizedSrc = stripLeadingDotSlash(prefixedSrc);
+          const newSrc = `${baseUri}/${normalizedSrc}`;
+          node.properties = node.properties || {};
+          node.properties.src = newSrc;
+        } else if (prefixedSrc !== src) {
+          // Just add the ./ prefix if not rewriting to URI
+          node.properties = node.properties || {};
+          node.properties.src = prefixedSrc;
+        }
       }
-
-      if (!isRelativeUrl(src)) {
-        return;
-      }
-
-      // Convert relative path to absolute URI
-      const normalizedSrc = normalizePath(src);
-      const newSrc = `${baseUri}/${normalizedSrc}`;
-      
-      node.properties = node.properties || {};
-      node.properties.src = newSrc;
     });
   };
 }

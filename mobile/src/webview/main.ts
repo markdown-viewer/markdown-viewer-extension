@@ -23,6 +23,7 @@ import {
 } from '../../../src/core/viewer/viewer-host';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
+import { isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
 
 declare global {
   var bridge: PlatformBridgeAPI | undefined;
@@ -379,8 +380,8 @@ function setupLinkHandling(): void {
     const href = anchor.getAttribute('href') || '';
     e.preventDefault();
 
-    // External links (http/https) - open in system browser
-    if (href.startsWith('http://') || href.startsWith('https://')) {
+    // External links (http/https/mailto/tel/custom schemes)
+    if (isExternalUrl(href)) {
       bridge.postMessage('OPEN_URL', { url: href });
     }
     // Anchor links - in-page navigation
@@ -392,11 +393,9 @@ function setupLinkHandling(): void {
     }
     // Relative links
     else {
-      // Split hash fragment from path (e.g., ./file.md#section → path + fragment)
-      const hashIndex = href.indexOf('#');
-      const pathPart = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
-      if (hashIndex >= 0) {
-        pendingFragment = decodeURIComponent(href.slice(hashIndex + 1));
+      const { path: pathPart, fragment } = splitPathAndFragment(href);
+      if (fragment !== undefined) {
+        pendingFragment = decodeURIComponent(fragment);
       }
 
       // Check if it's a markdown file

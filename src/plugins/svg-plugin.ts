@@ -5,6 +5,12 @@
  */
 import { BasePlugin } from './base-plugin';
 import type { DocumentService } from '../types/platform';
+import {
+  ensureRelativeDotSlash,
+  isAbsoluteFilesystemPath,
+  isDocumentRelativeUrl,
+  isNetworkUrl,
+} from '../utils/document-url';
 
 /**
  * AST node interface for SVG plugin
@@ -72,13 +78,18 @@ export class SvgPlugin extends BasePlugin {
       return false;
     }
     // Remote URLs are passed directly to the renderer for loading via <img>
-    if (content.startsWith('http://') || content.startsWith('https://')) {
+    if (isNetworkUrl(content)) {
       return false;
     }
+    // File paths: absolute, relative with ../, ./, or with / or \ separators
+    // Also treat anything with a file extension as a path
     return content.startsWith('file://') ||
            content.startsWith('data:') ||
-           content.includes('/') || // Relative paths
-           content.includes('\\'); // Windows paths
+           content.startsWith('./') ||
+           content.startsWith('../') ||
+           content.includes('/') || // Relative paths with directories
+           content.includes('\\') || // Windows paths
+           /\.\w+$/.test(content); // Any filename with extension (e.g., "test.svg")
   }
 
   /**
@@ -107,12 +118,24 @@ export class SvgPlugin extends BasePlugin {
       throw new Error('DocumentService not available - platform not initialized');
     }
 
-    // Handle local file:// URLs or relative paths
-    // Strip file:// prefix if present
-    const filePath = url.startsWith('file://') ? url.slice(7) : url;
-    
     try {
-      return await doc.readRelativeFile(filePath);
+      if (url.startsWith('file://')) {
+        return await doc.readFile(url.slice(7));
+      }
+
+      if (url.startsWith('data:')) {
+        return await doc.readFile(url);
+      }
+
+      if (isDocumentRelativeUrl(url)) {
+        const normalizedRelativePath = ensureRelativeDotSlash(url);
+        const resolvedPath = doc.resolvePath(normalizedRelativePath);
+        return isAbsoluteFilesystemPath(resolvedPath)
+          ? await doc.readFile(stripFileProtocol(resolvedPath))
+          : await doc.readRelativeFile(resolvedPath);
+      }
+
+      return await doc.readFile(stripFileProtocol(url));
     } catch (error) {
       throw new Error(`Cannot load SVG file: ${url} - ${(error as Error).message}`);
     }
@@ -126,4 +149,8 @@ export class SvgPlugin extends BasePlugin {
   get nodeSelector(): string[] {
     return ['code', 'image'];
   }
+}
+
+function stripFileProtocol(path: string): string {
+  return path.startsWith('file://') ? path.slice(7) : path;
 }

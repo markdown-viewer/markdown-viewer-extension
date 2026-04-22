@@ -12,6 +12,7 @@ import { ItemView, WorkspaceLeaf, TFile, Menu, Notice } from 'obsidian';
 import type MarkdownViewerPlugin from './main';
 import { getFileType } from '../../../src/utils/file-wrapper';
 import { rewriteObsidianSvgEmbeds } from './obsidian-svg-embed-rewrite';
+import { expandObsidianMarkdownEmbeds } from './obsidian-markdown-embed-rewrite';
 
 // Viewer module — runs in same process, no iframe
 import { initializeViewer, obsidianHostTransport } from '../webview/main';
@@ -138,7 +139,7 @@ export class MarkdownPreviewView extends ItemView {
 
   private async sendFileContent(file: TFile): Promise<void> {
     const rawContent = await this.app.vault.read(file);
-    const content = this.preprocessMarkdownContent(rawContent, file);
+    const content = await this.preprocessMarkdownContent(rawContent, file);
 
     // Build resource base URI for image path resolution.
     // Use a placeholder filename so getResourcePath returns a proper app:// URL
@@ -162,12 +163,30 @@ export class MarkdownPreviewView extends ItemView {
     });
   }
 
-  private preprocessMarkdownContent(content: string, file: TFile): string {
+  private async preprocessMarkdownContent(content: string, file: TFile): Promise<string> {
     if (file.extension !== 'md' && file.extension !== 'markdown') {
       return content;
     }
 
-    return rewriteObsidianSvgEmbeds(content, file.path, (linkPath) => {
+    const expanded = await expandObsidianMarkdownEmbeds(content, file.path, {
+      resolveLinkPath: (linkPath, sourcePath) => {
+        const target = this.app.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
+        return target?.path ?? null;
+      },
+      readMarkdownFile: async (path) => {
+        const target = this.app.vault.getAbstractFileByPath(path);
+        if (!(target instanceof TFile)) {
+          return null;
+        }
+        if (target.extension !== 'md' && target.extension !== 'markdown') {
+          return null;
+        }
+        return this.app.vault.read(target);
+      },
+      maxDepth: 2,
+    });
+
+    return rewriteObsidianSvgEmbeds(expanded, file.path, (linkPath) => {
       const target = this.app.metadataCache.getFirstLinkpathDest(linkPath, file.path);
       return target?.path ?? null;
     });

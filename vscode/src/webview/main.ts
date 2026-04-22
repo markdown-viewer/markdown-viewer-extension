@@ -35,6 +35,7 @@ import { createTocPanel, type TocPanel } from './toc-panel';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
 import { createExportMenu, type ExportMenu } from '../../../src/ui/export-menu';
 import { printElement } from '../../../src/ui/print-utils';
+import { isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
 
 // Declare global types for VSCode-specific variables
 declare global {
@@ -573,8 +574,8 @@ function initializeUI(): void {
       e.preventDefault();
       e.stopPropagation();
       
-      // External links (http/https) - open in external browser
-      if (href.startsWith('http://') || href.startsWith('https://')) {
+      // External links (http/https/mailto/tel/custom schemes)
+      if (isExternalUrl(href)) {
         vscodeBridge.postMessage('OPEN_URL', { url: href });
       }
       // Anchor links
@@ -587,15 +588,14 @@ function initializeUI(): void {
       }
       // Relative links (including .md files)
       else {
-        // Split hash fragment from path (e.g., ./file.md#section → path + fragment)
-        const hashIndex = href.indexOf('#');
-        if (hashIndex >= 0) {
+        const { path, fragment } = splitPathAndFragment(href);
+        if (fragment !== undefined) {
           vscodeBridge.postMessage('OPEN_RELATIVE_FILE', {
-            path: href.slice(0, hashIndex),
-            fragment: decodeURIComponent(href.slice(hashIndex + 1)),
+            path,
+            fragment: decodeURIComponent(fragment),
           });
         } else {
-          vscodeBridge.postMessage('OPEN_RELATIVE_FILE', { path: href });
+          vscodeBridge.postMessage('OPEN_RELATIVE_FILE', { path });
         }
       }
     });

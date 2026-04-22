@@ -35,6 +35,7 @@ import {
 import { createSettingsPanel, type SettingsPanel, type ThemeOption, type LocaleOption } from '../../../vscode/src/webview/settings-panel';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import { printElement } from '../../../src/ui/print-utils';
+import { isDocumentRelativeUrl, isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
 
 // Make platform globally available (required by loadAndApplyTheme)
 globalThis.platform = platform;
@@ -280,15 +281,7 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
  * Check if src is a local relative path (not absolute, not data/blob/http)
  */
 function isLocalRelativeSrc(src: string): boolean {
-  if (!src) return false;
-  const lower = src.toLowerCase();
-  if (lower.startsWith('data:') || lower.startsWith('blob:') ||
-      lower.startsWith('http://') || lower.startsWith('https://') ||
-      lower.startsWith('//') || lower.startsWith('file:') ||
-      lower.startsWith('app:')) {
-    return false;
-  }
-  return !(/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(src));
+  return isDocumentRelativeUrl(src);
 }
 
 /**
@@ -565,19 +558,18 @@ function initializeUI(): void {
       e.preventDefault();
       e.stopPropagation();
 
-      if (href.startsWith('http://') || href.startsWith('https://')) {
+      if (isExternalUrl(href)) {
         obsidianBridge.postMessage('OPEN_URL', { url: href });
       } else if (href.startsWith('#')) {
         const el = document.getElementById(decodeURIComponent(href.slice(1)));
         if (el) el.scrollIntoView({ behavior: 'smooth' });
       } else {
-        // Split hash fragment from path (e.g., ./file.md#section → path + fragment)
-        const hashIndex = href.indexOf('#');
-        if (hashIndex >= 0) {
-          pendingFragment = decodeURIComponent(href.slice(hashIndex + 1));
-          obsidianBridge.postMessage('OPEN_RELATIVE_FILE', { path: href.slice(0, hashIndex) });
+        const { path, fragment } = splitPathAndFragment(href);
+        if (fragment !== undefined) {
+          pendingFragment = decodeURIComponent(fragment);
+          obsidianBridge.postMessage('OPEN_RELATIVE_FILE', { path });
         } else {
-          obsidianBridge.postMessage('OPEN_RELATIVE_FILE', { path: href });
+          obsidianBridge.postMessage('OPEN_RELATIVE_FILE', { path });
         }
       }
     });
