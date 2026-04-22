@@ -323,6 +323,12 @@ function copyAssets() {
     console.log('  • search-panel.css');
   }
 
+  // Copy TOC panel styles
+  if (fs.existsSync('vscode/src/webview/toc-panel.css')) {
+    fs.copyFileSync('vscode/src/webview/toc-panel.css', path.join(outdir, 'webview', 'toc-panel.css'));
+    console.log('  • toc-panel.css');
+  }
+
   // Note: fonts (ZhuqueFangsong, ComicNeue) are only needed for mobile app
   // VS Code extension uses system fonts, no need to bundle custom fonts
 

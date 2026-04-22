@@ -1130,6 +1130,11 @@ export class MarkdownPreviewPanel {
       vscode.Uri.joinPath(this._extensionUri, 'webview', 'search-panel.css')
     );
 
+    // TOC panel styles
+    const tocStyleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'webview', 'toc-panel.css')
+    );
+
     const nonce = getNonce();
     const config = this._getConfiguration();
 
@@ -1143,6 +1148,7 @@ export class MarkdownPreviewPanel {
   <link rel="stylesheet" href="${styleUri}">
   <link rel="stylesheet" href="${settingsStyleUri}">
   <link rel="stylesheet" href="${searchStyleUri}">
+  <link rel="stylesheet" href="${tocStyleUri}">
   <title>Markdown Preview</title>
   <style>
     /* Hide Chrome extension specific UI elements */

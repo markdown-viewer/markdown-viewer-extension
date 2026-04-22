@@ -1,0 +1,156 @@
+/* VSCode TOC drawer (narrow-screen first) */
+
+.vscode-toc-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1002;
+}
+
+.vscode-toc-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--vscode-editorWidget-border, #454545);
+  background: var(--vscode-editorWidget-background, #252526);
+  color: var(--vscode-foreground, #cccccc);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+}
+
+.vscode-toc-fab:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.vscode-toc-fab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vscode-toc-fab.active {
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.vscode-toc-fab-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.vscode-toc-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.vscode-toc-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(320px, 78vw);
+  height: 100vh;
+  background: var(--vscode-editorWidget-background, #252526);
+  border-left: 1px solid var(--vscode-editorWidget-border, #454545);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.35);
+  transform: translateX(100%);
+  transition: transform 0.14s ease-out;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.vscode-toc-drawer.visible {
+  transform: translateX(0);
+}
+
+.vscode-toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border, #454545);
+}
+
+.vscode-toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.vscode-toc-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.vscode-toc-close:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.vscode-toc-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.vscode-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vscode-toc-item {
+  margin: 0;
+  padding: 0;
+}
+
+.vscode-toc-link {
+  width: 100%;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+  padding: 6px 8px 6px calc(8px + var(--toc-indent, 0px));
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vscode-toc-link:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.vscode-toc-link.active {
+  border-left-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--vscode-inputOption-activeBackground, rgba(0, 127, 212, 0.25));
+  color: var(--vscode-inputOption-activeForeground, #ffffff);
+}
+
+.vscode-toc-empty {
+  display: none;
+  padding: 12px;
+  color: var(--vscode-descriptionForeground, #999999);
+  font-size: 12px;
+  text-align: center;
+}
