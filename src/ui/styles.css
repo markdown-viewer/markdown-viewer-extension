@@ -1012,27 +1012,34 @@ html[data-code-view] #markdown-content pre code::before {
     print-color-adjust: exact;
   }
 
-  /* Ensure images fit on page */
+  /* Diagram images: wrapper <div> sets the design width; <img> stays fully auto so the
+     replaced-element sizing algorithm preserves aspect ratio when max-height triggers. */
   #markdown-content img {
-    max-width: 100% !important;
-    height: auto !important;
-    max-height: var(--print-max-media-height) !important;
+    max-width: 100%;
+    max-height: var(--print-max-media-height);
+    height: auto;
     page-break-inside: avoid;
     break-inside: avoid;
   }
 
   #markdown-content .diagram-block {
     overflow: visible !important;
+    max-width: 100% !important;
   }
 
-  #markdown-content .diagram-block img,
-  #markdown-content .diagram-block svg {
+  #markdown-content .diagram-block img {
+    max-width: 100% !important;
     max-height: var(--print-max-media-height) !important;
+    width: auto !important;
+    height: auto !important;
   }
 
-  /* Override the shared width:100% rule so small SVG diagrams keep their natural size in print. */
+  /* SVG diagrams: the shared screen rule sets width:100% to fill the container.
+     In print we want natural size so small diagrams don't get blown up; force
+     width/height auto here to neutralize that screen-only rule. */
   #markdown-content .diagram-block svg {
     max-width: 100% !important;
+    max-height: var(--print-max-media-height) !important;
     width: auto !important;
     height: auto !important;
   }

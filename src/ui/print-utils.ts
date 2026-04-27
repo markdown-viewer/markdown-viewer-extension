@@ -30,17 +30,19 @@ export async function printElement(element: HTMLElement, title = document.title)
       body {
         background-color: ${pageBackgroundColor} !important;
       }
-      /* Inline diagram constraints: do not rely on --print-max-media-height CSS variable */
+      /* Diagram images: wrapper <div> sets the design width; <img> is fully auto (max-width:100% +
+         max-height clamp). Both dims auto on <img> so replaced-element algorithm preserves
+         aspect ratio when max-height triggers on tall diagrams. */
       #markdown-content img {
-        max-width: 100% !important;
-        max-height: 9.5in !important;
-        width: auto !important;
-        height: auto !important;
+        max-width: 100%;
+        max-height: 9.5in;
+        height: auto;
         break-inside: avoid;
         page-break-inside: avoid;
       }
       #markdown-content .diagram-block {
         overflow: visible !important;
+        max-width: 100% !important;
         break-inside: avoid;
         page-break-inside: avoid;
       }
@@ -50,7 +52,9 @@ export async function printElement(element: HTMLElement, title = document.title)
         width: auto !important;
         height: auto !important;
       }
-      /* SVG: width/height:auto + max-height enables proportional scale-down for tall diagrams */
+      /* SVG diagrams: shared screen rule sets width:100% to fill the container; in print we
+         want to keep natural size so small diagrams don't get blown up. Force width/height auto
+         here to neutralize that screen-only rule. */
       #markdown-content .diagram-block svg {
         max-height: 9.5in !important;
         max-width: 100% !important;

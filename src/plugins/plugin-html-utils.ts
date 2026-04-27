@@ -32,19 +32,27 @@ export function convertPluginResultToHTML(
   if (renderResult.type === 'image') {
     const { base64, width } = renderResult.content;
     const { inline } = renderResult.display;
+    // Renderer outputs the PNG at 4x for retina sharpness; design display width is 1/4 of intrinsic.
+    // Strategy: design width on the wrapper <div>; <img> stays fully auto, bounded by
+    // max-width:100% and (in print) max-height. Both <img> dims auto so the CSS replaced-element
+    // sizing algorithm preserves aspect ratio when max-height clamps tall diagrams.
     const displayWidth = Math.round((width || 0) / 4);
-    
+    const wrapperStyle = displayWidth > 0
+      ? `width: ${displayWidth}px; max-width: 100%; margin: 20px auto; text-align: center;`
+      : 'margin: 20px auto; text-align: center;';
+    const imgStyle = 'max-width: 100%; height: auto;';
+
     // Data attributes for DOM diff matching - mark as rendered
     const dataAttrs = sourceHash 
       ? `data-source-hash="${sourceHash}" data-plugin-type="${pluginType}" data-plugin-rendered="true"` 
       : '';
     
     if (inline) {
-      return `<img class="diagram-inline" src="data:image/png;base64,${base64}" alt="${pluginType} diagram" width="${displayWidth}px" ${dataAttrs} />`;
+      return `<img class="diagram-inline" src="data:image/png;base64,${base64}" alt="${pluginType} diagram" style="${displayWidth > 0 ? `width: ${displayWidth}px; ` : ''}max-width: 100%; height: auto;" ${dataAttrs} />`;
     }
     
-    return `<div class="diagram-block" style="text-align: center; margin: 20px 0;" ${dataAttrs}>
-      <img src="data:image/png;base64,${base64}" alt="${pluginType} diagram" width="${displayWidth}px" />
+    return `<div class="diagram-block" style="${wrapperStyle}" ${dataAttrs}>
+      <img src="data:image/png;base64,${base64}" alt="${pluginType} diagram" style="${imgStyle}" />
     </div>`;
   }
   

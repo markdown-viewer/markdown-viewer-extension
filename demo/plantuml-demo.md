@@ -148,6 +148,70 @@ DB --> UserService : 用户数据
 UserService --> Gateway : JWT Token
 Gateway --> Frontend : 200 OK + Token
 Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
+用户 -> Frontend : 登录请求
+Frontend -> Gateway : POST /api/login
+Gateway -> UserService : 验证凭据
+UserService -> DB : 查询用户
+DB --> UserService : 用户数据
+UserService --> Gateway : JWT Token
+Gateway --> Frontend : 200 OK + Token
+Frontend --> 用户 : 登录成功
 @enduml
 ```
 
