@@ -98,7 +98,7 @@ class DocxExporter {
   private docxEmojiStyle: EmojiStyle = 'windows';
   private frontmatterDisplay: FrontmatterDisplay = 'hide';
   private tableMergeEmpty = true;  // Default: enabled
-  private tableLayout: 'left' | 'center' = 'center';  // Default: center
+  private tableLayout: 'left' | 'center' | 'center-full-width' = 'center';  // Default: center
   
   // Converters (initialized in exportToDocx)
   private tableConverter: TableConverter | null = null;

@@ -378,12 +378,12 @@ export async function getTableMergeEmpty(platform: PlatformAPI): Promise<boolean
  * Get the table layout setting.
  * Uses platform.settings service exclusively.
  *
- * @returns 'left' | 'center' (default: 'center')
+ * @returns 'left' | 'center' | 'center-full-width' (default: 'center')
  */
-export async function getTableLayout(platform: PlatformAPI): Promise<'left' | 'center'> {
+export async function getTableLayout(platform: PlatformAPI): Promise<'left' | 'center' | 'center-full-width'> {
   try {
     const layout = await platform.settings.get('tableLayout');
-    return layout === 'left' ? 'left' : 'center';
+    return layout === 'left' || layout === 'center-full-width' ? layout : 'center';
   } catch {
     return 'center';
   }
@@ -717,9 +717,16 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     // Get table layout setting
     const tableLayout = await getTableLayout(platform);
 
-    // Apply table layout class to container
-    container.classList.remove('table-layout-left', 'table-layout-center');
+    // Apply table layout class to both the render container and the outer
+    // #markdown-content wrapper. Some hosts render into a child element inside
+    // #markdown-content, while theme CSS targets the wrapper itself.
+    const outerContent = container.closest('#markdown-content') as HTMLElement | null;
+    container.classList.remove('table-layout-left', 'table-layout-center', 'table-layout-center-full-width');
     container.classList.add(`table-layout-${tableLayout}`);
+    if (outerContent && outerContent !== container) {
+      outerContent.classList.remove('table-layout-left', 'table-layout-center', 'table-layout-center-full-width');
+      outerContent.classList.add(`table-layout-${tableLayout}`);
+    }
 
     // Render markdown
     const renderResult = await renderMarkdownDocument({

@@ -1077,7 +1077,7 @@ export class MarkdownPreviewPanel {
       : 'hide';
     const tableMergeEmpty = (typeof settings.tableMergeEmpty === 'boolean') ? settings.tableMergeEmpty : true;
     const storedTableLayout = settings.tableLayout;
-    const tableLayout = (storedTableLayout === 'left' || storedTableLayout === 'center') ? storedTableLayout : 'center';
+    const tableLayout = (storedTableLayout === 'left' || storedTableLayout === 'center' || storedTableLayout === 'center-full-width') ? storedTableLayout : 'center';
     const storedEmojiStyle = settings.docxEmojiStyle;
     const docxEmojiStyle: EmojiStyle = (storedEmojiStyle === 'apple' || storedEmojiStyle === 'windows' || storedEmojiStyle === 'system') ? storedEmojiStyle : 'system';
     const storedFrontmatterDisplay = settings.frontmatterDisplay;

@@ -607,7 +607,7 @@ function initializeUI(): void {
     docxEmojiStyle: (window.VSCODE_CONFIG?.docxEmojiStyle as EmojiStyle) || 'system',
     frontmatterDisplay: (window.VSCODE_CONFIG?.frontmatterDisplay as FrontmatterDisplay) || 'hide',
     tableMergeEmpty: window.VSCODE_CONFIG?.tableMergeEmpty !== false,
-    tableLayout: (window.VSCODE_CONFIG?.tableLayout as 'left' | 'center') || 'center',
+    tableLayout: (window.VSCODE_CONFIG?.tableLayout as 'left' | 'center' | 'center-full-width') || 'center',
     onThemeChange: async (themeId) => {
       // handleSetTheme saves via themeManager.saveSelectedTheme (same as Chrome)
       await handleSetTheme({ themeId });

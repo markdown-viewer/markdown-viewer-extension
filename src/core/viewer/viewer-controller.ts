@@ -10,7 +10,6 @@ import {
   extractHeadings,
   extractTitle,
   createMarkdownProcessor,
-  processTablesForWordCompatibility,
   sanitizeRenderedHtml,
   isFrontmatterBlock,
   parseFrontmatter,
@@ -49,7 +48,7 @@ export type FrontmatterDisplay = 'hide' | 'table' | 'raw';
 /**
  * Table layout mode
  */
-export type TableLayout = 'left' | 'center';
+export type TableLayout = 'left' | 'center' | 'center-full-width';
 
 export type RenderMarkdownOptions = {
   markdown: string;
@@ -91,7 +90,7 @@ export type RenderMarkdownOptions = {
   /** Enable auto-merge of empty table cells */
   tableMergeEmpty?: boolean;
 
-  /** Table layout: 'left' or 'center' */
+  /** Table layout: 'left', 'center', or 'center-full-width' */
   tableLayout?: TableLayout;
 };
 
@@ -196,10 +195,10 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   
   if (isFirstRender) {
     // First render: render all blocks with streaming (slugger accumulates state)
-    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, onHeadings, tableLayout, onChunkComplete);
+    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, onHeadings, onChunkComplete);
   } else {
     // Incremental update: apply DOM commands
-    await applyIncrementalUpdate(doc, processor, container, updateResult.commands, taskManager, frontmatterDisplay, tableLayout);
+    await applyIncrementalUpdate(doc, processor, container, updateResult.commands, taskManager, frontmatterDisplay);
     // Normalize heading IDs after incremental DOM changes to ensure uniqueness
     normalizeHeadingIds(container);
   }
@@ -246,7 +245,6 @@ async function renderAllBlocksStreaming(
   taskManager: AsyncTaskManager,
   frontmatterDisplay: FrontmatterDisplay,
   onHeadings?: (headings: HeadingInfo[]) => void,
-  tableLayout: 'left' | 'center' = 'center',
   onChunkComplete?: () => void
 ): Promise<void> {
   const blocks = doc.getBlocks();
@@ -287,7 +285,7 @@ async function renderAllBlocksStreaming(
     }
     
     // Render block content
-    const html = await renderBlockContent(block.content, processor, tableLayout);
+    const html = await renderBlockContent(block.content, processor);
     doc.setBlockHtml(i, html);
     
     // Create and append DOM element
@@ -330,8 +328,7 @@ async function applyIncrementalUpdate(
   container: HTMLElement,
   commands: DOMCommand[],
   taskManager: AsyncTaskManager,
-  frontmatterDisplay: FrontmatterDisplay,
-  tableLayout: 'left' | 'center' = 'center'
+  frontmatterDisplay: FrontmatterDisplay
 ): Promise<void> {
   // First, render HTML for all blocks that need it
   for (const cmd of commands) {
@@ -357,7 +354,7 @@ async function applyIncrementalUpdate(
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         } else {
-          const html = await renderBlockContent(block.content, processor, tableLayout);
+          const html = await renderBlockContent(block.content, processor);
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         }
@@ -379,7 +376,7 @@ async function applyIncrementalUpdate(
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         } else {
-          const html = await renderBlockContent(block.content, processor, tableLayout);
+          const html = await renderBlockContent(block.content, processor);
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         }
@@ -408,11 +405,10 @@ function normalizeHeadingIds(container: HTMLElement): void {
 /**
  * Render a single block's content to HTML
  */
-async function renderBlockContent(content: string, processor: Processor, tableLayout: 'left' | 'center' = 'center'): Promise<string> {
+async function renderBlockContent(content: string, processor: Processor): Promise<string> {
   const normalizedContent = normalizeMathBlocks(content);
   const file = await processor.process(normalizedContent);
   let html = String(file);
-  html = processTablesForWordCompatibility(html, tableLayout);
   html = sanitizeRenderedHtml(html);
   return html;
 }

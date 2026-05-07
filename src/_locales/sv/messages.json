@@ -575,6 +575,10 @@
     "message": "Centrerad",
     "description": "Table layout option: center aligned"
   },
+  "settings_table_layout_full_width": {
+    "message": "Full bredd",
+    "description": "Option for centered tables stretched to the full content width"
+  },
   "settings_table_layout_left": {
     "message": "Vänster",
     "description": "Table layout option: left aligned"

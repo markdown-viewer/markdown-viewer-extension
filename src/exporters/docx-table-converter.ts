@@ -29,14 +29,14 @@ import {
 type ConvertInlineNodesFunction = (children: InlineNode[], options?: { bold?: boolean; color?: string }) => Promise<InlineResult[]>;
 
 /** Table layout mode */
-export type TableLayout = 'left' | 'center';
+export type TableLayout = 'left' | 'center' | 'center-full-width';
 
 interface TableConverterOptions {
   themeStyles: DOCXThemeStyles;
   convertInlineNodes: ConvertInlineNodesFunction;
   /** Enable auto-merge of empty table cells */
   mergeEmptyCells?: boolean;
-  /** Table layout: 'left' or 'center' */
+  /** Table layout: 'left', 'center', or 'center-full-width' */
   tableLayout?: TableLayout;
 }
 
@@ -262,7 +262,10 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
     return new Table({
       rows: rows,
       layout: TableLayoutType.AUTOFIT,
-      alignment: currentLayout === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
+      alignment: currentLayout === 'left' ? AlignmentType.LEFT : AlignmentType.CENTER,
+      width: currentLayout === 'center-full-width'
+        ? { size: 100, type: WidthType.PERCENTAGE }
+        : undefined,
       indent: indentSize ? { size: indentSize, type: WidthType.DXA } : undefined,
     });
   }

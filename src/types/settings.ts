@@ -24,7 +24,7 @@ export type SettingKey =
 export interface SettingTypes {
   themeId: string;
   tableMergeEmpty: boolean;
-  tableLayout: 'left' | 'center';
+  tableLayout: 'left' | 'center' | 'center-full-width';
   swapPanelSide: boolean;
   readerSidebarWidth: number;
   frontmatterDisplay: 'hide' | 'table' | 'raw';

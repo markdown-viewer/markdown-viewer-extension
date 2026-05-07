@@ -575,6 +575,10 @@
     "message": "가운데",
     "description": "Table layout option: center aligned"
   },
+  "settings_table_layout_full_width": {
+    "message": "전체 너비",
+    "description": "Option for centered tables stretched to the full content width"
+  },
   "settings_table_layout_left": {
     "message": "왼쪽",
     "description": "Table layout option: left aligned"

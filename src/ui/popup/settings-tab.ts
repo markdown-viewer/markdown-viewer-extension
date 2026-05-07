@@ -127,7 +127,7 @@ export type FrontmatterDisplay = 'hide' | 'table' | 'raw';
 /**
  * Table layout mode
  */
-export type TableLayout = 'left' | 'center';
+export type TableLayout = 'left' | 'center' | 'center-full-width';
 
 /**
  * Panel side swap setting

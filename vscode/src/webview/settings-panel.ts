@@ -12,7 +12,7 @@ import type { EmojiStyle } from '../../../src/types/docx.js';
 import type { FrontmatterDisplay } from '../../../src/core/viewer/viewer-controller';
 
 /** Table layout mode */
-export type TableLayout = 'left' | 'center';
+export type TableLayout = 'left' | 'center' | 'center-full-width';
 
 export interface SettingsPanelOptions {
   /** Current theme ID */
@@ -174,6 +174,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
         <select class="vscode-settings-select" data-setting="tableLayout">
           <option value="left" ${tableLayout === 'left' ? 'selected' : ''} data-i18n="settings_table_layout_left">${Localization.translate('settings_table_layout_left')}</option>
           <option value="center" ${tableLayout === 'center' ? 'selected' : ''} data-i18n="settings_table_layout_center">${Localization.translate('settings_table_layout_center')}</option>
+          <option value="center-full-width" ${tableLayout === 'center-full-width' ? 'selected' : ''} data-i18n="settings_table_layout_full_width">${Localization.translate('settings_table_layout_full_width')}</option>
         </select>
       </div>
       <div class="vscode-settings-group">

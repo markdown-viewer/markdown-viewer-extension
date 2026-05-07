@@ -648,7 +648,7 @@ function initializeUI(): void {
     docxEmojiStyle: savedSettings.docxEmojiStyle as EmojiStyle,
     frontmatterDisplay: savedSettings.frontmatterDisplay as FrontmatterDisplay,
     tableMergeEmpty: savedSettings.tableMergeEmpty,
-    tableLayout: savedSettings.tableLayout as 'left' | 'center',
+    tableLayout: savedSettings.tableLayout as 'left' | 'center' | 'center-full-width',
     onThemeChange: async (themeId) => {
       await handleSetTheme(themeId);
     },

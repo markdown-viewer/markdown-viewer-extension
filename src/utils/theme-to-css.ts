@@ -316,7 +316,7 @@ ${styles.join('\n')}
 function generateTableCSS(tableStyle: TableStyleConfig, colorScheme: ColorScheme): string {
   const css: string[] = [];
 
-  // Base table styles - default to center layout
+  // Base table styles - default to centered auto width.
   css.push(`#markdown-content table {
   border-collapse: collapse;
   margin: 13px auto;
@@ -325,7 +325,20 @@ function generateTableCSS(tableStyle: TableStyleConfig, colorScheme: ColorScheme
 
 /* Table layout: left alignment */
 #markdown-content.table-layout-left table {
+  width: auto;
   margin-left: 0;
+  margin-right: auto;
+}
+
+/* Table layout: centered auto width */
+#markdown-content.table-layout-center table {
+  width: auto;
+}
+
+/* Table layout: full width */
+#markdown-content.table-layout-center-full-width table {
+  width: 100%;
+  margin-left: auto;
   margin-right: auto;
 }`);
 
