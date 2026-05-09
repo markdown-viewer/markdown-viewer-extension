@@ -8,7 +8,7 @@ import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { applyCodeViewPresentation } from '../../../src/utils/code-preview';
 import { createTocPanel } from '../../../src/ui/toc-panel';
 import type { TocPanel } from '../../../src/ui/toc-panel';
-import { extractHeadings } from '../../../src/core/markdown-processor';
+import { extractHeadings } from '../../../src/core/markdown-utils';
 
 interface RenderFileMessage {
   type: 'RENDER_FILE';

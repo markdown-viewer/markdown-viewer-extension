@@ -16,7 +16,7 @@ import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
 import type { PluginRenderer, RendererThemeConfig, PlatformAPI } from '../../../src/types/index';
 
-import { escapeHtml } from '../../../src/core/markdown-processor';
+import { escapeHtml } from '../../../src/core/markdown-utils';
 import { getCurrentDocumentUrl, saveToHistory } from '../../../src/core/document-utils';
 import type { FileState } from '../../../src/types/core';
 import type { MarkdownViewerElement } from '../../../src/integration/types';

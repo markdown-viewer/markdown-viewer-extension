@@ -15,8 +15,6 @@ import GithubSlugger from 'github-slugger';
 import rehypeSlugShared from './rehype-slug-shared';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
-import { all } from 'lowlight';
-import { createHighlighter } from 'shiki';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
 import rehypeImageUri from '../plugins/rehype-image-uri';
@@ -568,88 +566,6 @@ export interface CreateMarkdownProcessorOptions {
   tableMergeEmpty?: boolean;
 }
 
-let markdownShikiHighlighterPromise: Promise<Awaited<ReturnType<typeof createHighlighter>>> | null = null;
-
-function getMarkdownShikiHighlighter(): Promise<Awaited<ReturnType<typeof createHighlighter>>> {
-  if (!markdownShikiHighlighterPromise) {
-    markdownShikiHighlighterPromise = createHighlighter({
-      themes: ['github-light', 'github-dark'],
-      langs: ['markdown'],
-    });
-  }
-  return markdownShikiHighlighterPromise;
-}
-
-function getNodeText(node: any): string {
-  if (!node) return '';
-  if (node.type === 'text') return String(node.value || '');
-  if (!Array.isArray(node.children)) return '';
-  return node.children.map((child: any) => getNodeText(child)).join('');
-}
-
-function rehypeEnhanceMarkdownCodeWithShiki() {
-  return async (tree: any): Promise<void> => {
-    const targets: Array<{ codeNode: any; parent: any; index: number }> = [];
-
-    visit(tree, 'element', (node: any, index: number | undefined, parent: any) => {
-      if (!parent || typeof index !== 'number' || node.tagName !== 'code') {
-        return;
-      }
-      if (!parent || parent.tagName !== 'pre') {
-        return;
-      }
-
-      const classList = Array.isArray(node.properties?.className) ? node.properties.className : [];
-      const isMarkdown = classList.includes('language-markdown') || classList.includes('language-md');
-      if (!isMarkdown) {
-        return;
-      }
-
-      targets.push({ codeNode: node, parent, index });
-    });
-
-    if (targets.length === 0) {
-      return;
-    }
-
-    const highlighter = await getMarkdownShikiHighlighter();
-    const isDark = document.documentElement.classList.contains('dark');
-    const theme = isDark ? 'github-dark' : 'github-light';
-
-    for (const target of targets) {
-      const source = getNodeText(target.codeNode);
-      const shikiRoot = highlighter.codeToHast(source, {
-        lang: 'markdown',
-        theme,
-      }) as any;
-
-      const shikiPre = Array.isArray(shikiRoot.children)
-        ? shikiRoot.children.find((child: any) => child?.type === 'element' && child?.tagName === 'pre')
-        : null;
-      const shikiCode = shikiPre && Array.isArray(shikiPre.children)
-        ? shikiPre.children.find((child: any) => child?.type === 'element' && child?.tagName === 'code')
-        : null;
-
-      if (!shikiCode) {
-        continue;
-      }
-
-      const currentClasses = Array.isArray(target.codeNode.properties?.className)
-        ? target.codeNode.properties.className
-        : [];
-      const shikiClasses = Array.isArray(shikiCode.properties?.className)
-        ? shikiCode.properties.className
-        : [];
-      shikiCode.properties = {
-        ...(shikiCode.properties || {}),
-        className: Array.from(new Set([...currentClasses, ...shikiClasses])),
-      };
-
-      target.parent.children[target.index] = shikiCode;
-    }
-  };
-}
-
 /**
  * Create the unified markdown processor pipeline
  * @param renderer - Renderer instance for diagrams
@@ -695,10 +611,7 @@ export function createMarkdownProcessor(
     .use(rehypeSlugShared, { slugger })
     .use(rehypeImageUri)  // Rewrite relative image paths for VS Code webview
     .use(rehypeTableMerge, { enabled: tableMergeEmpty })  // Auto-merge empty table cells
-    .use(rehypeHighlight, {
-      languages: all,
-    })
-    .use(rehypeEnhanceMarkdownCodeWithShiki)
+    .use(rehypeHighlight)
     .use(rehypeKatex)
     .use(rehypeStringify, { allowDangerousHtml: true });
 

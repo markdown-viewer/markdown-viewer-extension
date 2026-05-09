@@ -1,5 +1,5 @@
 import { createMountedViewer, type TranslateFn } from '../core/viewer/viewer-host';
-import { escapeHtml } from '../core/markdown-processor';
+import { escapeHtml } from '../core/markdown-utils';
 import themeManager from '../utils/theme-manager';
 import { loadAndApplyTheme } from '../utils/theme-to-css';
 import { getWebExtensionApi } from '../utils/platform-info';
