@@ -15,6 +15,7 @@
     { "id": "technical", "file": "technical.json", "category": "modern", "featured": true, "order": 20 },
     { "id": "swiss", "file": "swiss.json", "category": "modern", "featured": true, "order": 21 },
     { "id": "minimal", "file": "minimal.json", "category": "modern", "featured": true, "order": 22 },
+    { "id": "vscode", "file": "vscode.json", "category": "modern", "featured": true, "order": 23 },
 
     { "id": "magazine", "file": "magazine.json", "category": "creative", "featured": true, "order": 30 },
     { "id": "century", "file": "century.json", "category": "creative", "featured": true, "order": 31 },
@@ -38,7 +39,8 @@
     { "id": "solarized-dark", "file": "solarized-dark.json", "category": "dark", "featured": false, "order": 74 },
     { "id": "gruvbox", "file": "gruvbox.json", "category": "dark", "featured": false, "order": 75 },
     { "id": "carbon", "file": "carbon.json", "category": "dark", "featured": true, "order": 76 },
-    { "id": "obsidian", "file": "obsidian.json", "category": "dark", "featured": false, "order": 77 }
+    { "id": "obsidian", "file": "obsidian.json", "category": "dark", "featured": false, "order": 77 },
+    { "id": "vscode-dark", "file": "vscode-dark.json", "category": "dark", "featured": true, "order": 78 }
   ],
   "categories": {
     "classic": {

@@ -1,0 +1,62 @@
+{
+  "id": "vscode",
+  "name": "VSCode 预览",
+  "name_en": "VSCode Preview",
+  "description": "复刻 VSCode 内置 Markdown 预览的字号、行高与间距",
+  "description_en": "Mirrors VSCode's built-in Markdown preview sizing, line-height and spacing",
+
+  "body": {
+    "fontSize": "10.5pt",
+    "lineHeight": 1.571
+  },
+
+  "headings": {
+    "h1": {
+      "fontSize": "21pt",
+      "spacingBefore": "0pt",
+      "spacingAfter": "12pt",
+      "lineHeight": 1.25,
+      "borderBottom": {
+        "width": "1px",
+        "paddingBottom": "0.3em"
+      }
+    },
+    "h2": {
+      "fontSize": "15.75pt",
+      "spacingBefore": "18pt",
+      "spacingAfter": "12pt",
+      "lineHeight": 1.25,
+      "borderBottom": {
+        "width": "1px",
+        "paddingBottom": "0.3em"
+      }
+    },
+    "h3": { "fontSize": "13.125pt", "spacingBefore": "18pt", "spacingAfter": "12pt", "lineHeight": 1.25 },
+    "h4": { "fontSize": "10.5pt",   "spacingBefore": "18pt", "spacingAfter": "12pt", "lineHeight": 1.25 },
+    "h5": { "fontSize": "9.1875pt", "spacingBefore": "18pt", "spacingAfter": "12pt", "lineHeight": 1.25 },
+    "h6": { "fontSize": "8.925pt",  "spacingBefore": "18pt", "spacingAfter": "12pt", "lineHeight": 1.25 }
+  },
+
+  "code": {
+    "fontSize": "10.5pt"
+  },
+
+  "blocks": {
+    "paragraph": { "spacingAfter": "12pt" },
+    "list":      { "spacingAfter": "7.35pt" },
+    "listItem":  { "spacingAfter": "0pt" },
+    "blockquote": {
+      "spacingBefore": "12pt",
+      "spacingAfter": "12pt",
+      "paddingVertical": "0pt",
+      "paddingHorizontal": "12pt"
+    },
+    "codeBlock":     { "spacingAfter": "12pt" },
+    "table":         { "spacingAfter": "7.35pt" },
+    "horizontalRule": {
+      "spacingBefore": "12pt",
+      "spacingAfter": "12pt",
+      "borderWidth": "1px"
+    }
+  }
+}

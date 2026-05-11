@@ -1,0 +1,45 @@
+{
+  "id": "vscode-light",
+  "name": "VSCode 浅色",
+  "name_en": "VSCode Light",
+  "description": "复刻 VSCode 默认浅色主题：白色背景、浅灰边框、蓝色链接",
+  "description_en": "Mirrors VSCode's default light theme: white background, soft borders, blue links",
+
+  "text": {
+    "primary": "#3b3b3b",
+    "secondary": "#616161",
+    "muted": "#8c8c8c"
+  },
+
+  "accent": {
+    "link": "#005fb8",
+    "linkHover": "#005fb8"
+  },
+
+  "background": {
+    "page": "#ffffff",
+    "surface": "#f8f8f8",
+    "code": "#f3f3f3",
+    "blockquote": "transparent"
+  },
+
+  "blockquote": {
+    "border": "rgba(0, 0, 0, 0.18)"
+  },
+
+  "table": {
+    "border": "rgba(0, 0, 0, 0.18)",
+    "headerBackground": "transparent",
+    "headerText": "#3b3b3b",
+    "zebraEven": "#ffffff",
+    "zebraOdd": "#ffffff"
+  },
+
+  "headings": {
+    "border": "rgba(0, 0, 0, 0.18)"
+  },
+
+  "rule": {
+    "color": "rgba(0, 0, 0, 0.18)"
+  }
+}

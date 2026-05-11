@@ -1,0 +1,45 @@
+{
+  "id": "vscode-dark",
+  "name": "VSCode 深色",
+  "name_en": "VSCode Dark",
+  "description": "复刻 VSCode 默认深色主题：暗色背景、半透明边框、亮蓝链接",
+  "description_en": "Mirrors VSCode's default dark theme: dark background, translucent borders, bright links",
+
+  "text": {
+    "primary": "#cccccc",
+    "secondary": "#a5a5a5",
+    "muted": "#7a7a7a"
+  },
+
+  "accent": {
+    "link": "#4daafc",
+    "linkHover": "#4daafc"
+  },
+
+  "background": {
+    "page": "#1f1f1f",
+    "surface": "#181818",
+    "code": "#0a0a0a",
+    "blockquote": "transparent"
+  },
+
+  "blockquote": {
+    "border": "rgba(255, 255, 255, 0.18)"
+  },
+
+  "table": {
+    "border": "rgba(255, 255, 255, 0.18)",
+    "headerBackground": "transparent",
+    "headerText": "#cccccc",
+    "zebraEven": "#1f1f1f",
+    "zebraOdd": "#1f1f1f"
+  },
+
+  "headings": {
+    "border": "rgba(255, 255, 255, 0.18)"
+  },
+
+  "rule": {
+    "color": "rgba(255, 255, 255, 0.18)"
+  }
+}

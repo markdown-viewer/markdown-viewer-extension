@@ -1,0 +1,24 @@
+{
+  "id": "vscode-dark",
+  "name": "VSCode 深色",
+  "name_en": "VSCode Dark",
+  "description": "复刻 VSCode 内置 Markdown 预览（深色 Dark+ 主题）",
+  "description_en": "Mirrors VSCode's built-in Markdown preview (Dark+ theme)",
+  "author": "docu.md Markdown Viewer",
+  "version": "1.0.0",
+  "fontScheme": {
+    "body": {
+      "fontFamily": "system-ui"
+    },
+    "headings": {
+      "fontWeight": "600"
+    },
+    "code": {
+      "fontFamily": "SF Mono"
+    }
+  },
+  "layoutScheme": "vscode",
+  "colorScheme": "vscode-dark",
+  "tableStyle": "vscode-clean",
+  "codeTheme": "vscode-dark-code"
+}

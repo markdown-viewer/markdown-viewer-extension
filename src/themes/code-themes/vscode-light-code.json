@@ -1,0 +1,31 @@
+{
+  "id": "vscode-light-code",
+  "name": "VSCode 浅色代码",
+  "description": "VSCode 默认 Light+ 语义高亮配色",
+  "description_en": "VSCode default Light+ semantic highlight palette",
+
+  "foreground": "#3b3b3b",
+  "colors": {
+    "keyword": "#0000ff",
+    "built_in": "#0070c1",
+    "literal": "#0000ff",
+    "number": "#098658",
+    "string": "#a31515",
+    "title": "#795e26",
+    "attr": "#e50000",
+    "comment": "#008000",
+    "meta": "#af00db",
+    "params": "#3b3b3b",
+    "symbol": "#0070c1",
+    "type": "#267f99",
+    "addition": "#098658",
+    "deletion": "#a31515",
+    "quote": "#008000",
+    "regexp": "#811f3f",
+    "selector_tag": "#800000",
+    "selector_id": "#800000",
+    "selector_class": "#800000",
+    "variable": "#001080",
+    "property": "#001080"
+  }
+}

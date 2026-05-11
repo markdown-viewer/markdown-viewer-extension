@@ -1,0 +1,31 @@
+{
+  "id": "vscode-dark-code",
+  "name": "VSCode 深色代码",
+  "description": "VSCode 默认 Dark+ 语义高亮配色",
+  "description_en": "VSCode default Dark+ semantic highlight palette",
+
+  "foreground": "#cccccc",
+  "colors": {
+    "keyword": "#569cd6",
+    "built_in": "#4ec9b0",
+    "literal": "#569cd6",
+    "number": "#b5cea8",
+    "string": "#ce9178",
+    "title": "#dcdcaa",
+    "attr": "#9cdcfe",
+    "comment": "#6a9955",
+    "meta": "#c586c0",
+    "params": "#cccccc",
+    "symbol": "#4fc1ff",
+    "type": "#4ec9b0",
+    "addition": "#b5cea8",
+    "deletion": "#ce9178",
+    "quote": "#6a9955",
+    "regexp": "#d16969",
+    "selector_tag": "#d7ba7d",
+    "selector_id": "#d7ba7d",
+    "selector_class": "#d7ba7d",
+    "variable": "#9cdcfe",
+    "property": "#9cdcfe"
+  }
+}

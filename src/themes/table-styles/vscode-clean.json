@@ -1,0 +1,26 @@
+{
+  "id": "vscode-clean",
+  "name": "VSCode 简洁",
+  "name_en": "VSCode Clean",
+  "description": "横向 1px 细线边框，无背景色，紧凑内边距，匹配 VSCode 预览",
+  "description_en": "1px horizontal borders, no header background, tight padding, matches VSCode preview",
+  "border": {
+    "headerBottom": {
+      "width": "1px",
+      "style": "single"
+    },
+    "rowBottom": {
+      "width": "1px",
+      "style": "single"
+    }
+  },
+  "header": {
+    "fontWeight": "bold"
+  },
+  "cell": {
+    "padding": "5px 10px"
+  },
+  "zebra": {
+    "enabled": false
+  }
+}

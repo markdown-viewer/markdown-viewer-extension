@@ -112,6 +112,14 @@ interface LayoutHeadingConfig {
   spacingBefore: string;
   spacingAfter: string;
   alignment?: 'left' | 'center' | 'right';
+  /** Optional unitless line-height override (e.g. 1.25) */
+  lineHeight?: number;
+  /** Optional bottom border (e.g. for VSCode-style underlined h1/h2). Color comes from colorScheme.headings.border. */
+  borderBottom?: {
+    width: string;          // e.g. "1px"
+    style?: string;         // default 'solid'
+    paddingBottom?: string; // e.g. "0.3em"
+  };
 }
 
 /**
@@ -122,6 +130,8 @@ interface LayoutBlockConfig {
   spacingAfter?: string;
   paddingVertical?: string;
   paddingHorizontal?: string;
+  /** Optional border width for horizontal rule (hr). Color comes from colorScheme.rule.color or table.border fallback. */
+  borderWidth?: string;
 }
 
 /**
@@ -286,6 +296,11 @@ function generateFontAndLayoutCSS(fontScheme: FontScheme, layoutScheme: LayoutSc
       `  color: ${headingColor};`
     ];
 
+    // Optional unitless line-height (e.g. VSCode preset uses 1.25 on all headings)
+    if (layoutHeading.lineHeight !== undefined) {
+      styles.push(`  line-height: ${layoutHeading.lineHeight};`);
+    }
+
     // Add alignment from layoutScheme
     if (layoutHeading.alignment && layoutHeading.alignment !== 'left') {
       styles.push(`  text-align: ${layoutHeading.alignment};`);
@@ -297,6 +312,17 @@ function generateFontAndLayoutCSS(fontScheme: FontScheme, layoutScheme: LayoutSc
     }
     if (layoutHeading.spacingAfter && layoutHeading.spacingAfter !== '0pt') {
       styles.push(`  margin-bottom: ${themeManager.ptToPx(layoutHeading.spacingAfter)};`);
+    }
+
+    // Optional bottom border (VSCode-style underlined h1/h2)
+    if (layoutHeading.borderBottom) {
+      const bb = layoutHeading.borderBottom;
+      const borderColor = colorScheme.headings?.border || colorScheme.table.border;
+      const borderStyle = bb.style || 'solid';
+      styles.push(`  border-bottom: ${bb.width} ${borderStyle} ${borderColor};`);
+      if (bb.paddingBottom) {
+        styles.push(`  padding-bottom: ${bb.paddingBottom};`);
+      }
     }
 
     css.push(`#markdown-content ${level} {
@@ -613,13 +639,26 @@ function generateBlockSpacingCSS(layoutScheme: LayoutScheme, colorScheme: ColorS
 }`);
   }
 
-  // Horizontal rule spacing
+  // Horizontal rule spacing (and optional color/width)
   if (blocks.horizontalRule) {
     const hr = blocks.horizontalRule;
     const marginBefore = toPx(hr.spacingBefore);
     const marginAfter = toPx(hr.spacingAfter);
+    const hrStyles: string[] = [
+      `  margin: ${marginBefore} 0 ${marginAfter} 0;`
+    ];
+    // Only override hr rendering when explicitly configured; falling back to
+    // colorScheme.table.border (always present) would affect all themes.
+    if (hr.borderWidth !== undefined || colorScheme.rule?.color !== undefined) {
+      const width = hr.borderWidth ?? '1px';
+      const hrColor = colorScheme.rule?.color;
+      hrStyles.push(`  background-color: transparent;`);
+      hrStyles.push(`  border: 0;`);
+      hrStyles.push(`  height: 0;`);
+      hrStyles.push(`  border-top: ${width} solid ${hrColor || 'currentColor'};`);
+    }
     css.push(`#markdown-content hr {
-  margin: ${marginBefore} 0 ${marginAfter} 0;
+${hrStyles.join('\n')}
 }`);
   }
 
