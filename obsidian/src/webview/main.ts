@@ -36,6 +36,7 @@ import {
 import { createSettingsPanel, type SettingsPanel, type ThemeOption, type LocaleOption } from '../../../vscode/src/webview/settings-panel';
 import { createTocPanel, type TocPanel } from '../../../src/ui/toc-panel';
 import { createExportMenu, type ExportMenu } from '../../../src/ui/export-menu';
+import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import { printElement } from '../../../src/ui/print-utils';
 import { isDocumentRelativeUrl, isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
@@ -189,6 +190,13 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
 
     // Initialize UI (settings panel)
     initializeUI();
+
+    if (contentContainer) {
+      setupCodeBlockCopy({
+        container: contentContainer,
+        translate: (key) => Localization.translate(key),
+      });
+    }
 
     // Apply theme
     try {

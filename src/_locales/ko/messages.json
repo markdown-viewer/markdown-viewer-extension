@@ -151,6 +151,18 @@
     "message": "닫기",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "복사됨",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "코드 복사",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "복사 실패",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Markdown으로 보기",
     "description": "Context menu item to view any file as markdown"

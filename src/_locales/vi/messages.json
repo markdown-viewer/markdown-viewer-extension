@@ -151,6 +151,18 @@
     "message": "Đóng",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Đã sao chép",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Sao chép mã",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Sao chép thất bại",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Xem dưới dạng Markdown",
     "description": "Context menu item to view any file as markdown"

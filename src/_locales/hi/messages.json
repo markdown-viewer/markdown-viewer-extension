@@ -151,6 +151,18 @@
     "message": "बंद करें",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "कॉपी हो गया",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "कोड कॉपी करें",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "कॉपी विफल रही",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Markdown के रूप में देखें",
     "description": "Context menu item to view any file as markdown"

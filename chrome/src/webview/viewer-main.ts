@@ -33,6 +33,7 @@ import {
 } from '../../../src/core/viewer/viewer-host';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
+import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 
 // Extend Window interface for global access
 declare global {
@@ -1195,6 +1196,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
     // Setup diagram lightbox for click-to-zoom (shared cross-platform)
     setupDiagramLightbox({
+      container: contentContainer,
+      translate: (key) => Localization.translate(key),
+    });
+
+    setupCodeBlockCopy({
       container: contentContainer,
       translate: (key) => Localization.translate(key),
     });

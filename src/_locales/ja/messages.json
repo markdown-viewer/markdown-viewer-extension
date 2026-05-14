@@ -151,6 +151,18 @@
     "message": "閉じる",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "コピーしました",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "コードをコピー",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "コピーに失敗しました",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Markdownで表示",
     "description": "Context menu item to view any file as markdown"

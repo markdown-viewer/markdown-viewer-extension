@@ -24,6 +24,7 @@ import {
 } from '../../../src/core/viewer/viewer-host';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
+import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import { isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
 
@@ -144,6 +145,11 @@ async function initialize(): Promise<void> {
       });
 
       setupDiagramLightbox({
+        container: contentContainer,
+        translate: (key) => Localization.translate(key),
+      });
+
+      setupCodeBlockCopy({
         container: contentContainer,
         translate: (key) => Localization.translate(key),
       });

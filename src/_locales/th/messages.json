@@ -151,6 +151,18 @@
     "message": "ปิด",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "คัดลอกแล้ว",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "คัดลอกโค้ด",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "คัดลอกไม่สำเร็จ",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "ดูเป็น Markdown",
     "description": "Context menu item to view any file as markdown"

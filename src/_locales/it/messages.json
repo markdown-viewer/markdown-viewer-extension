@@ -151,6 +151,18 @@
     "message": "Chiudi",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Copiato",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Copia codice",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Copia non riuscita",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Visualizza come Markdown",
     "description": "Context menu item to view any file as markdown"

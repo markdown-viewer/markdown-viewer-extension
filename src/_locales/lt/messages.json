@@ -151,6 +151,18 @@
     "message": "Uždaryti",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Nukopijuota",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Kopijuoti kodą",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Nepavyko nukopijuoti",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Peržiūrėti kaip Markdown",
     "description": "Context menu item to view any file as markdown"

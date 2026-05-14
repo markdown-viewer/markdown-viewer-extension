@@ -151,6 +151,18 @@
     "message": "Закрыць",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Скапіявана",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Капіяваць код",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Не ўдалося скапіяваць",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Прагляд як Markdown",
     "description": "Context menu item to view any file as markdown"

@@ -151,6 +151,18 @@
     "message": "关闭",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "已复制",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "复制代码",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "复制失败",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "以 Markdown 格式查看",
     "description": "Context menu item to view any file as markdown"

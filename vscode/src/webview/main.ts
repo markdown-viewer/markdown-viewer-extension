@@ -35,6 +35,7 @@ import { createSearchPanel, type SearchPanel, type HighlightMatch, type SearchOp
 import { createTocPanel, type TocPanel } from '../../../src/ui/toc-panel';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
+import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { createExportMenu, type ExportMenu } from '../../../src/ui/export-menu';
 import { printElement } from '../../../src/ui/print-utils';
 import { isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
@@ -759,6 +760,11 @@ function initializeUI(): void {
 
     // Setup diagram lightbox for click-to-zoom (shared cross-platform)
     setupDiagramLightbox({
+      container: contentContainer,
+      translate: (key) => Localization.translate(key),
+    });
+
+    setupCodeBlockCopy({
       container: contentContainer,
       translate: (key) => Localization.translate(key),
     });

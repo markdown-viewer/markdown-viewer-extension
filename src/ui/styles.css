@@ -720,12 +720,68 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-all;
+  position: relative;
 }
 
 #markdown-content pre code {
   background-color: transparent;
   padding: 0;
   border-radius: 0;
+}
+
+#markdown-content pre.mv-code-copy-ready .mv-code-copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-popover);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+  z-index: 2;
+}
+
+#markdown-content pre.mv-code-copy-ready:hover .mv-code-copy-btn,
+#markdown-content pre.mv-code-copy-ready:focus-within .mv-code-copy-btn {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+#markdown-content pre.mv-code-copy-ready .mv-code-copy-btn:hover,
+#markdown-content pre.mv-code-copy-ready .mv-code-copy-btn:focus-visible {
+  border-color: var(--color-theme-accent);
+  background: var(--color-theme-accent-bg);
+  color: var(--color-theme-accent);
+  outline: none;
+}
+
+#markdown-content pre.mv-code-copy-ready .mv-code-copy-btn[data-copy-state='success'] {
+  border-color: var(--color-theme-accent);
+  background: var(--color-theme-accent-bg);
+  color: var(--color-theme-accent);
+}
+
+#markdown-content pre.mv-code-copy-ready .mv-code-copy-btn[data-copy-state='error'] {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 /* Code-view mode: code block flush to container edges + line numbers */

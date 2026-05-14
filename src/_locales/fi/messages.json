@@ -151,6 +151,18 @@
     "message": "Sulje",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Kopioitu",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Kopioi koodi",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Kopiointi epäonnistui",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Näytä Markdownina",
     "description": "Context menu item to view any file as markdown"

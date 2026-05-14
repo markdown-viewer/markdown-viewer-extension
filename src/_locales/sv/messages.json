@@ -151,6 +151,18 @@
     "message": "Stäng",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Kopierat",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Kopiera kod",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Kopiering misslyckades",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Visa som Markdown",
     "description": "Context menu item to view any file as markdown"
