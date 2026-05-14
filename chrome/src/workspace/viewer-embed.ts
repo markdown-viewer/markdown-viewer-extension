@@ -60,6 +60,7 @@ let wrapperInteractionFixesAttached = false;
 let handlingManualWheelScroll = false;
 let wheelFallbackHandler: ((event: WheelEvent) => void) | null = null;
 let wheelFallbackTimeout: ReturnType<typeof setTimeout> | null = null;
+const TOC_NAVIGATION_SCROLL_BEHAVIOR: ScrollBehavior = 'auto';
 
 // Inject embed-mode CSS when loaded with ?embed=1 (from element.ts custom element iframe).
 // This hides the toolbar and shifts the TOC panel up so it fills the full iframe height.
@@ -89,7 +90,7 @@ function scrollToHeadingById(headingId: string): void {
   if (!wrapper || !target) return;
   const wrapperRect = wrapper.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
-  wrapper.scrollTo({ top: Math.max(0, targetRect.top - wrapperRect.top + wrapper.scrollTop), behavior: 'smooth' });
+  wrapper.scrollTo({ top: Math.max(0, targetRect.top - wrapperRect.top + wrapper.scrollTop), behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR });
 }
 
 function updateFloatingTocActiveHeading(): void {
@@ -343,13 +344,13 @@ function scrollToAnchor(anchor: string): void {
 
   const wrapper = document.getElementById('markdown-wrapper') as HTMLElement | null;
   if (!wrapper) {
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.scrollIntoView({ behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR, block: 'start' });
     return;
   }
   const containerRect = wrapper.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
   const top = targetRect.top - containerRect.top + wrapper.scrollTop;
-  wrapper.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  wrapper.scrollTo({ top: Math.max(0, top), behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR });
 }
 
 async function renderFile(message: RenderFileMessage): Promise<void> {

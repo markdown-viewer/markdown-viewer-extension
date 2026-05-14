@@ -17,6 +17,8 @@ interface TocManager {
   setupResponsiveToc(): Promise<void>;
 }
 
+const TOC_NAVIGATION_SCROLL_BEHAVIOR: ScrollBehavior = 'auto';
+
 /**
  * Creates a TOC manager for handling table of contents functionality.
  * @param saveFileState - Function to save file state
@@ -37,7 +39,7 @@ export function createTocManager(
   function scrollTargetIntoView(target: HTMLElement): void {
     const scrollContainer = getScrollContainer();
     if (!scrollContainer) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.scrollIntoView({ behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR, block: 'start' });
       return;
     }
 
@@ -47,7 +49,7 @@ export function createTocManager(
 
     scrollContainer.scrollTo({
       top: Math.max(0, targetTop),
-      behavior: 'smooth'
+      behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR
     });
   }
 
