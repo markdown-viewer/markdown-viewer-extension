@@ -93,6 +93,16 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
   let sidebarEl: HTMLElement | null = null;
   let tooltipEl: HTMLElement | null = null;
   let pendingFocusId: string | null = null; // for focus chain across re-renders
+  let sidebarHideCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  let sidebarHideCleanupToken = 0;
+
+  function cancelPendingSidebarCleanup(): void {
+    sidebarHideCleanupToken += 1;
+    if (sidebarHideCleanupTimer !== null) {
+      clearTimeout(sidebarHideCleanupTimer);
+      sidebarHideCleanupTimer = null;
+    }
+  }
 
   function getColorLabel(color: RemarkColor): string {
     switch (color) {
@@ -636,6 +646,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
   function showSidebar(): void {
     const el = document.getElementById('remark-sidebar');
     if (!el) return;
+    cancelPendingSidebarCleanup();
     sidebarEl = el;
 
     // Always inject fresh content (innerHTML is cleared after hide transition)
@@ -733,12 +744,22 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       document.body.classList.remove('remark-panel-open');
       const el = sidebarEl;
       sidebarEl = null;
+      const cleanupToken = ++sidebarHideCleanupToken;
       const onDone = (): void => {
+        if (cleanupToken !== sidebarHideCleanupToken) {
+          el.removeEventListener('transitionend', onDone);
+          return;
+        }
+
         el.removeEventListener('transitionend', onDone);
+        if (sidebarHideCleanupTimer !== null) {
+          clearTimeout(sidebarHideCleanupTimer);
+          sidebarHideCleanupTimer = null;
+        }
         el.innerHTML = ''; // Clear content after slide-out so next enter creates fresh HTML
       };
       el.addEventListener('transitionend', onDone, { once: true });
-      setTimeout(onDone, 400);
+      sidebarHideCleanupTimer = setTimeout(onDone, 400);
     }
   }
 
