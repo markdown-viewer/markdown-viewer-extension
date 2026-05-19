@@ -29,6 +29,7 @@ import {
   processTablesForWordCompatibility,
   extractTitle,
   AsyncTaskManager,
+  createMarkdownProcessor,
   isSafeUrl,
   isSafeSrcset,
   sanitizeRenderedHtml,
@@ -164,6 +165,40 @@ describe('markdown-processor', () => {
 
     it('should extract first h1 when multiple exist', () => {
       assert.strictEqual(extractTitle('# First\n# Second'), 'First');
+    });
+  });
+
+  describe('markdown code highlighting', () => {
+    it('should render markdown code blocks with shiki output', async () => {
+      const processor = createMarkdownProcessor(
+        { render: async () => null },
+        new AsyncTaskManager(),
+      );
+
+      const input = [
+        '```markdown',
+        '# Title',
+        '',
+        '- [x] item with **strong** and *em*',
+        '[link](target.md)',
+        '| col | value |',
+        '| --- | ---: |',
+        '```js',
+        '# not heading',
+        '```',
+        '```',
+      ].join('\n');
+
+      const output = String(await processor.process(input));
+
+      assert.ok(output.includes('class="shiki vitesse-light"'), 'Should replace markdown code blocks with Shiki pre output');
+      assert.ok(output.includes('class="line"'), 'Should preserve Shiki line wrappers');
+      assert.ok(output.includes('Title'), 'Should highlight markdown heading content');
+      assert.ok(output.includes('item with'), 'Should highlight markdown list content');
+      assert.ok(output.includes('target.md'), 'Should highlight markdown links');
+      assert.ok(output.includes('```js'), 'Should preserve fenced code info string content');
+      assert.ok(output.includes('# not heading'), 'Should preserve fenced code content');
+      assert.ok(!output.includes('hljs-bullet'), 'Should no longer use the fallback highlight.js markdown tokenizer');
     });
   });
 

@@ -16,6 +16,11 @@ import rehypeSlugShared from './rehype-slug-shared';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeStringify from 'rehype-stringify';
+import { codeToHast, createShikiInternalSync } from '@shikijs/core';
+import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript';
+import langMarkdown from '@shikijs/langs/markdown';
+import themeVitesseDark from '@shikijs/themes/vitesse-dark';
+import themeVitesseLight from '@shikijs/themes/vitesse-light';
 import { visit } from 'unist-util-visit';
 import rehypeImageUri from '../plugins/rehype-image-uri';
 import rehypeTableMerge from '../plugins/rehype-table-merge';
@@ -566,6 +571,68 @@ export interface CreateMarkdownProcessorOptions {
   tableMergeEmpty?: boolean;
 }
 
+const markdownShikiInternal = createShikiInternalSync({
+  engine: createJavaScriptRegexEngine(),
+  langs: [langMarkdown],
+  themes: [themeVitesseLight, themeVitesseDark],
+});
+
+function getNodeText(node: any): string {
+  if (!node) return '';
+  if (node.type === 'text') return String(node.value || '');
+  if (!Array.isArray(node.children)) return '';
+  return node.children.map((child: any) => getNodeText(child)).join('');
+}
+
+function isDarkThemeActive(): boolean {
+  return Boolean(document?.documentElement?.classList?.contains('dark'));
+}
+
+function getMarkdownShikiPre(code: string): any | null {
+  try {
+    const root = codeToHast(markdownShikiInternal, code, {
+      lang: 'markdown',
+      theme: isDarkThemeActive() ? themeVitesseDark : themeVitesseLight,
+    });
+    return root.children.find((child: any) => child?.type === 'element' && child?.tagName === 'pre') || null;
+  } catch {
+    return null;
+  }
+}
+
+function rehypeEnhanceMarkdownCode() {
+  return (tree: any): void => {
+    visit(tree, 'element', (node: any, _index: number | undefined, parent: any) => {
+      if (!parent || node.tagName !== 'pre' || !Array.isArray(node.children)) {
+        return;
+      }
+
+      const codeNode = node.children.find((child: any) => child?.type === 'element' && child?.tagName === 'code');
+      if (!codeNode) {
+        return;
+      }
+
+      const classList = Array.isArray(codeNode.properties?.className)
+        ? codeNode.properties.className
+        : typeof codeNode.properties?.className === 'string'
+          ? codeNode.properties.className.split(/\s+/)
+          : [];
+
+      if (!classList.includes('language-markdown') && !classList.includes('language-md')) {
+        return;
+      }
+
+      const shikiPre = getMarkdownShikiPre(getNodeText(codeNode));
+      if (!shikiPre) {
+        return;
+      }
+
+      node.properties = shikiPre.properties || {};
+      node.children = shikiPre.children || [];
+    });
+  };
+}
+
 /**
  * Create the unified markdown processor pipeline
  * @param renderer - Renderer instance for diagrams
@@ -612,6 +679,7 @@ export function createMarkdownProcessor(
     .use(rehypeImageUri)  // Rewrite relative image paths for VS Code webview
     .use(rehypeTableMerge, { enabled: tableMergeEmpty })  // Auto-merge empty table cells
     .use(rehypeHighlight)
+    .use(rehypeEnhanceMarkdownCode)
     .use(rehypeKatex)
     .use(rehypeStringify, { allowDangerousHtml: true });
 
