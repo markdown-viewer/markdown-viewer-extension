@@ -863,6 +863,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         }
         await viewer.render(markdown);
       }
+      updateCodeViewPresentation();
       await generateTOC();
       updateActiveTocItem();
       restoreCodeViewScrollAfterRender(restoreLine);
