@@ -371,41 +371,6 @@ html, body {
   position: relative;
 }
 
-/* Navigation bar */
-.preview-nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 8px;
-  height: 36px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-surface);
-  flex-shrink: 0;
-}
-
-.nav-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  color: var(--color-text-primary);
-}
-.nav-btn svg { width: 16px; height: 16px; }
-.nav-btn:hover:not(:disabled) { background: var(--color-bg-hover); }
-.nav-btn:disabled { color: var(--color-text-tertiary); opacity: 0.4; cursor: default; }
-
-.nav-filename {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-left: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .preview-empty {
   color: var(--color-text-tertiary);
   font-size: 14px;

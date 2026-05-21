@@ -9,6 +9,7 @@ import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
 import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, arrowLeft, arrowRight, getFileIcon } from './file-icons';
 import themeManager from '../../../src/utils/theme-manager';
 import { createViewerIframeHostBridge } from '../../../src/integration/iframe-viewer-host';
+import type { ViewerIframeMessage } from '../../../src/integration/iframe-viewer-host';
 
 const webExtensionApi = getWebExtensionApi();
 const VIEWER_URL = webExtensionApi.runtime.getURL('ui/workspace/viewer-embed.html');
@@ -65,10 +66,6 @@ const $previewFrame = document.getElementById('preview-frame') as HTMLIFrameElem
 const $previewEmptyText = $previewEmpty.querySelector('p');
 const $recentWorkspaces = document.getElementById('recent-workspaces')!;
 const $recentList = document.getElementById('recent-list')!;
-const $previewNav = document.getElementById('preview-nav')!;
-const $navBack = document.getElementById('nav-back') as HTMLButtonElement;
-const $navForward = document.getElementById('nav-forward') as HTMLButtonElement;
-const $navFilename = document.getElementById('nav-filename')!;
 
 let rootDirHandle: FileSystemDirectoryHandle | null = null;
 let currentFileDir = '';
@@ -80,31 +77,6 @@ let currentSearchQuery = '';
 const navHistory: string[] = [];
 let navIndex = -1;
 let navInProgress = false;
-let navBarHidden = false;
-
-async function loadNavBarHidden(): Promise<void> {
-  try {
-    const result = await webExtensionApi.storage.local.get(['markdownViewerSettings']);
-    const stored = result.markdownViewerSettings as { workspaceNavBarHidden?: boolean } | undefined;
-    navBarHidden = Boolean(stored?.workspaceNavBarHidden);
-  } catch { /* keep default */ }
-}
-
-async function saveNavBarHidden(): Promise<void> {
-  try {
-    const storageLocal = webExtensionApi.storage.local as {
-      get: (keys: string | string[] | Record<string, unknown>) => Promise<Record<string, unknown>>;
-      set?: (items: Record<string, unknown>) => Promise<void>;
-    };
-    const result = await storageLocal.get(['markdownViewerSettings']);
-    const current = (result.markdownViewerSettings as Record<string, unknown>) || {};
-    if (typeof storageLocal.set === 'function') {
-      await storageLocal.set({
-        markdownViewerSettings: { ...current, workspaceNavBarHidden: navBarHidden },
-      });
-    }
-  } catch { /* ignore */ }
-}
 let workspaceTree: TreeNode[] = [];
 const expandedPaths = new Set<string>();
 let currentSearchMode: SearchMode = 'filename';
@@ -114,8 +86,17 @@ let contentSearchInProgress = false;
 let contentSearchRunId = 0;
 const directoryReadCache = new Map<string, Promise<TreeNode[]>>();
 
-function postToPreviewFrame(message: Parameters<ReturnType<typeof createViewerIframeHostBridge>['syncDocument']>[0] | { type: string; [key: string]: unknown }): void {
+function postToPreviewFrame(message: ViewerIframeMessage | { type: string; [key: string]: unknown }): void {
   $previewFrame.contentWindow?.postMessage(message, '*');
+}
+
+function syncWorkspaceHistoryUiToViewer(): void {
+  postToPreviewFrame({
+    type: 'SYNC_WORKSPACE_HISTORY_UI',
+    visible: navHistory.length > 1,
+    canGoBack: navIndex > 0,
+    canGoForward: navIndex >= 0 && navIndex < navHistory.length - 1,
+  });
 }
 
 const previewFrameBridge = createViewerIframeHostBridge((message) => {
@@ -294,8 +275,6 @@ window.addEventListener('resize', updateResizeHandlePosition);
 document.getElementById('pick-icon')!.innerHTML = folderPlus;
 $changeBtn.innerHTML = folderPlus;
 $toggleSearchBtn.innerHTML = searchIcon;
-document.getElementById('nav-back-icon')!.innerHTML = arrowLeft;
-document.getElementById('nav-forward-icon')!.innerHTML = arrowRight;
 
 // ─── Extension matching ───
 function isSupportedFile(name: string): boolean {
@@ -930,11 +909,7 @@ function pushNavHistory(filePath: string): void {
 }
 
 function updateNavButtons(): void {
-  $navBack.disabled = navIndex <= 0;
-  $navForward.disabled = navIndex >= navHistory.length - 1;
-  const current = navHistory[navIndex];
-  $navFilename.textContent = current ? current.split('/').pop() || '' : '';
-  $previewNav.style.display = !navBarHidden && navHistory.length > 0 ? '' : 'none';
+  syncWorkspaceHistoryUiToViewer();
 }
 
 async function navigateHistory(index: number): Promise<void> {
@@ -949,9 +924,6 @@ async function navigateHistory(index: number): Promise<void> {
     navInProgress = false;
   }
 }
-
-$navBack.addEventListener('click', () => navigateHistory(navIndex - 1));
-$navForward.addEventListener('click', () => navigateHistory(navIndex + 1));
 
 // ─── Resolve relative path against file directory ───
 function resolveRelativePath(fileDir: string, relativePath: string): string {
@@ -1010,6 +982,7 @@ async function postHostUiToViewer(input: { themeId?: string } = {}): Promise<voi
     containerMode: 'browser',
     themeId: targetThemeId,
   });
+  syncWorkspaceHistoryUiToViewer();
 }
 
 async function openFile(fileHandle: FileSystemFileHandle, options?: { targetLine?: number }) {
@@ -1066,7 +1039,6 @@ async function openWorkspace(dirHandle: FileSystemDirectoryHandle) {
   currentSearchMode = 'filename';
   $previewEmpty.style.display = '';
   $previewFrame.style.display = 'none';
-  $previewNav.style.display = 'none';
   resetPreviewFrameState();
   $previewFrame.src = 'about:blank';
 
@@ -1230,10 +1202,12 @@ $fileSearchInput.addEventListener('keydown', (event: KeyboardEvent) => {
 window.addEventListener('message', async (event: MessageEvent) => {
   if (event.source !== $previewFrame.contentWindow) return;
 
-  if (event.data?.type === 'TOGGLE_NAV_BAR') {
-    navBarHidden = !navBarHidden;
-    updateNavButtons();
-    void saveNavBarHidden();
+  if (event.data?.type === 'WORKSPACE_HISTORY_NAVIGATE') {
+    const delta = Number(event.data.delta);
+    if (!Number.isFinite(delta) || delta === 0) {
+      return;
+    }
+    void navigateHistory(navIndex + (delta < 0 ? -1 : 1));
     return;
   }
 
@@ -1443,7 +1417,6 @@ async function syncDarkClassFromSelectedTheme(): Promise<void> {
 Localization.init().then(async () => {
   await syncDarkClassFromSelectedTheme();
   await loadWorkspacePanelSide();
-  await loadNavBarHidden();
 
   if (webExtensionApi.storage?.onChanged) {
     webExtensionApi.storage.onChanged.addListener((changes, areaName) => {

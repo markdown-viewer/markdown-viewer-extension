@@ -7,6 +7,7 @@ import { initializeViewerBase } from '../../../src/core/viewer/viewer-bootstrap'
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { applyCodeViewPresentation } from '../../../src/utils/code-preview';
 import { createWorkspaceEmbedBridge } from './workspace-embed-bridge';
+import { arrowLeft, arrowRight } from './file-icons';
 import {
   createWorkspaceEmbedHostUiController,
   TOC_NAVIGATION_SCROLL_BEHAVIOR,
@@ -20,8 +21,16 @@ import type {
 
 type DocumentMessage = ViewerOpenDocumentMessage | ViewerUpdateContentMessage;
 
+interface WorkspaceHistoryUiMessage {
+  type: 'SYNC_WORKSPACE_HISTORY_UI';
+  visible?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+}
+
 let initialized = false;
 const EMBED_MODE = new URLSearchParams(window.location.search).get('embed') === '1';
+let pendingWorkspaceHistoryUi: WorkspaceHistoryUiMessage | null = null;
 
 const workspaceEmbedBridge = createWorkspaceEmbedBridge({
   documentService: platform.document as import('../webview/api-impl').ChromeDocumentService,
@@ -141,24 +150,77 @@ function applyOpenDocumentMetadata(message: ViewerOpenDocumentMessage): void {
   document.title = filename;
 }
 
-let navToggleInjected = false;
-function injectNavToggleButton(): void {
-  if (navToggleInjected) return;
-  const toolbarCenter = document.querySelector('.toolbar-center');
-  if (!toolbarCenter) return;
-  navToggleInjected = true;
+function ensureWorkspaceHistoryInline(): {
+  wrapper: HTMLSpanElement;
+  backButton: HTMLButtonElement;
+  forwardButton: HTMLButtonElement;
+} | null {
+  const fileNameSpan = document.getElementById('file-name');
+  if (!fileNameSpan?.parentElement) {
+    return null;
+  }
 
-  const btn = document.createElement('button');
-  btn.className = 'toolbar-btn';
-  btn.title = 'Toggle Navigation Bar';
-  btn.setAttribute('aria-label', 'Toggle Navigation Bar');
-  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-    <path d="M4 10l3-3M4 10l3 3M16 10l-3-3M16 10l-3 3M4 10h12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-  btn.addEventListener('click', () => {
-    window.parent.postMessage({ type: 'TOGGLE_NAV_BAR' }, '*');
-  });
-  toolbarCenter.appendChild(btn);
+  let wrapper = document.getElementById('workspace-history-inline') as HTMLSpanElement | null;
+  if (!wrapper) {
+    wrapper = document.createElement('span');
+    wrapper.id = 'workspace-history-inline';
+    wrapper.style.display = 'none';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.gap = '4px';
+    wrapper.style.marginRight = '8px';
+
+    const createButton = (id: string, title: string, icon: string, delta: -1 | 1): HTMLButtonElement => {
+      const button = document.createElement('button');
+      button.id = id;
+      button.type = 'button';
+      button.className = 'toolbar-btn';
+      button.title = title;
+      button.setAttribute('aria-label', title);
+      button.style.width = '30px';
+      button.style.height = '30px';
+      button.style.padding = '0';
+      button.innerHTML = icon;
+      const svg = button.querySelector('svg');
+      if (svg) {
+        svg.setAttribute('width', '18');
+        svg.setAttribute('height', '18');
+        svg.setAttribute('aria-hidden', 'true');
+      }
+      button.addEventListener('click', () => {
+        if (button.disabled) {
+          return;
+        }
+        window.parent.postMessage({ type: 'WORKSPACE_HISTORY_NAVIGATE', delta }, '*');
+      });
+      return button;
+    };
+
+    const backButton = createButton('workspace-history-back', 'Back', arrowLeft, -1);
+    const forwardButton = createButton('workspace-history-forward', 'Forward', arrowRight, 1);
+    wrapper.append(backButton, forwardButton);
+    fileNameSpan.insertAdjacentElement('beforebegin', wrapper);
+  }
+
+  const backButton = document.getElementById('workspace-history-back') as HTMLButtonElement | null;
+  const forwardButton = document.getElementById('workspace-history-forward') as HTMLButtonElement | null;
+  if (!backButton || !forwardButton) {
+    return null;
+  }
+
+  return { wrapper, backButton, forwardButton };
+}
+
+function applyWorkspaceHistoryUi(message: WorkspaceHistoryUiMessage): void {
+  pendingWorkspaceHistoryUi = message;
+  const controls = ensureWorkspaceHistoryInline();
+  if (!controls) {
+    return;
+  }
+
+  const { wrapper, backButton, forwardButton } = controls;
+  wrapper.style.display = message.visible ? 'inline-flex' : 'none';
+  backButton.disabled = !message.canGoBack;
+  forwardButton.disabled = !message.canGoForward;
 }
 
 async function ensureViewerInitialized(initialContent: string): Promise<{
@@ -183,7 +245,9 @@ async function ensureViewerInitialized(initialContent: string): Promise<{
   }
 
   const runtime = await waitForViewerMainRuntime();
-  injectNavToggleButton();
+  if (pendingWorkspaceHistoryUi) {
+    applyWorkspaceHistoryUi(pendingWorkspaceHistoryUi);
+  }
 
   return {
     runtime,
@@ -241,6 +305,15 @@ function handleViewerMessage(data: ViewerIframeMessage): void {
 }
 
 parentBridge.bindViewerMessages(handleViewerMessage);
+
+window.addEventListener('message', (event: MessageEvent) => {
+  const data = event.data as WorkspaceHistoryUiMessage | undefined;
+  if (!data || data.type !== 'SYNC_WORKSPACE_HISTORY_UI') {
+    return;
+  }
+
+  applyWorkspaceHistoryUi(data);
+});
 
 // Intercept clicks on relative file links and delegate to the workspace parent.
 // Without this, the browser navigates the iframe to a non-existent chrome-extension:// URL.
