@@ -387,13 +387,13 @@
     "message": "Legg til merknad…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Alle merknader er fjernet",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Avbryt og fjern",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Endre farge",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Fjern alle merknader",

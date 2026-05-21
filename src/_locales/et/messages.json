@@ -387,13 +387,13 @@
     "message": "Lisa märkus…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Kõik märkmed on kustutatud",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Tühista ja eemalda",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Muuda värvi",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Kustuta kõik märkmed",

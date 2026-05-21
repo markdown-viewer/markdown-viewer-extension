@@ -387,13 +387,13 @@
     "message": "Tilføj kommentar…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Alle kommentarer er ryddet",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Annullér og fjern",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Skift farve",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Ryd alle kommentarer",

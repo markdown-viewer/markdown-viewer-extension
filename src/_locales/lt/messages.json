@@ -387,13 +387,13 @@
     "message": "Pridėti pastabą…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Visos pastabos išvalytos",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Atšaukti ir pašalinti",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Keisti spalvą",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Išvalyti visas pastabas",

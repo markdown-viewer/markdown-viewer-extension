@@ -387,13 +387,13 @@
     "message": "Додати примітку…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Усі примітки очищено",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Скасувати й видалити",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Змінити колір",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Очистити всі примітки",

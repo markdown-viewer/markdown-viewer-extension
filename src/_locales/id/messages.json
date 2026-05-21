@@ -387,13 +387,13 @@
     "message": "Tambahkan catatan…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Semua catatan dibersihkan",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Batal dan hapus",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Ubah warna",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Hapus semua catatan",

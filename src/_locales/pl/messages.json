@@ -387,13 +387,13 @@
     "message": "Dodaj uwagę…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "Wszystkie uwagi zostały wyczyszczone",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Anuluj i usuń",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "Zmień kolor",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Wyczyść wszystkie uwagi",

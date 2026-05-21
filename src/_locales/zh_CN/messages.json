@@ -387,13 +387,13 @@
     "message": "添加批注…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_all_cleared": {
-    "message": "所有批注已清空",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "取消并移除",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_change_color": {
+    "message": "更改颜色",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "清空所有批注",

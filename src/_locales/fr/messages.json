@@ -387,13 +387,13 @@
     "message": "Ajouter une remarque…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_all_cleared": {
-    "message": "Toutes les remarques ont été effacées",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Annuler et supprimer",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_change_color": {
+    "message": "Changer la couleur",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Effacer toutes les remarques",

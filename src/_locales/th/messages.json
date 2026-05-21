@@ -387,13 +387,13 @@
     "message": "เพิ่มหมายเหตุ…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "ล้างหมายเหตุทั้งหมดแล้ว",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "ยกเลิกและลบ",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "เปลี่ยนสี",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "ล้างหมายเหตุทั้งหมด",

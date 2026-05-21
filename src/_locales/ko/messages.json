@@ -387,13 +387,13 @@
     "message": "메모 추가…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_all_cleared": {
-    "message": "모든 주석을 지웠습니다",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "취소하고 제거",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_change_color": {
+    "message": "색상 변경",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "모든 주석 지우기",

@@ -387,13 +387,13 @@
     "message": "टिप्पणी जोड़ें…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_all_cleared": {
-    "message": "सभी टिप्पणियाँ साफ़ कर दी गईं",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "रद्द करें और हटाएँ",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
+  },
+  "remark_change_color": {
+    "message": "रंग बदलें",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "सभी टिप्पणियाँ साफ़ करें",

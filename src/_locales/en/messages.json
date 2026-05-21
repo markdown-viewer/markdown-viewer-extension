@@ -387,13 +387,13 @@
     "message": "Add a note…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_all_cleared": {
-    "message": "All remarks cleared",
-    "description": "Undo toast label shown after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Cancel & remove",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_change_color": {
+    "message": "Change color",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Clear all remarks",

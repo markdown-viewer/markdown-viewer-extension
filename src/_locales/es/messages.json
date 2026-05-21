@@ -387,13 +387,13 @@
     "message": "Añadir una observación…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_all_cleared": {
-    "message": "Todas las observaciones se borraron",
-    "description": "Temporary success state after clearing all remarks"
-  },
   "remark_cancel": {
     "message": "Cancelar y quitar",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_change_color": {
+    "message": "Cambiar color",
+    "description": "Tooltip for changing the remark color"
   },
   "remark_clear_all": {
     "message": "Borrar todas las observaciones",
