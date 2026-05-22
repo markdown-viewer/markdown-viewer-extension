@@ -21,6 +21,8 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const outdir = path.join(projectRoot, 'dist', 'obsidian');
+const stagingDir = path.join(projectRoot, 'dist', '.obsidian-staging');
+const embeddedAssetsVirtualModulePath = 'obsidian-embedded-assets';
 
 /**
  * Sync version from package.json to manifest.json
@@ -55,6 +57,62 @@ function copyDirectory(sourceDir, targetDir) {
   }
 }
 
+function collectFiles(rootDir) {
+  const files = [];
+
+  if (!fs.existsSync(rootDir)) {
+    return files;
+  }
+
+  const walk = (currentDir) => {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else {
+        files.push(fullPath);
+      }
+    }
+  };
+
+  walk(rootDir);
+  return files;
+}
+
+function generateEmbeddedAssetsModuleSource() {
+  const webviewDir = path.join(stagingDir, 'webview');
+  const assetFiles = collectFiles(webviewDir);
+  const entries = assetFiles
+    .map((filePath) => {
+      const relativePath = path.relative(webviewDir, filePath).split(path.sep).join('/');
+      const content = fs.readFileSync(filePath, 'utf8');
+      return `  ${JSON.stringify(relativePath)}: ${JSON.stringify(content)}`;
+    })
+    .join(',\n');
+
+  return {
+    moduleSource: `export const embeddedAssets: Record<string, string> = {\n${entries}\n};\n\nexport function getEmbeddedAsset(path: string): string | null {\n  return embeddedAssets[path] ?? null;\n}\n`,
+    fileCount: assetFiles.length,
+  };
+}
+
+function createEmbeddedAssetsPlugin(moduleSource) {
+  return {
+    name: 'embedded-assets-virtual-module',
+    setup(buildContext) {
+      buildContext.onResolve({ filter: /^\.\/embedded-assets$/ }, () => ({
+        path: embeddedAssetsVirtualModulePath,
+        namespace: 'embedded-assets',
+      }));
+
+      buildContext.onLoad({ filter: /.*/, namespace: 'embedded-assets' }, () => ({
+        contents: moduleSource,
+        loader: 'ts',
+      }));
+    },
+  };
+}
+
 /**
  * Build the Obsidian plugin (single bundle).
  *
@@ -64,7 +122,7 @@ function copyDirectory(sourceDir, targetDir) {
  *
  * Output: dist/obsidian/main.js (CJS, required by Obsidian)
  */
-async function buildHost() {
+async function buildHost(embeddedAssetsModuleSource) {
   console.log('📦 Building plugin...');
   await build({
     entryPoints: ['obsidian/src/host/main.ts'],
@@ -83,6 +141,7 @@ async function buildHost() {
       'global': 'globalThis',
     },
     inject: [path.join(projectRoot, 'scripts', 'buffer-shim.js')],
+    plugins: [createEmbeddedAssetsPlugin(embeddedAssetsModuleSource)],
     loader: {
       '.css': 'empty',
       '.woff2': 'empty',
@@ -96,7 +155,7 @@ async function buildHost() {
 
 /**
  * Build the iframe render worker (Mermaid, Vega, DrawIO renderers).
- * Output: dist/obsidian/webview/iframe-render-worker.js (IIFE)
+ * Output: staging/webview/iframe-render-worker.js (IIFE)
  */
 async function buildIframeRenderWorker() {
   console.log('📦 Building iframe-render-worker...');
@@ -105,7 +164,7 @@ async function buildIframeRenderWorker() {
       'iframe-render-worker': path.join(projectRoot, 'mobile', 'src', 'webview', 'iframe-render-worker.ts'),
     },
     bundle: true,
-    outdir: path.join(outdir, 'webview'),
+    outdir: path.join(stagingDir, 'webview'),
     format: 'iife',
     platform: 'browser',
     target: ['chrome120'],
@@ -136,7 +195,7 @@ async function buildCSS() {
   await build({
     entryPoints: [path.join(projectRoot, 'src', 'ui', 'styles.css')],
     bundle: true,
-    outfile: path.join(outdir, 'webview', 'styles.css'),
+    outfile: path.join(stagingDir, 'webview', 'styles.css'),
     loader: {
       '.css': 'css',
       '.woff2': 'file',
@@ -151,77 +210,56 @@ async function buildCSS() {
 }
 
 /**
- * Copy static assets into dist/obsidian/
+ * Stage static assets used for embedding.
  */
 function copyAssets() {
-  console.log('📦 Copying assets...');
-
-  // manifest.json
-  fs.copyFileSync(
-    path.join(projectRoot, 'obsidian', 'manifest.json'),
-    path.join(outdir, 'manifest.json'),
-  );
-  console.log('  • manifest.json');
-
-  // LICENSE
-  const licenseSrc = path.join(projectRoot, 'LICENSE');
-  if (fs.existsSync(licenseSrc)) {
-    fs.copyFileSync(licenseSrc, path.join(outdir, 'LICENSE'));
-    console.log('  • LICENSE');
-  }
-
-  // README.md
-  const readmeSrc = path.join(projectRoot, 'README.md');
-  if (fs.existsSync(readmeSrc)) {
-    fs.copyFileSync(readmeSrc, path.join(outdir, 'README.md'));
-    console.log('  • README.md');
-  }
+  console.log('📦 Staging assets...');
 
   // Locales
   copyDirectory(
     path.join(projectRoot, 'src', '_locales'),
-    path.join(outdir, 'webview', '_locales'),
+    path.join(stagingDir, 'webview', '_locales'),
   );
   console.log('  • _locales');
 
   // Themes
   copyDirectory(
     path.join(projectRoot, 'src', 'themes'),
-    path.join(outdir, 'webview', 'themes'),
+    path.join(stagingDir, 'webview', 'themes'),
   );
   console.log('  • themes');
 
   // DrawIO stencils
   const stencilsSrc = path.join(projectRoot, 'node_modules', '@markdown-viewer', 'drawio2svg', 'resources', 'stencils');
   if (fs.existsSync(stencilsSrc)) {
-    copyDirectory(stencilsSrc, path.join(outdir, 'webview', 'stencils'));
+    copyDirectory(stencilsSrc, path.join(stagingDir, 'webview', 'stencils'));
     console.log('  • stencils');
   }
 
   // Slidev shell inline HTML
   const slidevInlineSrc = path.join(projectRoot, 'dist', 'vscode', 'webview', 'slidev-shell-inline.html');
   if (fs.existsSync(slidevInlineSrc)) {
-    fs.copyFileSync(slidevInlineSrc, path.join(outdir, 'webview', 'slidev-shell-inline.html'));
+    fs.copyFileSync(slidevInlineSrc, path.join(stagingDir, 'webview', 'slidev-shell-inline.html'));
     console.log('  • slidev-shell-inline.html');
   }
 
   // Slidev theme bundles JSON
   const themeBundlesSrc = path.join(projectRoot, 'dist', 'vscode', 'webview', 'slidev-theme-bundles.json');
   if (fs.existsSync(themeBundlesSrc)) {
-    fs.copyFileSync(themeBundlesSrc, path.join(outdir, 'webview', 'slidev-theme-bundles.json'));
+    fs.copyFileSync(themeBundlesSrc, path.join(stagingDir, 'webview', 'slidev-theme-bundles.json'));
     console.log('  • slidev-theme-bundles.json');
   }
 
   // Settings panel CSS
   const settingsCss = path.join(projectRoot, 'vscode', 'src', 'webview', 'settings-panel.css');
   if (fs.existsSync(settingsCss)) {
-    fs.copyFileSync(settingsCss, path.join(outdir, 'webview', 'settings-panel.css'));
+    fs.copyFileSync(settingsCss, path.join(stagingDir, 'webview', 'settings-panel.css'));
     console.log('  • settings-panel.css');
   }
 
   // Create iframe-render.html with inlined JS
   const mermaidPath = path.join(projectRoot, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
-  const workerPath = path.join(outdir, 'webview', 'iframe-render-worker.js');
+  const workerPath = path.join(stagingDir, 'webview', 'iframe-render-worker.js');
   if (fs.existsSync(mermaidPath) && fs.existsSync(workerPath)) {
     const mermaidJs = fs.readFileSync(mermaidPath, 'utf8');
     const workerJs = fs.readFileSync(workerPath, 'utf8');
@@ -241,7 +279,7 @@ function copyAssets() {
   <script>${workerJs}</script>
 </body>
 </html>`;
-    fs.writeFileSync(path.join(outdir, 'webview', 'iframe-render.html'), html);
+    fs.writeFileSync(path.join(stagingDir, 'webview', 'iframe-render.html'), html);
     // Remove standalone worker file
     fs.unlinkSync(workerPath);
     console.log('  • iframe-render.html');
@@ -335,7 +373,7 @@ function copyAssets() {
   let combinedCss = pluginStyles.trim() + '\n\n';
 
   // Append webview styles (blockquote, code, headings, etc.)
-  const webviewCssPath = path.join(outdir, 'webview', 'styles.css');
+  const webviewCssPath = path.join(stagingDir, 'webview', 'styles.css');
   if (fs.existsSync(webviewCssPath)) {
     combinedCss += '/* === Webview Styles === */\n';
     let webviewCss = fs.readFileSync(webviewCssPath, 'utf8');
@@ -344,7 +382,7 @@ function copyAssets() {
       const urlMatch = block.match(/url\(['"]?\.\/(.*?\.woff2)['"]?\)/);
       if (!urlMatch) return block;
       const fontFile = urlMatch[1];
-      const fontPath = path.join(outdir, 'webview', fontFile);
+      const fontPath = path.join(stagingDir, 'webview', fontFile);
       if (!fs.existsSync(fontPath)) return '';
       const b64 = fs.readFileSync(fontPath).toString('base64');
       return block.replace(/url\(['"]?\.\/(.*?\.woff2)['"]?\)\s*(format\([^)]*\))?/, `url("data:font/woff2;base64,${b64}") format("woff2")`);
@@ -353,7 +391,7 @@ function copyAssets() {
   }
 
   // Append settings panel CSS
-  const settingsCssPath = path.join(outdir, 'webview', 'settings-panel.css');
+  const settingsCssPath = path.join(stagingDir, 'webview', 'settings-panel.css');
   if (fs.existsSync(settingsCssPath)) {
     combinedCss += '/* === Settings Panel Styles === */\n';
     combinedCss += fs.readFileSync(settingsCssPath, 'utf8') + '\n';
@@ -369,7 +407,13 @@ function copyAssets() {
   fs.writeFileSync(path.join(outdir, 'styles.css'), combinedCss);
   console.log('  • styles.css (combined)');
 
-  console.log('✅ Assets copied');
+  fs.copyFileSync(
+    path.join(projectRoot, 'obsidian', 'manifest.json'),
+    path.join(outdir, 'manifest.json'),
+  );
+  console.log('  • manifest.json');
+
+  console.log('✅ Assets staged and published');
 }
 
 /**
@@ -389,18 +433,26 @@ async function main() {
 
     // Clean output
     if (fs.existsSync(outdir)) fs.rmSync(outdir, { recursive: true, force: true });
-    fs.mkdirSync(path.join(outdir, 'webview'), { recursive: true });
+    if (fs.existsSync(stagingDir)) fs.rmSync(stagingDir, { recursive: true, force: true });
+    fs.mkdirSync(path.join(stagingDir, 'webview'), { recursive: true });
+    fs.mkdirSync(outdir, { recursive: true });
 
     // Build all parts
-    await buildHost();
     await buildIframeRenderWorker();
     await buildCSS();
     copyAssets();
+    const { moduleSource, fileCount } = generateEmbeddedAssetsModuleSource();
+    console.log(`  • embedded assets (${fileCount} files, virtual module)`);
+    await buildHost(moduleSource);
 
     console.log(`\n✅ Build complete! Output: dist/obsidian/`);
   } catch (error) {
     console.error('\n❌ Build failed:', error);
     process.exit(1);
+  } finally {
+    if (fs.existsSync(stagingDir)) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
   }
 }
 

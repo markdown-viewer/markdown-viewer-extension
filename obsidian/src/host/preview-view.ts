@@ -13,6 +13,7 @@ import type MarkdownViewerPlugin from './main';
 import { getFileType } from '../../../src/utils/file-wrapper';
 import { rewriteObsidianSvgEmbeds } from './obsidian-svg-embed-rewrite';
 import { expandObsidianMarkdownEmbeds } from './obsidian-markdown-embed-rewrite';
+import { getEmbeddedAsset } from './embedded-assets';
 
 // Viewer module — runs in same process, no iframe
 import { initializeViewer, obsidianHostTransport } from '../webview/main';
@@ -468,6 +469,11 @@ export class MarkdownPreviewView extends ItemView {
   // ===========================================================================
 
   private async handleFetchAsset(payload: { path: string }): Promise<string> {
+    const embedded = getEmbeddedAsset(payload.path);
+    if (embedded !== null) {
+      return embedded;
+    }
+
     const pluginDir = this.plugin.manifest.dir;
     if (!pluginDir) throw new Error('Plugin directory unknown');
 
