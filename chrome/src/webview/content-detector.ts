@@ -38,7 +38,7 @@ function getMatchedExtension(path: string): string | null {
 /**
  * Check if this is a processable file based on content type and structure
  */
-function isProcessableContent(): boolean {
+function isProcessableContent(): boolean | null {
   // Check content type from document if available
   interface DocumentWithContentType {
     contentType?: string;
@@ -55,6 +55,12 @@ function isProcessableContent(): boolean {
     if (contentType.includes('text/plain') || contentType.includes('application/octet-stream')) {
       return true;
     }
+  }
+
+  // At document_start (notably in Firefox), metadata/body can be unavailable.
+  // Defer detection instead of assuming processable to avoid false positives.
+  if (!document.body) {
+    return null;
   }
 
   // For local files or when content type is not available, check if body contains raw content
@@ -209,6 +215,12 @@ async function detectAndInject(): Promise<void> {
 
   // Check if content is processable
   const processable = isProcessableContent();
+  if (processable === null) {
+    document.addEventListener('DOMContentLoaded', () => {
+      void detectAndInject();
+    }, { once: true });
+    return;
+  }
   if (!processable) {
     return;
   }

@@ -65,6 +65,12 @@ function shouldModifyCSP(url: string): boolean {
   }
 }
 
+function isHtmlResponse(headers: Array<{ name?: string; value?: string }>): boolean {
+  const contentTypeHeader = headers.find(h => (h.name || '').toLowerCase() === 'content-type');
+  const contentType = (contentTypeHeader?.value || '').toLowerCase();
+  return contentType.includes('text/html') || contentType.includes('application/xhtml+xml');
+}
+
 // Modify CSP headers for markdown files to allow data: URIs and inline styles
 browser.webRequest.onHeadersReceived.addListener(
   (details) => {
@@ -73,6 +79,12 @@ browser.webRequest.onHeadersReceived.addListener(
     }
 
     const responseHeaders = details.responseHeaders || [];
+    // Git hosting platforms often serve *.md as HTML pages (e.g. GitHub blob).
+    // Do not rewrite CSP for HTML documents.
+    if (isHtmlResponse(responseHeaders)) {
+      return {};
+    }
+
     const newHeaders = responseHeaders.filter(header => {
       const name = header.name.toLowerCase();
       // Remove CSP headers that would block our content
