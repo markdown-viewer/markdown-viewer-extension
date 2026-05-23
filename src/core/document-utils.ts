@@ -95,6 +95,32 @@ export function getFilenameFromURL(): string {
 }
 
 /**
+ * Convert filename to .md for saving markdown content.
+ * Preserves .slides.md; normalizes .markdown to .md; replaces other extensions.
+ */
+export function toMarkdownFilename(filename: string): string {
+  let mdFilename = filename || 'document.md';
+  const lower = mdFilename.toLowerCase();
+
+  if (lower.endsWith('.slides.md')) {
+    return mdFilename;
+  }
+  if (lower.endsWith('.markdown')) {
+    return mdFilename.slice(0, -'.markdown'.length) + '.md';
+  }
+  if (lower.endsWith('.md')) {
+    return mdFilename;
+  }
+
+  const lastDot = mdFilename.lastIndexOf('.');
+  if (lastDot > 0) {
+    return mdFilename.slice(0, lastDot) + '.md';
+  }
+
+  return mdFilename + '.md';
+}
+
+/**
  * Get document filename for export (DOCX)
  * @returns Document filename with .docx extension
  */

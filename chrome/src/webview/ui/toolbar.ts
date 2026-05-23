@@ -3,7 +3,7 @@
  * Handles toolbar initialization and button event handlers
  */
 
-import { getFilenameFromURL, getDocumentFilename } from '../../../../src/core/document-utils';
+import { getFilenameFromURL, getDocumentFilename, toMarkdownFilename } from '../../../../src/core/document-utils';
 import { applyZoom as applyZoomCore, exportHtmlFlow } from '../../../../src/core/viewer/viewer-host';
 import { createExportMenu } from '../../../../src/ui/export-menu';
 import { printElement } from '../../../../src/ui/print-utils';
@@ -559,14 +559,17 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   }
 
   function triggerSaveFile(): void {
-    const filename = getFilenameFromURL();
+    const filename = toMarkdownFilename(getFilenameFromURL());
     const fileContent = getRawContent ? getRawContent() : rawMarkdown;
-    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
