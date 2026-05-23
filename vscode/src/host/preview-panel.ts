@@ -17,6 +17,17 @@ interface ThemeBootstrapData {
   registry: unknown;
 }
 
+const PREVIEW_OPEN_CONTEXT = 'markdownViewerPreviewOpen';
+const PREVIEW_FOCUSED_CONTEXT = 'markdownViewerPreviewFocused';
+
+function setPreviewPanelOpen(open: boolean): void {
+  void vscode.commands.executeCommand('setContext', PREVIEW_OPEN_CONTEXT, open);
+}
+
+function setPreviewPanelFocused(focused: boolean): void {
+  void vscode.commands.executeCommand('setContext', PREVIEW_FOCUSED_CONTEXT, focused);
+}
+
 export class MarkdownPreviewPanel {
   public static currentPanel: MarkdownPreviewPanel | undefined;
   public static readonly viewType = 'markdownViewerAdvanced';
@@ -116,6 +127,7 @@ export class MarkdownPreviewPanel {
       }
     );
 
+    setPreviewPanelOpen(true);
     MarkdownPreviewPanel.currentPanel = new MarkdownPreviewPanel(panel, extensionUri, document, cacheStorage);
     return MarkdownPreviewPanel.currentPanel;
   }
@@ -168,13 +180,11 @@ export class MarkdownPreviewPanel {
     // Handle panel disposal
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
-    // Handle view state changes
+    // Sync context keys for editor/title menu visibility (see package.json when clauses)
+    setPreviewPanelFocused(this._panel.active);
     this._panel.onDidChangeViewState(
       (e) => {
-        // NOTE: Do NOT call _update() here. The webview context is retained when hidden 
-        // (retainContextWhenHidden: true), so we only need to update the content when 
-        // it actually changes (via updateContent()), not when visibility changes.
-        // Calling _update() here would cause unnecessary full page reloads.
+        setPreviewPanelFocused(e.webviewPanel.active);
       },
       null,
       this._disposables
@@ -1309,6 +1319,8 @@ export class MarkdownPreviewPanel {
   }
 
   public dispose(): void {
+    setPreviewPanelOpen(false);
+    setPreviewPanelFocused(false);
     MarkdownPreviewPanel.currentPanel = undefined;
 
     this._panel.dispose();

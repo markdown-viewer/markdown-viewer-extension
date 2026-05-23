@@ -80,7 +80,6 @@
     "floating-vue": "^5.2.2",
     "katex": "^0.16.27",
     "markdown-it": "^14.1.1",
-    "markdownlint": "^0.40.0",
     "mathjax-full": "^3.2.2",
     "mermaid": "^11.12.2",
     "rehype-highlight": "^7.0.2",
@@ -250,29 +249,27 @@
     ],
     "submenus": [
       {
-        "id": "markdownViewer.toolsMenu",
-        "label": "%toolsMenu.label%",
-        "icon": "$(tools)"
+        "id": "markdownViewer.actionsMenu",
+        "label": "Markdown Viewer",
+        "icon": "$(open-preview)"
+      },
+      {
+        "id": "markdownViewer.exportMenu",
+        "label": "Export",
+        "icon": "$(save-as)"
+      },
+      {
+        "id": "markdownViewer.settingsMenu",
+        "label": "Settings",
+        "icon": "$(gear)"
       }
     ],
     "commands": [
-      {
-        "command": "markdownViewer.preview",
-        "title": "Open Markdown Preview (Advanced)",
-        "category": "Markdown Viewer",
-        "icon": "$(go-to-file)"
-      },
       {
         "command": "markdownViewer.previewToSide",
         "title": "Open Markdown Preview to the Side (Advanced)",
         "category": "Markdown Viewer",
         "icon": "$(go-to-file)"
-      },
-      {
-        "command": "markdownViewer.exportDocx",
-        "title": "Export to DOCX",
-        "category": "Markdown Viewer",
-        "icon": "$(save-as)"
       },
       {
         "command": "markdownViewer.openSettings",
@@ -281,196 +278,51 @@
         "icon": "$(gear)"
       },
       {
-        "command": "markdownViewer.print",
-        "title": "Print",
-        "category": "Markdown Viewer",
-        "icon": "$(print)"
-      },
-      {
         "command": "markdownViewer.openExportMenu",
         "title": "Open Export Menu",
         "category": "Markdown Viewer",
         "icon": "$(save-as)"
-      },
-      {
-        "command": "markdownViewer.refresh",
-        "title": "Refresh Preview",
-        "category": "Markdown Viewer",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "markdownViewer.tools.numberHeadings",
-        "title": "%command.numberHeadings.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.removeHeadingNumbers",
-        "title": "%command.removeHeadingNumbers.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixAll",
-        "title": "%command.fixAll.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixWhitespace",
-        "title": "%command.fixWhitespace.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixHeadings",
-        "title": "%command.fixHeadings.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixLists",
-        "title": "%command.fixLists.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixCode",
-        "title": "%command.fixCode.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixLinks",
-        "title": "%command.fixLinks.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixEmphasis",
-        "title": "%command.fixEmphasis.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixTables",
-        "title": "%command.fixTables.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixBlockquotes",
-        "title": "%command.fixBlockquotes.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.fixProperNames",
-        "title": "%command.fixProperNames.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.showDiagnostics",
-        "title": "%command.showDiagnostics.title%",
-        "category": "%category.markdownTools%"
-      },
-      {
-        "command": "markdownViewer.tools.openSettings",
-        "title": "%command.openSettings.title%",
-        "category": "%category.markdownTools%",
-        "icon": "$(gear)"
       }
     ],
     "menus": {
-      "markdownViewer.toolsMenu": [
+      "markdownViewer.exportMenu": [
         {
-          "command": "markdownViewer.tools.numberHeadings"
-        },
+          "command": "markdownViewer.openExportMenu"
+        }
+      ],
+      "markdownViewer.settingsMenu": [
         {
-          "command": "markdownViewer.tools.removeHeadingNumbers"
-        },
+          "command": "markdownViewer.openSettings"
+        }
+      ],
+      "markdownViewer.actionsMenu": [
         {
-          "command": "markdownViewer.tools.fixAll",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixWhitespace",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixHeadings",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixLists",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixCode",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixLinks",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixEmphasis",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixTables",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixBlockquotes",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.fixProperNames",
-          "group": "fix"
-        },
-        {
-          "command": "markdownViewer.tools.showDiagnostics",
-          "group": "diagnostics"
-        },
-        {
-          "command": "markdownViewer.tools.openSettings"
+          "command": "markdownViewer.previewToSide",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md",
+          "group": "navigation@1"
         }
       ],
       "editor/title": [
         {
-          "submenu": "markdownViewer.toolsMenu",
-          "when": "editorLangId == markdown || resourceExtname == .md",
+          "submenu": "markdownViewer.actionsMenu",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md",
           "group": "navigation@0"
         },
         {
-          "command": "markdownViewer.previewToSide",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md",
+          "submenu": "markdownViewer.exportMenu",
+          "when": "activeWebviewPanelId == 'markdownViewerAdvanced' || markdownViewerPreviewFocused",
           "group": "navigation"
         },
         {
-          "command": "markdownViewer.openExportMenu",
-          "when": "activeWebviewPanelId == markdownViewerAdvanced",
-          "group": "navigation@1"
-        },
-        {
-          "command": "markdownViewer.openSettings",
-          "when": "activeWebviewPanelId == markdownViewerAdvanced",
-          "group": "navigation@2"
-        }
-      ],
-      "editor/context": [
-        {
-          "command": "markdownViewer.preview",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md",
+          "submenu": "markdownViewer.settingsMenu",
+          "when": "activeWebviewPanelId == 'markdownViewerAdvanced' || markdownViewerPreviewFocused",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
-          "command": "markdownViewer.preview",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md"
-        },
-        {
           "command": "markdownViewer.previewToSide",
           "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md"
-        },
-        {
-          "command": "markdownViewer.exportDocx",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md"
-        },
-        {
-          "command": "markdownViewer.print",
-          "when": "activeWebviewPanelId == markdownViewerAdvanced"
         }
       ]
     },

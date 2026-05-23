@@ -7,7 +7,6 @@
 import * as vscode from 'vscode';
 import { MarkdownPreviewPanel } from './preview-panel';
 import { CacheStorage } from './cache-storage';
-import { registerNumberHeadingsCommand } from './markdown-tools';
 import { SUPPORTED_LANGUAGE_IDS } from '../../../src/types/formats';
 
 let cacheStorage: CacheStorage;
@@ -87,6 +86,10 @@ class TopmostLineMonitor {
 const topmostLineMonitor = new TopmostLineMonitor();
 
 export function activate(context: vscode.ExtensionContext) {
+  // Reset preview panel context keys (used by editor/title menu when clauses)
+  void vscode.commands.executeCommand('setContext', 'markdownViewerPreviewOpen', false);
+  void vscode.commands.executeCommand('setContext', 'markdownViewerPreviewFocused', false);
+
   // Initialize the monitor with current active editor
   topmostLineMonitor.setActiveEditor(vscode.window.activeTextEditor);
 
@@ -228,9 +231,6 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
-
-  // Register Markdown tools
-  registerNumberHeadingsCommand(context, cacheStorage);
 
   // Auto-update preview on document change
   context.subscriptions.push(
