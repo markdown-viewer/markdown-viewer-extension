@@ -81,7 +81,9 @@ export function getFilenameFromURL(): string {
     }
   }
 
-  const urlParts = url.split('/');
+  // Strip query string before extracting filename
+  const urlWithoutQuery = url.split('?')[0];
+  const urlParts = urlWithoutQuery.split('/');
   let fileName = urlParts[urlParts.length - 1] || 'document.md';
 
   // Decode URL encoding
