@@ -342,6 +342,9 @@ export function createSettingsTabManager({
     // Auto Refresh settings (Chrome only)
     loadAutoRefreshSettingsUI();
 
+    // Remark Mode settings
+    loadRemarkSettingsUI();
+
   }
 
   async function loadLocalesIntoSelect(localeSelect: HTMLSelectElement): Promise<void> {
@@ -596,6 +599,57 @@ export function createSettingsTabManager({
         }
       );
     }
+  }
+
+  /**
+   * Remark Mode settings card
+   */
+  function loadRemarkSettingsUI(): void {
+    const REMARK_STORAGE_KEY = 'remarkConfig';
+    const autoDeleteEl = document.getElementById('remark-auto-delete-empty') as HTMLInputElement | null;
+    const closeAfterCopyEl = document.getElementById('remark-close-after-copy') as HTMLInputElement | null;
+    const highlightStyleEl = document.getElementById('remark-highlight-style') as HTMLSelectElement | null;
+    const defaultColorEl = document.getElementById('remark-default-color') as HTMLSelectElement | null;
+    const fontSizeEl = document.getElementById('remark-font-size') as HTMLSelectElement | null;
+
+    if (!autoDeleteEl || !closeAfterCopyEl || !highlightStyleEl || !defaultColorEl || !fontSizeEl) {
+      return;
+    }
+
+    // Load current remark config from storage
+    storageGet([REMARK_STORAGE_KEY]).then((result) => {
+      const cfg = (result[REMARK_STORAGE_KEY] || {}) as Record<string, unknown>;
+      autoDeleteEl.checked = cfg.autoDeleteEmpty !== false;
+      closeAfterCopyEl.checked = cfg.closeAfterCopy === true;
+      highlightStyleEl.value = (cfg.highlightStyle as string) || 'background';
+      defaultColorEl.value = (cfg.defaultColor as string) || 'yellow';
+      fontSizeEl.value = String(cfg.fontSize || 13);
+    }).catch(() => { /* use defaults already in HTML */ });
+
+    function saveRemarkConfig(): void {
+      const cfg = {
+        autoDeleteEmpty: autoDeleteEl!.checked,
+        autoDeleteDelay: 3000,
+        closeAfterCopy: closeAfterCopyEl!.checked,
+        highlightStyle: highlightStyleEl!.value,
+        defaultColor: defaultColorEl!.value,
+        fontSize: parseInt(fontSizeEl!.value, 10),
+      };
+      storageSet({ [REMARK_STORAGE_KEY]: cfg }).then(() => {
+        showMessage(translate('settings_save_success'), 'success');
+      }).catch(() => {
+        showMessage(translate('settings_save_failed'), 'error');
+      });
+    }
+
+    // Wire change listeners
+    const elements = [autoDeleteEl, closeAfterCopyEl, highlightStyleEl, defaultColorEl, fontSizeEl];
+    elements.forEach((el) => {
+      if (!el.dataset.listenerAdded) {
+        el.dataset.listenerAdded = 'true';
+        el.addEventListener('change', saveRemarkConfig);
+      }
+    });
   }
 
   /**

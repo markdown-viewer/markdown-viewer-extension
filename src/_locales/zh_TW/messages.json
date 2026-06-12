@@ -380,8 +380,60 @@
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
   "remark_cancel": {
-    "message": "取消並移除",
+    "message": "取消",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_cfg_title": {
+    "message": "批注模式",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "自動刪除空批註",
+    "description": ""
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "複製後關閉標籤頁",
+    "description": ""
+  },
+  "remark_cfg_default_color": {
+    "message": "預設顏色",
+    "description": ""
+  },
+  "remark_cfg_done": {
+    "message": "完成",
+    "description": ""
+  },
+  "remark_cfg_font_size": {
+    "message": "字體大小",
+    "description": ""
+  },
+  "remark_cfg_highlight_style": {
+    "message": "標記樣式",
+    "description": ""
+  },
+  "remark_cfg_opacity": {
+    "message": "Opacity",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "恢復預設設定",
+    "description": ""
+  },
+  "remark_cfg_style_bg": {
+    "message": "背景色",
+    "description": ""
+  },
+  "remark_cfg_style_border": {
+    "message": "底部邊框",
+    "description": ""
+  },
+  "remark_cfg_style_underline": {
+    "message": "底線",
+    "description": ""
+  },
+  "remark_cfg_style_wavy": {
+    "message": "波浪線",
+    "description": ""
   },
   "remark_change_color": {
     "message": "更改顏色",
@@ -412,7 +464,7 @@
     "description": "Feedback shown after remarks are successfully copied"
   },
   "remark_copy_btn": {
-    "message": "複製批註",
+    "message": "複製批注",
     "description": "Button label to copy all remarks to clipboard and exit Remark Mode"
   },
   "remark_copy_failed": {
@@ -435,6 +487,10 @@
     "message": "點擊以編輯",
     "description": "Tooltip on a remark note in the sidebar indicating it is editable"
   },
+  "remark_empty": {
+    "message": "選取文字以新增批注",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "選取文字以新增批註",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "批註模式",
     "description": "Toolbar button tooltip to enter Remark Mode"
+  },
+  "remark_save": {
+    "message": "儲存",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "設定",
+    "description": ""
   },
   "remark_sidebar_title": {
     "message": "批註",

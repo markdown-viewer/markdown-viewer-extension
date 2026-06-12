@@ -19,6 +19,13 @@ import {
   findLiLineInBlock,
   findCodeLineInBlock,
   narrowLineInBlock,
+  generateHighlightCSS,
+  findSentenceBounds,
+  locateOffsetInNodes,
+  locateSubstringInNodes,
+  BG_COLORS,
+  LINE_COLORS,
+  SENTENCE_END_RE,
 } from '../src/ui/remark-utils.ts';
 
 // ─── truncate ────────────────────────────────────────────────────────────────
@@ -676,5 +683,235 @@ describe('narrowLineInBlock', () => {
     const result = narrowLineInBlock(textNode as unknown as Node, 0, textNode as unknown as Node, 0, block as unknown as Element);
     assert.strictEqual(result, null);
     // Caller uses: startLine + lineCount - 1 = 34 + 1 - 1 = 34 (L34 only, not L34-L36)
+  });
+});
+
+// ─── generateHighlightCSS ────────────────────────────────────────────────────
+
+describe('generateHighlightCSS', () => {
+  it('background: generates background-color rules for all 4 colors', () => {
+    const css = generateHighlightCSS('background');
+    assert.ok(css.includes('mark.remark-ann-yellow'));
+    assert.ok(css.includes('mark.remark-ann-green'));
+    assert.ok(css.includes('mark.remark-ann-blue'));
+    assert.ok(css.includes('mark.remark-ann-pink'));
+    assert.ok(css.includes('background-color: rgba(255, 212, 0, 0.25)'));
+    assert.ok(css.includes('text-decoration: none'));
+    assert.ok(css.includes('border: none'));
+  });
+
+  it('underline: uses line colors with solid underline', () => {
+    const css = generateHighlightCSS('underline');
+    assert.ok(css.includes('background-color: transparent'));
+    assert.ok(css.includes('text-decoration: underline 2px'));
+    assert.ok(css.includes('text-underline-offset: 3px'));
+    assert.ok(css.includes(LINE_COLORS.yellow));
+  });
+
+  it('wavy: uses wavy underline decoration', () => {
+    const css = generateHighlightCSS('wavy');
+    assert.ok(css.includes('text-decoration: wavy underline'));
+    assert.ok(css.includes('text-underline-offset: 2px'));
+  });
+
+  it('border: uses solid border with border-radius', () => {
+    const css = generateHighlightCSS('border');
+    assert.ok(css.includes('border: 1.5px solid'));
+    assert.ok(css.includes('border-radius: 3px'));
+    assert.ok(css.includes('padding: 0 2px'));
+    assert.ok(css.includes('text-decoration: none'));
+  });
+
+  it('unknown style: returns empty string', () => {
+    const css = generateHighlightCSS('invalid' as any);
+    assert.strictEqual(css, '');
+  });
+
+  it('each style generates exactly 4 rules (one per color)', () => {
+    for (const style of ['background', 'underline', 'wavy', 'border'] as const) {
+      const css = generateHighlightCSS(style);
+      const ruleCount = css.split('mark.remark-ann-').length - 1;
+      assert.strictEqual(ruleCount, 4, `${style} should have 4 rules`);
+    }
+  });
+});
+
+// ─── findSentenceBounds ──────────────────────────────────────────────────────
+
+describe('findSentenceBounds', () => {
+  it('single sentence: returns full text range', () => {
+    const text = 'Hello world';
+    const { start, end } = findSentenceBounds(text, 5);
+    assert.strictEqual(start, 0);
+    assert.strictEqual(end, text.length);
+  });
+
+  it('period-separated: finds correct sentence', () => {
+    const text = 'First sentence.Second sentence.Third.';
+    const { start, end } = findSentenceBounds(text, 16);
+    assert.strictEqual(start, 15);
+    assert.strictEqual(end, 31);
+  });
+
+  it('Chinese punctuation: 。as sentence boundary', () => {
+    const text = '第一句话。第二句话。第三句话。';
+    const { start, end } = findSentenceBounds(text, 6);
+    assert.strictEqual(start, 5);
+    assert.strictEqual(end, 10);
+  });
+
+  it('question mark: acts as boundary', () => {
+    const text = 'Really?Yes!';
+    const { start, end } = findSentenceBounds(text, 8);
+    assert.strictEqual(start, 7);
+    assert.strictEqual(end, 11);
+  });
+
+  it('newline: acts as sentence boundary', () => {
+    const text = 'Line one\nLine two\nLine three';
+    const { start, end } = findSentenceBounds(text, 12);
+    assert.strictEqual(start, 9);
+    assert.strictEqual(end, 18);
+  });
+
+  it('offset at start of text: start is 0', () => {
+    const text = 'First.Second.';
+    const { start, end } = findSentenceBounds(text, 0);
+    assert.strictEqual(start, 0);
+    assert.strictEqual(end, 6);
+  });
+
+  it('offset at end of text: end is text.length', () => {
+    const text = 'Only sentence';
+    const { start, end } = findSentenceBounds(text, 12);
+    assert.strictEqual(start, 0);
+    assert.strictEqual(end, text.length);
+  });
+
+  it('mixed delimiters: ！as Chinese exclamation', () => {
+    const text = '好的！那就这样吧。';
+    const { start, end } = findSentenceBounds(text, 5);
+    assert.strictEqual(start, 3);
+    assert.strictEqual(end, 9);
+  });
+
+  it('offset exactly on delimiter: includes it in previous sentence', () => {
+    const text = 'Hello.World';
+    const { start, end } = findSentenceBounds(text, 5);
+    assert.strictEqual(start, 0);
+    assert.strictEqual(end, 6);
+  });
+});
+
+// ─── SENTENCE_END_RE ─────────────────────────────────────────────────────────
+
+describe('SENTENCE_END_RE', () => {
+  it('matches period', () => assert.ok(SENTENCE_END_RE.test('.')));
+  it('matches 。', () => assert.ok(SENTENCE_END_RE.test('。')));
+  it('matches ?', () => assert.ok(SENTENCE_END_RE.test('?')));
+  it('matches ？', () => assert.ok(SENTENCE_END_RE.test('？')));
+  it('matches !', () => assert.ok(SENTENCE_END_RE.test('!')));
+  it('matches ！', () => assert.ok(SENTENCE_END_RE.test('！')));
+  it('matches newline', () => assert.ok(SENTENCE_END_RE.test('\n')));
+  it('does not match comma', () => assert.ok(!SENTENCE_END_RE.test(',')));
+  it('does not match semicolon', () => assert.ok(!SENTENCE_END_RE.test(';')));
+  it('does not match space', () => assert.ok(!SENTENCE_END_RE.test(' ')));
+});
+
+// ─── locateOffsetInNodes ─────────────────────────────────────────────────────
+
+describe('locateOffsetInNodes', () => {
+  it('single node: offset 0 → node 0, local 0', () => {
+    const result = locateOffsetInNodes([10], 0);
+    assert.deepStrictEqual(result, { nodeIndex: 0, localOffset: 0 });
+  });
+
+  it('single node: offset in middle', () => {
+    const result = locateOffsetInNodes([10], 5);
+    assert.deepStrictEqual(result, { nodeIndex: 0, localOffset: 5 });
+  });
+
+  it('single node: offset at exact end', () => {
+    const result = locateOffsetInNodes([10], 10);
+    assert.deepStrictEqual(result, { nodeIndex: 0, localOffset: 10 });
+  });
+
+  it('single node: offset beyond → null', () => {
+    const result = locateOffsetInNodes([10], 11);
+    assert.strictEqual(result, null);
+  });
+
+  it('multiple nodes: offset in first node', () => {
+    const result = locateOffsetInNodes([5, 3, 7], 3);
+    assert.deepStrictEqual(result, { nodeIndex: 0, localOffset: 3 });
+  });
+
+  it('multiple nodes: offset at boundary → starts next node', () => {
+    const result = locateOffsetInNodes([5, 3, 7], 5);
+    assert.deepStrictEqual(result, { nodeIndex: 1, localOffset: 0 });
+  });
+
+  it('multiple nodes: offset in second node', () => {
+    const result = locateOffsetInNodes([5, 3, 7], 7);
+    assert.deepStrictEqual(result, { nodeIndex: 1, localOffset: 2 });
+  });
+
+  it('multiple nodes: offset in last node', () => {
+    const result = locateOffsetInNodes([5, 3, 7], 10);
+    assert.deepStrictEqual(result, { nodeIndex: 2, localOffset: 2 });
+  });
+
+  it('empty nodes array: returns null', () => {
+    const result = locateOffsetInNodes([], 0);
+    assert.strictEqual(result, null);
+  });
+
+  it('zero-length node: skips to next', () => {
+    const result = locateOffsetInNodes([0, 5], 2);
+    assert.deepStrictEqual(result, { nodeIndex: 1, localOffset: 2 });
+  });
+});
+
+// ─── locateSubstringInNodes ──────────────────────────────────────────────────
+
+describe('locateSubstringInNodes', () => {
+  it('substring in single node: correct start and end', () => {
+    // "Hello World" in one node, find "World" at index 6, len 5
+    const result = locateSubstringInNodes([11], 6, 5);
+    assert.deepStrictEqual(result, {
+      start: { nodeIndex: 0, localOffset: 6 },
+      end: { nodeIndex: 0, localOffset: 11 },
+    });
+  });
+
+  it('substring spanning two nodes', () => {
+    // nodes: "Hello " (6) + "World" (5) = "Hello World"
+    // find "o W" at index 4, len 3
+    const result = locateSubstringInNodes([6, 5], 4, 3);
+    assert.deepStrictEqual(result, {
+      start: { nodeIndex: 0, localOffset: 4 },
+      end: { nodeIndex: 1, localOffset: 1 },
+    });
+  });
+
+  it('substring entirely in second node', () => {
+    const result = locateSubstringInNodes([5, 10], 7, 3);
+    assert.deepStrictEqual(result, {
+      start: { nodeIndex: 1, localOffset: 2 },
+      end: { nodeIndex: 1, localOffset: 5 },
+    });
+  });
+
+  it('out of bounds: returns null', () => {
+    const result = locateSubstringInNodes([5, 5], 8, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('zero-length substring: start equals end', () => {
+    const result = locateSubstringInNodes([10], 5, 0);
+    assert.deepStrictEqual(result, {
+      start: { nodeIndex: 0, localOffset: 5 },
+      end: { nodeIndex: 0, localOffset: 5 },
+    });
   });
 });

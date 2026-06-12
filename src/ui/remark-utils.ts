@@ -267,3 +267,110 @@ export function formatExportText(
 
   return lines.join('\n');
 }
+
+// ─── Config Style Generation ─────────────────────────────────────────────────
+
+export type HighlightStyle = 'background' | 'underline' | 'wavy' | 'border';
+
+export const BG_COLORS: Record<RemarkColor, string> = {
+  yellow: 'rgba(255, 212, 0, 0.25)',
+  green: 'rgba(46, 160, 67, 0.18)',
+  blue: 'rgba(9, 105, 218, 0.15)',
+  pink: 'rgba(219, 97, 162, 0.18)',
+};
+
+export const LINE_COLORS: Record<RemarkColor, string> = {
+  yellow: 'rgba(202, 138, 4, 0.8)',
+  green: 'rgba(22, 128, 50, 0.75)',
+  blue: 'rgba(9, 80, 180, 0.7)',
+  pink: 'rgba(190, 60, 130, 0.75)',
+};
+
+/** Generate CSS rules for mark elements based on highlight style config */
+export function generateHighlightCSS(style: HighlightStyle): string {
+  if (style === 'background') {
+    return Object.entries(BG_COLORS).map(([c, rgba]) =>
+      `mark.remark-ann-${c} { background-color: ${rgba} !important; text-decoration: none !important; border: none !important; }`
+    ).join('\n');
+  } else if (style === 'underline') {
+    return Object.entries(LINE_COLORS).map(([c, rgba]) =>
+      `mark.remark-ann-${c} { background-color: transparent !important; text-decoration: underline 2px ${rgba} !important; text-underline-offset: 3px; border: none !important; }`
+    ).join('\n');
+  } else if (style === 'wavy') {
+    return Object.entries(LINE_COLORS).map(([c, rgba]) =>
+      `mark.remark-ann-${c} { background-color: transparent !important; text-decoration: wavy underline ${rgba} !important; text-underline-offset: 2px; border: none !important; }`
+    ).join('\n');
+  } else if (style === 'border') {
+    return Object.entries(LINE_COLORS).map(([c, rgba]) =>
+      `mark.remark-ann-${c} { background-color: transparent !important; text-decoration: none !important; border: 1.5px solid ${rgba} !important; border-radius: 3px; padding: 0 2px; }`
+    ).join('\n');
+  }
+  return '';
+}
+
+// ─── Sentence Boundary Detection ─────────────────────────────────────────────
+
+/** Regex for sentence-ending punctuation */
+export const SENTENCE_END_RE = /[。.?!？！\n]/;
+
+/**
+ * Find sentence boundaries around a given offset in text.
+ * Returns [start, end) indices of the sentence containing the offset.
+ */
+export function findSentenceBounds(text: string, offset: number): { start: number; end: number } {
+  let start = 0;
+  for (let i = offset - 1; i >= 0; i--) {
+    if (SENTENCE_END_RE.test(text[i])) { start = i + 1; break; }
+  }
+  let end = text.length;
+  for (let i = offset; i < text.length; i++) {
+    if (SENTENCE_END_RE.test(text[i])) { end = i + 1; break; }
+  }
+  return { start, end };
+}
+
+// ─── Text Node Offset Calculation ────────────────────────────────────────────
+
+export interface TextNodeOffset {
+  nodeIndex: number;
+  localOffset: number;
+}
+
+/**
+ * Given an array of text node lengths, find which node contains a given
+ * global character offset. Returns nodeIndex and localOffset within that node.
+ * Returns null if offset is beyond total length.
+ */
+export function locateOffsetInNodes(
+  nodeLengths: number[],
+  globalOffset: number
+): TextNodeOffset | null {
+  let charCount = 0;
+  for (let i = 0; i < nodeLengths.length; i++) {
+    if (charCount + nodeLengths[i] > globalOffset) {
+      return { nodeIndex: i, localOffset: globalOffset - charCount };
+    }
+    charCount += nodeLengths[i];
+  }
+  // Exact end of last node
+  if (charCount === globalOffset && nodeLengths.length > 0) {
+    const last = nodeLengths.length - 1;
+    return { nodeIndex: last, localOffset: nodeLengths[last] };
+  }
+  return null;
+}
+
+/**
+ * Find start and end positions for a substring within concatenated text nodes.
+ * Used by findTextRange to map text.indexOf() result to node-level offsets.
+ */
+export function locateSubstringInNodes(
+  nodeLengths: number[],
+  substringStart: number,
+  substringLength: number
+): { start: TextNodeOffset; end: TextNodeOffset } | null {
+  const startPos = locateOffsetInNodes(nodeLengths, substringStart);
+  const endPos = locateOffsetInNodes(nodeLengths, substringStart + substringLength);
+  if (!startPos || !endPos) return null;
+  return { start: startPos, end: endPos };
+}

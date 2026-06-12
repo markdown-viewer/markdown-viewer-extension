@@ -383,6 +383,58 @@
     "message": "취소하고 제거",
     "description": "Cancel button in the annotation popup"
   },
+  "remark_cfg_title": {
+    "message": "주석 모드",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "빈 메모 자동 삭제",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "복사 후 탭 닫기",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "기본 색상",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_done": {
+    "message": "완료",
+    "description": "Button to close config panel"
+  },
+  "remark_cfg_font_size": {
+    "message": "글꼴 크기",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "강조 스타일",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_opacity": {
+    "message": "불투명도",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "기본값으로 재설정",
+    "description": "Button to reset all config to defaults"
+  },
+  "remark_cfg_style_bg": {
+    "message": "배경",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "테두리",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "밑줄",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "물결",
+    "description": "Highlight style: wavy underline"
+  },
   "remark_change_color": {
     "message": "색상 변경",
     "description": "Tooltip for changing the remark color"
@@ -435,6 +487,10 @@
     "message": "클릭하여 편집",
     "description": "Tooltip on a remark note in the sidebar indicating it is editable"
   },
+  "remark_empty": {
+    "message": "텍스트를 선택하여 메모 추가",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "텍스트를 선택해 주석 추가",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "주석 모드",
     "description": "Toolbar button tooltip to enter Remark Mode"
+  },
+  "remark_save": {
+    "message": "저장",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "설정",
+    "description": "Settings button tooltip"
   },
   "remark_sidebar_title": {
     "message": "주석",

@@ -383,6 +383,58 @@
     "message": "Cancelar e remover",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
   },
+  "remark_cfg_title": {
+    "message": "Modo de anotação",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Excluir notas vazias automaticamente",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Fechar aba após copiar",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Cor padrão",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_done": {
+    "message": "Concluído",
+    "description": "Button to close config panel"
+  },
+  "remark_cfg_font_size": {
+    "message": "Tamanho da fonte",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Estilo de destaque",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_opacity": {
+    "message": "Opacidade",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "Restaurar padrões",
+    "description": "Button to reset all config to defaults"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Fundo",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Borda",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Sublinhado",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Ondulado",
+    "description": "Highlight style: wavy underline"
+  },
   "remark_change_color": {
     "message": "Alterar cor",
     "description": "Tooltip for changing the remark color"
@@ -435,6 +487,10 @@
     "message": "Clique para editar",
     "description": "Tooltip for editing an existing remark note"
   },
+  "remark_empty": {
+    "message": "Selecione texto para adicionar notas",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "Selecione um texto para adicionar observações",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "Modo de observações",
     "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_save": {
+    "message": "Salvar",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "Configurações",
+    "description": "Settings button tooltip"
   },
   "remark_sidebar_title": {
     "message": "Observações",

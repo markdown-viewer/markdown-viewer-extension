@@ -383,6 +383,58 @@
     "message": "रद्द करें और हटाएँ",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
   },
+  "remark_cfg_title": {
+    "message": "टिप्पणी मोड",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "खाली टिप्पणियाँ स्वचालित रूप से हटाएँ",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "कॉपी करने के बाद टैब बंद करें",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "डिफ़ॉल्ट रंग",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_done": {
+    "message": "हो गया",
+    "description": "Button to close config panel"
+  },
+  "remark_cfg_font_size": {
+    "message": "फ़ॉन्ट आकार",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "हाइलाइट शैली",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_opacity": {
+    "message": "अपारदर्शिता",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "डिफ़ॉल्ट पर रीसेट करें",
+    "description": "Button to reset all config to defaults"
+  },
+  "remark_cfg_style_bg": {
+    "message": "पृष्ठभूमि",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "बॉर्डर",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "रेखांकित",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "लहरदार",
+    "description": "Highlight style: wavy underline"
+  },
   "remark_change_color": {
     "message": "रंग बदलें",
     "description": "Tooltip for changing the remark color"
@@ -435,6 +487,10 @@
     "message": "संपादित करने के लिए क्लिक करें",
     "description": "Tooltip for editing an existing remark note"
   },
+  "remark_empty": {
+    "message": "टिप्पणी जोड़ने के लिए टेक्स्ट चुनें",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "टिप्पणी जोड़ने के लिए पाठ चुनें",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "टिप्पणी मोड",
     "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_save": {
+    "message": "सहेजें",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "सेटिंग्स",
+    "description": "Settings button tooltip"
   },
   "remark_sidebar_title": {
     "message": "टिप्पणियाँ",

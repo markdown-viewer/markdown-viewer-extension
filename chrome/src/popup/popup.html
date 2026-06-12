@@ -174,6 +174,50 @@
         </div>
 
         <div class="info-section">
+          <h3 data-i18n="remark_cfg_title">Remark Mode</h3>
+          <div style="margin: 10px 0;">
+            <label class="checkbox-label">
+              <input type="checkbox" id="remark-auto-delete-empty" checked>
+              <span data-i18n="remark_cfg_auto_delete">Auto-delete empty remarks</span>
+            </label>
+          </div>
+          <div style="margin: 10px 0;">
+            <label class="checkbox-label">
+              <input type="checkbox" id="remark-close-after-copy">
+              <span data-i18n="remark_cfg_close_after_copy">Close tab after copy</span>
+            </label>
+          </div>
+          <div style="margin: 10px 0;">
+            <label for="remark-highlight-style" data-i18n="remark_cfg_highlight_style">Highlight style</label>
+            <select id="remark-highlight-style">
+              <option value="background" data-i18n="remark_cfg_style_bg">Background</option>
+              <option value="underline" data-i18n="remark_cfg_style_underline">Underline</option>
+              <option value="wavy" data-i18n="remark_cfg_style_wavy">Wavy</option>
+              <option value="border" data-i18n="remark_cfg_style_border">Border</option>
+            </select>
+          </div>
+          <div style="margin: 10px 0;">
+            <label for="remark-default-color" data-i18n="remark_cfg_default_color">Default color</label>
+            <select id="remark-default-color">
+              <option value="yellow">🟡 Suggestion</option>
+              <option value="green">🟢 Keep</option>
+              <option value="blue">🔵 Question</option>
+              <option value="pink">🩷 Concern</option>
+            </select>
+          </div>
+          <div style="margin: 10px 0;">
+            <label for="remark-font-size" data-i18n="remark_cfg_font_size">Font size</label>
+            <select id="remark-font-size">
+              <option value="12">12px</option>
+              <option value="13" selected>13px</option>
+              <option value="14">14px</option>
+              <option value="15">15px</option>
+              <option value="16">16px</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="info-section">
           <h3 data-i18n="settings_cache_title">Cache</h3>
           <div class="cache-stats" id="cache-stats">
             <div class="stat-item">

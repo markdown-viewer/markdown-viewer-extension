@@ -5,8 +5,9 @@ import {
   truncate, formatLineRef, getBlockRange, rangesOverlap, isMediaBlock,
   formatExportText,
   findTrLineInBlock, findLiLineInBlock, findCodeLineInBlock, narrowLineInBlock,
+  generateHighlightCSS, findSentenceBounds, SENTENCE_END_RE,
   COLOR_MAP, COLOR_LABELS, SKIP_ANNOTATION_TAGS,
-  type RemarkColor, type RemarkAnnotation,
+  type RemarkColor, type RemarkAnnotation, type HighlightStyle,
 } from './remark-utils';
 
 /**
@@ -87,16 +88,84 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     return translated;
   }
 
+  // ─── Config (persisted via chrome.storage.local) ────────────────────────────
+  const CONFIG_STORAGE_KEY = 'remarkConfig';
+  const CONFIG_DEFAULTS = {
+    autoDeleteEmpty: true,
+    autoDeleteDelay: 3000,    // ms wait after blur before auto-delete sequence starts
+    closeAfterCopy: false,    // close file/tab after export
+    highlightStyle: 'background' as 'background' | 'underline' | 'wavy' | 'border',
+    defaultColor: 'yellow' as RemarkColor,
+    fontSize: 13,             // sidebar font size 12-16
+  };
+  type RemarkConfig = typeof CONFIG_DEFAULTS;
+  const config: RemarkConfig = { ...CONFIG_DEFAULTS };
+
+  async function loadConfig(): Promise<void> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        const data = await chrome.storage.local.get(CONFIG_STORAGE_KEY);
+        if (data[CONFIG_STORAGE_KEY]) {
+          Object.assign(config, data[CONFIG_STORAGE_KEY]);
+        }
+      } else {
+        const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
+        if (stored) Object.assign(config, JSON.parse(stored));
+      }
+    } catch { /* storage unavailable — use defaults */ }
+  }
+
+  function saveConfig(): void {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        void chrome.storage.local.set({ [CONFIG_STORAGE_KEY]: { ...config } });
+      } else {
+        localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+      }
+    } catch { /* ignore */ }
+  }
+
+  function resetConfig(): void {
+    Object.assign(config, CONFIG_DEFAULTS);
+    saveConfig();
+  }
+
+  // Listen for config changes from popup settings page
+  if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes[CONFIG_STORAGE_KEY]?.newValue) {
+        Object.assign(config, changes[CONFIG_STORAGE_KEY].newValue);
+        applyConfigStyles();
+        if (active) renderHighlights();
+      }
+    });
+  }
+
+  /** Apply config-driven CSS variables to sidebar + highlights */
+  function applyConfigStyles(): void {
+    if (sidebarEl) {
+      sidebarEl.style.setProperty('--remark-font-size', `${config.fontSize}px`);
+    }
+    // Dynamic highlight style sheet
+    let dynStyle = document.getElementById('remark-dynamic-styles') as HTMLStyleElement;
+    if (!dynStyle) {
+      dynStyle = document.createElement('style');
+      dynStyle.id = 'remark-dynamic-styles';
+      document.head.appendChild(dynStyle);
+    }
+    dynStyle.textContent = generateHighlightCSS(config.highlightStyle as HighlightStyle);
+  }
+
   let active = false;
   let annotations: RemarkAnnotation[] = [];
   let softDeletedIds: Set<string> = new Set(); // IDs in 5s undo window — excluded from export
   let abortController: AbortController | null = null;
-  let popupEl: HTMLElement | null = null;
   let sidebarEl: HTMLElement | null = null;
   let tooltipEl: HTMLElement | null = null;
   let pendingFocusId: string | null = null; // for focus chain across re-renders
   let sidebarHideCleanupTimer: ReturnType<typeof setTimeout> | null = null;
   let sidebarHideCleanupToken = 0;
+  const autoDeleteTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   function cancelPendingSidebarCleanup(): void {
     sidebarHideCleanupToken += 1;
@@ -137,11 +206,19 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       container.addEventListener('mouseout', handleHoverOut, { signal });
     }
 
+    // Clamp table selection to single cell — prevents cross-cell selection visually
+    document.addEventListener('selectionchange', clampTableSelection, { signal });
+
 
     document.body.classList.add('remark-panel-open');
     injectStyles();
-    renderHighlights();
-    showSidebar();
+
+    // Load config before rendering so sidebar reflects persisted values
+    void loadConfig().then(() => {
+      if (!active) return; // exited during async load
+      renderHighlights();
+      showSidebar();
+    });
 
     // Always schedule to catch streamed/async blocks that appear after enter().
     // Handles: container not yet in DOM, [data-line] not yet rendered, and
@@ -161,19 +238,18 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     if (undoTimer) { clearTimeout(undoTimer); undoTimer = null; }
     if (undoQueue.length) { commitPendingDeletes(); }
 
-    hidePopup();
     hideTooltip();
     onModeChange?.(false); // toolbar state changes immediately
 
-    // Choreographed exit: fade highlights first, then slide sidebar
+    // Choreographed exit: fade marks, then clear
     const container = getContainer();
     if (container) {
       container.classList.remove('remark-mode-active');
       container.classList.add('remark-exiting');
-      // Highlights fade via CSS transition (120ms)
+      // Marks fade via CSS transition (120ms)
       setTimeout(() => {
         container.classList.remove('remark-exiting');
-        clearHighlights();
+        clearMarks();
       }, 160);
     }
     hideSidebar();
@@ -199,10 +275,12 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
   async function saveAnnotations(): Promise<void> {
     try {
       const key = storageKey();
+      // Exclude soft-deleted annotations (in undo window) from persistence
+      const toSave = annotations.filter(a => !softDeletedIds.has(a.id));
       if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-        await chrome.storage.local.set({ [key]: annotations });
+        await chrome.storage.local.set({ [key]: toSave });
       } else {
-        localStorage.setItem(key, JSON.stringify(annotations));
+        localStorage.setItem(key, JSON.stringify(toSave));
       }
     } catch {
       // Silently fail — annotations remain in-memory
@@ -304,16 +382,52 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
 
   // ─── Selection Handling ──────────────────────────────────────────────────
 
+  /** Clamp selection to stay within a single table cell */
+  function clampTableSelection(): void {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const startEl = range.startContainer instanceof HTMLElement
+      ? range.startContainer : range.startContainer.parentElement;
+    const startCell = startEl?.closest('td, th');
+    if (!startCell) return; // Not in a table — no clamping needed
+    const endEl = range.endContainer instanceof HTMLElement
+      ? range.endContainer : range.endContainer.parentElement;
+    const endCell = endEl?.closest('td, th');
+    if (endCell === startCell) return; // Within same cell — OK
+    // Selection crossed cell boundary — clamp to starting cell
+    const clamped = document.createRange();
+    clamped.setStart(range.startContainer, range.startOffset);
+    clamped.setEnd(startCell, startCell.childNodes.length);
+    sel.removeAllRanges();
+    sel.addRange(clamped);
+  }
+
   function handleSelection(): void {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+    if (!sel || !sel.rangeCount) return;
+
+    const container = getContainer();
+    if (!container) return;
+
+    // Click-to-annotate: collapsed selection = click without drag
+    if (sel.isCollapsed) {
+      handleClickToAnnotate(sel, container);
       return;
     }
 
-    const range = sel.getRangeAt(0);
-    const container = getContainer();
-    if (!container || !container.contains(range.commonAncestorContainer)) {
-      return;
+    let range = sel.getRangeAt(0);
+    if (!container.contains(range.commonAncestorContainer)) return;
+
+    // Table guard: if selection somehow crosses cell boundary, ignore
+    const startNode = range.startContainer;
+    const startEl = startNode instanceof HTMLElement ? startNode : startNode.parentElement;
+    if (startEl?.closest('td, th')) {
+      const endNode = range.endContainer;
+      const endEl = endNode instanceof HTMLElement ? endNode : endNode.parentElement;
+      const startCell = startEl.closest('td, th');
+      const endCell = endEl?.closest('td, th');
+      if (startCell !== endCell) return; // Cross-cell — should not happen due to clamp
     }
 
     const selectedText = sel.toString().trim();
@@ -325,7 +439,78 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     // Skip media blocks (images, charts, diagrams)
     if (startBlock && isMediaBlock(startBlock)) return;
 
-    showPopup(range, selectedText, startLine, endLine, blockId, startBlock ?? undefined);
+    // Deduplicate: if same text already annotated in same block, scroll to it
+    const existing = annotations.find(a =>
+      a.selectedText === selectedText && a.startLine === startLine && !softDeletedIds.has(a.id)
+    );
+    if (existing) {
+      sel.removeAllRanges();
+      onMarkClick(existing.id);
+      return;
+    }
+
+    // Create annotation with precise mark from live Range
+    createAndFocusSidebar(selectedText, startLine, endLine, range, blockId);
+    sel.removeAllRanges();
+  }
+
+  function handleClickToAnnotate(sel: Selection, container: HTMLElement): void {
+    const anchor = sel.anchorNode;
+    if (!anchor || !container.contains(anchor)) return;
+
+    // Don't trigger on mark clicks (handled by onMarkClick)
+    const el = anchor instanceof HTMLElement ? anchor : anchor.parentElement;
+    if (el?.closest('mark.remark-ann')) return;
+
+    // Find block
+    const block = findBlockAncestor(anchor, container);
+    if (!block || isMediaBlock(block)) return;
+
+    // For table clicks, narrow to the clicked cell
+    const cell = el?.closest('td, th') as HTMLElement | null;
+    const scope = cell || block;
+
+    const fullText = scope.textContent || '';
+    if (!fullText.trim()) return;
+
+    // Find the sentence around the click offset
+    const offset = sel.anchorOffset;
+    // Walk text nodes to find global offset in scope
+    let globalOffset = 0;
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+    let found = false;
+    while (walker.nextNode()) {
+      if (walker.currentNode === anchor) {
+        globalOffset += offset;
+        found = true;
+        break;
+      }
+      globalOffset += (walker.currentNode as Text).textContent!.length;
+    }
+    if (!found) globalOffset = 0;
+
+    // Find sentence boundaries
+    const bounds = findSentenceBounds(fullText, globalOffset);
+
+    const sentenceText = fullText.slice(bounds.start, bounds.end).trim();
+    if (!sentenceText) return;
+
+    const startLine = Number(block.getAttribute('data-line')) || 0;
+    const lineCount = Number(block.getAttribute('data-line-count')) || 1;
+    const endLine = startLine + lineCount - 1;
+
+    // Deduplicate
+    const existing = annotations.find(a =>
+      a.selectedText === sentenceText && a.startLine === startLine && !softDeletedIds.has(a.id)
+    );
+    if (existing) { onMarkClick(existing.id); return; }
+
+    // Create range for the sentence text
+    const range = findTextRange(scope, sentenceText);
+    if (!range) return;
+
+    createAndFocusSidebar(sentenceText, startLine, endLine, range,
+      block.getAttribute('data-block-id') || undefined);
   }
 
 
@@ -383,25 +568,27 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
   // ─── Hover Tooltip ─────────────────────────────────────────────────────────
 
   function handleHover(e: Event): void {
-    const target = (e.target as HTMLElement).closest?.('[data-line][data-block-id]') as HTMLElement | null;
-    if (!target || !target.classList.contains('remark-highlighted')) return;
-    if (isMediaBlock(target)) return;
+    // Show tooltip when hovering over a marked annotation
+    const mark = (e.target as HTMLElement).closest?.('mark.remark-ann') as HTMLElement | null;
+    if (!mark) return;
+    const annId = mark.dataset.annId;
+    if (!annId) return;
 
-    const { start: blockLine, end: blockEnd } = getBlockRange(target);
+    const ann = annotations.find(a => a.id === annId);
+    if (!ann || !ann.note) return; // Only show tooltip if there's a note
 
-    // Find annotations for this block
-    const blockAnns = annotations.filter(a => rangesOverlap(a.startLine, a.endLine, blockLine, blockEnd));
-    if (blockAnns.length === 0) return;
-
-    showTooltip(target, blockAnns);
+    showTooltip(mark, [ann]);
   }
 
   function handleHoverOut(e: Event): void {
-    const target = (e.target as HTMLElement).closest?.('[data-line][data-block-id]') as HTMLElement | null;
-    if (!target) return;
-    // Only hide if moving away from a highlighted block
+    const mark = (e.target as HTMLElement).closest?.('mark.remark-ann') as HTMLElement | null;
+    if (!mark) {
+      // Also handle moving away from tooltip itself
+      const tooltip = (e.target as HTMLElement).closest?.('.remark-tooltip');
+      if (!tooltip) return;
+    }
     const related = (e as MouseEvent).relatedTarget as HTMLElement | null;
-    if (related && (related.closest?.('.remark-tooltip') || related.closest?.('[data-line][data-block-id].remark-highlighted'))) {
+    if (related && (related.closest?.('.remark-tooltip') || related.closest?.('mark.remark-ann'))) {
       return;
     }
     hideTooltip();
@@ -442,162 +629,235 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     }
   }
 
-  // ─── Popup ─────────────────────────────────────────────────────────────────
+  // ─── Precise Mark Highlighting ───────────────────────────────────────────────
 
-  function showPopup(range: Range, selectedText: string, startLine: number, endLine: number, blockId?: string, targetBlock?: HTMLElement): void {
-    hidePopup();
+  /**
+   * Find text within a DOM subtree and return a Range spanning it.
+   * Skips existing <mark> elements to avoid double-wrapping.
+   */
+  function findTextRange(root: Element, text: string): Range | null {
+    const full = root.textContent || '';
+    const idx = full.indexOf(text);
+    if (idx === -1) return null;
 
-    // Highlight the block being annotated
-    if (targetBlock) {
-      targetBlock.classList.add('remark-popup-target');
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let charCount = 0;
+    let startNode: Text | null = null;
+    let startOffset = 0;
+    let endNode: Text | null = null;
+    let endOffset = 0;
+    let node: Node | null;
+
+    while ((node = walker.nextNode())) {
+      // Skip text inside existing marks
+      if ((node as Text).parentElement?.closest('mark.remark-ann')) continue;
+      const len = (node as Text).textContent!.length;
+      if (!startNode && charCount + len > idx) {
+        startNode = node as Text;
+        startOffset = idx - charCount;
+      }
+      if (charCount + len >= idx + text.length) {
+        endNode = node as Text;
+        endOffset = idx + text.length - charCount;
+        break;
+      }
+      charCount += len;
     }
 
-    // Create annotation immediately with default color
+    if (!startNode || !endNode) return null;
+    try {
+      const range = document.createRange();
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+      return range;
+    } catch { return null; }
+  }
+
+  /**
+   * Collect text nodes within a Range, splitting at boundaries.
+   * Skips table-structural whitespace nodes (children of tr/tbody/thead/table).
+   */
+  function getTextNodesInRange(range: Range): Array<{ node: Text; start: number; end: number }> {
+    const nodes: Array<{ node: Text; start: number; end: number }> = [];
+    const root = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(
+      root.nodeType === Node.TEXT_NODE ? root.parentNode! : root,
+      NodeFilter.SHOW_TEXT
+    );
+    const TABLE_STRUCTURAL = new Set(['TR', 'TBODY', 'THEAD', 'TFOOT', 'TABLE']);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      if ((node as Text).parentElement?.closest('mark.remark-ann')) continue;
+      if (!range.intersectsNode(node)) continue;
+      // Skip whitespace-only text nodes that are direct children of table structural elements
+      const parentTag = (node as Text).parentElement?.tagName;
+      if (parentTag && TABLE_STRUCTURAL.has(parentTag) && !(node as Text).textContent?.trim()) continue;
+      const start = node === range.startContainer ? range.startOffset : 0;
+      const end = node === range.endContainer ? range.endOffset : (node as Text).textContent!.length;
+      if (start < end) nodes.push({ node: node as Text, start, end });
+    }
+    return nodes;
+  }
+
+  const BLOCK_TAGS = new Set(['LI', 'TD', 'TH', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV', 'BLOCKQUOTE', 'PRE']);
+
+  /** Check if a Range spans across block-level element boundaries (e.g., multiple <li>) */
+  function rangeSpansBlockElements(range: Range): boolean {
+    const startEl = range.startContainer instanceof HTMLElement ? range.startContainer : range.startContainer.parentElement;
+    const endEl = range.endContainer instanceof HTMLElement ? range.endContainer : range.endContainer.parentElement;
+    if (!startEl || !endEl) return false;
+    const startBlock = startEl.closest('li, td, th, p, pre');
+    const endBlock = endEl.closest('li, td, th, p, pre');
+    return !!(startBlock && endBlock && startBlock !== endBlock);
+  }
+
+  /**
+   * Wrap a Range with <mark> elements. Returns the first mark, or null on failure.
+   * Handles both simple (single text node) and complex (multi-node) cases.
+   */
+  function applyMark(range: Range, id: string, color: RemarkColor): HTMLElement | null {
+    const cls = `remark-ann remark-ann-${color}`;
+
+    // Detect if range spans block-level elements (li, td, p, etc.)
+    // In that case, extractContents would rip block structure → go straight to per-node wrap
+    const spansBlocks = rangeSpansBlockElements(range);
+
+    // Strategy 1: extractContents (works when range is within a single inline context)
+    if (!spansBlocks) {
+      try {
+        const contents = range.extractContents();
+        const mark = document.createElement('mark');
+        mark.className = cls;
+        mark.dataset.annId = id;
+        mark.addEventListener('click', (e) => { e.stopPropagation(); onMarkClick(id); });
+        mark.appendChild(contents);
+        range.insertNode(mark);
+        return mark;
+      } catch {
+        // Falls through to multi-node wrap
+      }
+    }
+
+    // Strategy 2: Wrap each text node independently
+    const textNodes = getTextNodesInRange(range);
+    let first: HTMLElement | null = null;
+    for (const { node, start, end } of textNodes) {
+      try {
+        const r = document.createRange();
+        r.setStart(node, start);
+        r.setEnd(node, end);
+        const mark = document.createElement('mark');
+        mark.className = cls;
+        mark.dataset.annId = id;
+        mark.dataset.annSeq = first ? 'cont' : 'first';
+        mark.addEventListener('click', (e) => { e.stopPropagation(); onMarkClick(id); });
+        r.surroundContents(mark);
+        if (!first) first = mark;
+      } catch {
+        // Skip nodes that can't be wrapped
+      }
+    }
+    return first;
+  }
+
+  /**
+   * Remove all <mark> elements, preserving their content.
+   */
+  function clearMarks(): void {
+    const container = getContainer();
+    if (!container) return;
+    container.querySelectorAll('mark.remark-ann').forEach(mark => {
+      const parent = mark.parentNode!;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+    });
+    // Normalize text nodes that were split by mark insertion
+    container.normalize();
+  }
+
+  /**
+   * Restore marks for all annotations by searching their selectedText in the DOM.
+   */
+  function restoreMarks(): void {
+    const container = getContainer();
+    if (!container) return;
+
+    const visibleAnnotations = annotations.filter(a => !softDeletedIds.has(a.id));
+    for (const ann of visibleAnnotations) {
+      // Find the block this annotation belongs to
+      const blocks = container.querySelectorAll<HTMLElement>('[data-line]');
+      let marked = false;
+      for (const block of blocks) {
+        const { start: blockLine, end: blockEnd } = getBlockRange(block);
+        if (!rangesOverlap(blockLine, blockEnd, ann.startLine, ann.endLine)) continue;
+
+        const range = findTextRange(block, ann.selectedText);
+        if (range) {
+          applyMark(range, ann.id, ann.color);
+          marked = true;
+          break;
+        }
+      }
+      // If text not found (document changed), annotation is "orphaned"
+      // It still appears in sidebar with ⚠️ but no inline mark
+      if (!marked) {
+        // Tag for sidebar display
+        (ann as RemarkAnnotation & { _orphaned?: boolean })._orphaned = true;
+      }
+    }
+  }
+
+  /**
+   * Click on an inline <mark> → scroll sidebar to that annotation + focus textarea
+   */
+  function onMarkClick(annId: string): void {
+    if (!sidebarEl) return;
+    const item = sidebarEl.querySelector<HTMLElement>(`.remark-sidebar-item[data-ann-id="${annId}"]`);
+    const ta = item?.querySelector<HTMLTextAreaElement>('.remark-sidebar-note-editor');
+    if (item) {
+      item.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+      // Landing pulse on sidebar item
+      item.classList.add('remark-item-landing');
+      setTimeout(() => item.classList.remove('remark-item-landing'), 800);
+    }
+    if (ta) ta.focus();
+
+    // Landing pulse on marks
+    const container = getContainer();
+    if (container) {
+      container.querySelectorAll<HTMLElement>(`mark[data-ann-id="${annId}"]`).forEach(m => {
+        m.classList.add('remark-landing');
+        setTimeout(() => m.classList.remove('remark-landing'), 800);
+      });
+    }
+  }
+
+  // ─── Sidebar-first creation ────────────────────────────────────────────────
+
+  function createAndFocusSidebar(selectedText: string, startLine: number, endLine: number, range: Range, blockId?: string): void {
     const annId = generateId();
     const ann: RemarkAnnotation = {
       id: annId, startLine, endLine, selectedText,
-      note: '', color: 'yellow', timestamp: Date.now(), blockId,
+      note: '', color: config.defaultColor, timestamp: Date.now(), blockId,
     };
     annotations.push(ann);
-    renderHighlights();
+
+    // Apply inline mark directly from the live Range (most reliable)
+    applyMark(range, annId, ann.color);
+
     renderSidebarContent();
     notifyCount();
     void saveAnnotations();
 
-    const rect = range.getBoundingClientRect();
-    popupEl = document.createElement('div');
-    popupEl.className = 'remark-popup';
-    popupEl.innerHTML = buildPopupHTML(selectedText);
-
-    document.body.appendChild(popupEl);
-
-    // Position below selection
-    const popupRect = popupEl.getBoundingClientRect();
-    let top = rect.bottom + 8;
-    let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
-
-    if (left < 8) left = 8;
-    if (left + popupRect.width > window.innerWidth - 8) {
-      left = window.innerWidth - popupRect.width - 8;
-    }
-    if (top + popupRect.height > window.innerHeight - 8) {
-      top = rect.top - popupRect.height - 8;
-    }
-
-    popupEl.style.top = `${top}px`;
-    popupEl.style.left = `${left}px`;
-
-    // Wire color buttons — change existing annotation's color
-    let interacted = false;
-    const colorsDiv = popupEl.querySelector<HTMLElement>('.remark-popup-colors');
-    const colorToggleBtn = popupEl.querySelector<HTMLButtonElement>('.remark-color-toggle');
-    const colorBtns = popupEl.querySelectorAll<HTMLButtonElement>('.remark-color-btn');
-
-    // Toggle color picker on dot click
-    colorToggleBtn?.addEventListener('click', () => {
-      const isOpen = colorsDiv?.style.display !== 'none';
-      if (colorsDiv) colorsDiv.style.display = isOpen ? 'none' : 'flex';
-    });
-
-    colorBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        interacted = true;
-        colorBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        ann.color = btn.dataset.color as RemarkColor;
-        // Update toggle dot to reflect selected color
-        if (colorToggleBtn) colorToggleBtn.textContent = COLOR_MAP[ann.color].emoji;
-        // Collapse the picker after selection
-        if (colorsDiv) colorsDiv.style.display = 'none';
-        renderHighlights();
-        renderSidebarContent();
-        void saveAnnotations();
-      });
-    });
-
-    const cancelBtn = popupEl.querySelector('.remark-cancel-btn');
-    const noteInput = popupEl.querySelector<HTMLTextAreaElement>('.remark-note-input');
-
-    // Cancel → delete the just-created annotation
-    cancelBtn?.addEventListener('click', () => {
-      annotations = annotations.filter(a => a.id !== annId);
-      renderHighlights();
-      renderSidebarContent();
-      notifyCount();
-      void saveAnnotations();
-      hidePopup();
-      window.getSelection()?.removeAllRanges();
-    });
-
-    // Save note on Enter (without shift)
-    noteInput?.addEventListener('keydown', (ke) => {
-      if (ke.key === 'Enter' && !ke.shiftKey) {
-        ke.preventDefault();
-        ann.note = noteInput.value.trim();
-        renderSidebarContent();
-        void saveAnnotations();
-        hidePopup();
-        window.getSelection()?.removeAllRanges();
+    // Focus the new item's textarea in sidebar
+    requestAnimationFrame(() => {
+      const item = sidebarEl?.querySelector(`.remark-sidebar-item[data-ann-id="${annId}"]`);
+      const ta = item?.querySelector<HTMLTextAreaElement>('.remark-sidebar-note-editor');
+      if (ta) {
+        item?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+        ta.focus();
       }
     });
-
-    setTimeout(() => noteInput?.focus(), 50);
-
-
-    // Click outside → cancel (remove annotation) if user never interacted; otherwise save
-    const outsideHandler = (e: MouseEvent) => {
-      if (popupEl && !popupEl.contains(e.target as Node)) {
-        const note = noteInput?.value.trim() ?? '';
-        if (!interacted && note === '') {
-          // No interaction — silently discard the annotation
-          annotations = annotations.filter(a => a.id !== annId);
-          renderHighlights();
-          renderSidebarContent();
-          notifyCount();
-          void saveAnnotations();
-          window.getSelection()?.removeAllRanges();
-        } else if (noteInput) {
-          ann.note = note;
-          renderSidebarContent();
-          void saveAnnotations();
-        }
-        hidePopup();
-        document.removeEventListener('mousedown', outsideHandler);
-      }
-    };
-    setTimeout(() => document.addEventListener('mousedown', outsideHandler), 100);
-  }
-
-  function buildPopupHTML(selectedText: string): string {
-    const preview = escapeHtml(truncate(selectedText, 80));
-
-    return `
-      <div class="remark-popup-header">
-        <span class="remark-popup-quote">"${preview}"</span>
-      </div>
-      <div class="remark-popup-colors" style="display:none">
-        ${(Object.keys(COLOR_MAP) as RemarkColor[]).map((c, i) => `
-          <button class="remark-color-btn${i === 0 ? ' active' : ''}" data-color="${c}" title="${t(`remark_color_${c}`, COLOR_LABELS[c])}">
-            ${COLOR_MAP[c].emoji} <span class="remark-color-label">${getColorLabel(c)}</span>
-          </button>
-        `).join('')}
-      </div>
-      <textarea class="remark-note-input" placeholder="${t('remark_add_note', 'Add a note...')}" rows="2"></textarea>
-      <div class="remark-popup-actions">
-        <button class="remark-color-toggle" title="${t('remark_change_color', 'Change color')}">${COLOR_MAP.yellow.emoji}</button>
-        <button class="remark-cancel-btn">${t('remark_cancel', 'Cancel & remove')}</button>
-      </div>
-    `;
-  }
-
-  function hidePopup(): void {
-    if (popupEl) {
-      popupEl.remove();
-      popupEl = null;
-    }
-    // Remove any temporary block highlight
-    document.querySelectorAll('.remark-popup-target')
-      .forEach(el => el.classList.remove('remark-popup-target'));
   }
 
   // ─── Annotations ───────────────────────────────────────────────────────────
@@ -709,10 +969,42 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     softDeletedIds.add(id);
     undoQueue.push({ id, ann: { ...ann } });
     updateExportBtnState();
-    renderHighlights();
-    renderSidebarContent();
+    // Remove marks for this annotation
+    removeMarksForAnnotation(id);
+    // Animate sidebar item collapse instead of full re-render
+    const sidebarItem = sidebarEl?.querySelector<HTMLElement>(`.remark-sidebar-item[data-ann-id="${id}"]`);
+    if (sidebarItem) {
+      sidebarItem.classList.add('remark-item-collapsing');
+      setTimeout(() => sidebarItem.remove(), 500);
+    }
     notifyCount();
     showUndoToast();
+    void saveAnnotations(); // Persist immediately so refresh reflects deletion
+  }
+
+  /** Remove annotation silently (no undo toast) — used for auto-delete empty */
+  function silentRemoveAnnotation(id: string): void {
+    const idx = annotations.findIndex(a => a.id === id);
+    if (idx === -1) return;
+    annotations.splice(idx, 1);
+    removeMarksForAnnotation(id);
+    // Remove sidebar item directly (already collapsed by CSS animation)
+    const sidebarItem = sidebarEl?.querySelector<HTMLElement>(`.remark-sidebar-item[data-ann-id="${id}"]`);
+    if (sidebarItem) sidebarItem.remove();
+    notifyCount();
+    void saveAnnotations();
+  }
+
+  /** Remove inline <mark> elements for a specific annotation */
+  function removeMarksForAnnotation(id: string): void {
+    const container = getContainer();
+    if (!container) return;
+    container.querySelectorAll<HTMLElement>(`mark[data-ann-id="${id}"]`).forEach(mark => {
+      const parent = mark.parentNode!;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+    });
+    container.normalize();
   }
 
   function updateAnnotationNote(id: string, note: string): void {
@@ -740,7 +1032,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       <div class="remark-sidebar-header">
         <span class="remark-sidebar-title">${t('remark_sidebar_title', 'Remarks')} <span class="remark-sidebar-count"></span></span>
         <div class="remark-sidebar-actions">
-          <button class="remark-sidebar-export" title="${t('remark_copy_tooltip', 'Copy all remarks to clipboard')}">📋 ${t('remark_copy_btn', 'Copy remarks')}</button>
+          <button class="remark-sidebar-export" title="${t('remark_copy_tooltip', 'Copy all remarks to clipboard')}">📋 ${t('remark_copy_btn', 'Copy')}</button>
           <button class="remark-sidebar-clear" title="${t('remark_clear_all', 'Clear all remarks')}">🗑️</button>
         </div>
       </div>
@@ -748,6 +1040,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     `;
 
     el.classList.remove('remark-sidebar-closed');
+    applyConfigStyles();
 
     // Wire export button: copy and reset (no auto-exit, allows repeated copy)
     const exportBtn = el.querySelector<HTMLButtonElement>('.remark-sidebar-export');
@@ -755,15 +1048,28 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       const result = await exportToClipboard();
       if (exportBtn) {
         if (result.ok) {
+          if (config.closeAfterCopy) {
+            exportBtn.textContent = `✅ ${t('remark_copied', 'Copied!')}`;
+            exportBtn.disabled = true;
+            let countdown = 3;
+            const tick = (): void => {
+              if (countdown <= 0) { window.close(); return; }
+              exportBtn.textContent = `🔄 closing ${countdown}`;
+              countdown--;
+              setTimeout(tick, 1000);
+            };
+            setTimeout(tick, 1000); // 1s showing "Copied!" then start countdown
+            return;
+          }
           exportBtn.textContent = `✅ ${t('remark_copied', 'Copied!')}`;
           exportBtn.disabled = true;
           setTimeout(() => {
-            exportBtn.textContent = `📋 ${t('remark_copy_btn', 'Copy remarks')}`;
+            exportBtn.textContent = `📋 ${t('remark_copy_btn', 'Copy')}`;
             exportBtn.disabled = false;
           }, 2000);
         } else {
           exportBtn.textContent = `⚠️ ${t('remark_copy_failed', 'Failed')}`;
-          setTimeout(() => { exportBtn.textContent = `📋 ${t('remark_copy_btn', 'Copy remarks')}`; exportBtn.disabled = false; }, 2000);
+          setTimeout(() => { exportBtn.textContent = `📋 ${t('remark_copy_btn', 'Copy')}`; exportBtn.disabled = false; }, 2000);
         }
       }
     });
@@ -787,6 +1093,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         renderSidebarContent();
         notifyCount();
         showUndoToast();
+        void saveAnnotations(); // Persist immediately so refresh reflects deletion
       });
     }
 
@@ -839,21 +1146,28 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     }
 
     const sorted = [...visibleAnnotations].sort((a, b) => a.startLine - b.startLine);
-    list.innerHTML = sorted.map(ann => {
+    list.innerHTML = sorted.map((ann, idx) => {
       const lineRef = formatLineRef(ann.startLine, ann.endLine);
       const quote = escapeHtml(truncate(ann.selectedText, 50));
-      const noteHtml = ann.note
-        ? `<div class="remark-sidebar-note" data-editable title="${t('remark_edit_note', 'Click to edit')}">${escapeHtml(ann.note)}</div>`
-        : `<div class="remark-sidebar-note remark-note-placeholder" data-editable title="${t('remark_add_note', 'Add a note…')}">${t('remark_add_note', 'Add a note…')}</div>`;
+      const noteEscaped = escapeHtml(ann.note || '');
+      const orphaned = (ann as RemarkAnnotation & { _orphaned?: boolean })._orphaned;
+      const colorOptions = (['yellow', 'green', 'blue', 'pink'] as RemarkColor[]).map(c =>
+        `<span class="remark-color-opt${c === ann.color ? ' active' : ''}" data-color="${c}" title="${COLOR_LABELS[c]}">${COLOR_MAP[c].emoji}</span>`
+      ).join('');
 
       return `
         <div class="remark-sidebar-item" data-ann-id="${ann.id}">
           <div class="remark-sidebar-item-header">
-            <span>${COLOR_MAP[ann.color].emoji} <strong>${lineRef}</strong></span>
+            <span class="remark-sidebar-ref">
+              <span class="remark-color-dot" data-ann-id="${ann.id}">${COLOR_MAP[ann.color].emoji}</span>
+              <span class="remark-lineref-pill">${orphaned ? '⚠️ ' : ''}${lineRef}</span>
+              <span class="remark-ann-seq">#${idx + 1}</span>
+            </span>
             <button class="remark-sidebar-delete" data-ann-id="${ann.id}" title="${t('remark_delete', 'Delete')}">✕</button>
           </div>
+          <div class="remark-color-picker" style="display:none">${colorOptions}</div>
           <div class="remark-sidebar-quote">"${quote}"</div>
-          ${noteHtml}
+          <textarea class="remark-sidebar-note-editor" placeholder="${t('remark_add_note', 'Add a note…')}" rows="1">${noteEscaped}</textarea>
         </div>
       `;
     }).join('');
@@ -864,48 +1178,35 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
 
       const container = getContainer();
       if (container) {
-        // Use range-overlap so row-level annotations (whose startLine may differ
-        // from the block's data-line) still scroll to the correct block.
-        const block = Array.from(
-          container.querySelectorAll<HTMLElement>('[data-line]')
-        ).find(el => {
-          const { start, end } = getBlockRange(el);
-          return rangesOverlap(start, end, ann.startLine, ann.endLine);
-        }) ?? null;
-        if (block) {
-          const rect = block.getBoundingClientRect();
+        // Find the inline <mark> for this annotation
+        const mark = container.querySelector<HTMLElement>(`mark[data-ann-id="${id}"]`);
+        if (mark) {
+          const rect = mark.getBoundingClientRect();
           const inViewport = rect.top >= 0 && rect.bottom <= window.innerHeight;
           if (!inViewport) {
-            block.scrollIntoView({ behavior: 'auto', block: 'center' });
-            // Landing pulse after scroll settles
-            setTimeout(() => {
-              block.classList.add('remark-landing');
-              setTimeout(() => block.classList.remove('remark-landing'), 1000);
-            }, 300);
-          } else {
-            // Already visible — pulse immediately
-            block.classList.add('remark-landing');
-            setTimeout(() => block.classList.remove('remark-landing'), 1000);
+            mark.scrollIntoView({ behavior: 'auto', block: 'center' });
           }
+          // Landing pulse on the mark
+          mark.classList.add('remark-landing');
+          setTimeout(() => mark.classList.remove('remark-landing'), 800);
+        } else {
+          // Fallback: scroll to block if mark not rendered (orphaned)
+          const block = Array.from(
+            container.querySelectorAll<HTMLElement>('[data-line]')
+          ).find(el => {
+            const { start, end } = getBlockRange(el);
+            return rangesOverlap(start, end, ann.startLine, ann.endLine);
+          });
+          if (block) block.scrollIntoView({ behavior: 'auto', block: 'center' });
         }
       }
 
       const targetItem = list.querySelector(`.remark-sidebar-item[data-ann-id="${id}"]`);
-      const noteEl = targetItem?.querySelector('[data-editable]') as HTMLElement | null;
-      if (noteEl) noteEl.click();
+      const ta = targetItem?.querySelector<HTMLTextAreaElement>('.remark-sidebar-note-editor');
+      if (ta) ta.focus();
     };
 
-    const requestAnnotationFocus = (id: string, event?: MouseEvent): void => {
-      const activeEditor = sidebarEl?.querySelector('.remark-sidebar-note-editor') as HTMLTextAreaElement | null;
-      const activeItemId = activeEditor?.closest('.remark-sidebar-item')?.getAttribute('data-ann-id') || null;
-
-      if (activeEditor && activeItemId !== id) {
-        pendingFocusId = id;
-        event?.preventDefault();
-        activeEditor.blur();
-        return;
-      }
-
+    const requestAnnotationFocus = (id: string, _event?: MouseEvent): void => {
       focusAnnotationFromSidebar(id);
     };
 
@@ -923,85 +1224,152 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       });
     });
 
-    // Wire click-to-scroll (on header/quote area, not note)
+    // Wire color dot → toggle picker
+    list.querySelectorAll('.remark-color-dot').forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = (dot as HTMLElement).closest('.remark-sidebar-item');
+        const picker = item?.querySelector<HTMLElement>('.remark-color-picker');
+        if (picker) picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+      });
+    });
+
+    // Wire color picker options
+    list.querySelectorAll('.remark-color-opt').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const color = (opt as HTMLElement).dataset.color as RemarkColor;
+        const item = (opt as HTMLElement).closest('.remark-sidebar-item') as HTMLElement | null;
+        const id = item?.dataset.annId;
+        if (!id || !color) return;
+        const ann = annotations.find(a => a.id === id);
+        if (!ann) return;
+        ann.color = color;
+        // Update marks in content
+        removeMarksForAnnotation(id);
+        const container = getContainer();
+        if (container) {
+          const blocks = container.querySelectorAll<HTMLElement>('[data-line]');
+          for (const block of blocks) {
+            const { start, end } = getBlockRange(block);
+            if (rangesOverlap(start, end, ann.startLine, ann.endLine)) {
+              const range = findTextRange(block, ann.selectedText);
+              if (range) applyMark(range, id, color);
+              break;
+            }
+          }
+        }
+        // Update sidebar item in-place (no full re-render)
+        const dot = item?.querySelector<HTMLElement>('.remark-color-dot');
+        if (dot) dot.textContent = COLOR_MAP[color].emoji;
+        const picker = item?.querySelector<HTMLElement>('.remark-color-picker');
+        if (picker) picker.style.display = 'none';
+        void saveAnnotations();
+      });
+    });
+
+    // Wire click-to-scroll (on header/quote area)
     list.querySelectorAll('.remark-sidebar-item').forEach(item => {
       const header = item.querySelector('.remark-sidebar-item-header');
       const quote = item.querySelector('.remark-sidebar-quote');
       [header, quote].forEach(el => {
         el?.addEventListener('mousedown', (e) => {
-          if ((e.target as HTMLElement | null)?.closest?.('.remark-sidebar-delete')) return;
+          if ((e.target as HTMLElement | null)?.closest?.('.remark-sidebar-delete, .remark-color-dot')) return;
           const id = (item as HTMLElement).dataset.annId;
           if (!id) return;
           requestAnnotationFocus(id, e as MouseEvent);
         });
       });
 
-      // Wire inline note editing
-      const noteEl = item.querySelector('[data-editable]') as HTMLElement | null;
-      noteEl?.addEventListener('mousedown', (e) => {
-        const id = (item as HTMLElement).dataset.annId;
-        if (!id) return;
-        const activeEditor = sidebarEl?.querySelector('.remark-sidebar-note-editor') as HTMLTextAreaElement | null;
-        const activeItemId = activeEditor?.closest('.remark-sidebar-item')?.getAttribute('data-ann-id') || null;
-        if (activeEditor && activeItemId !== id) {
-          pendingFocusId = id;
-          e.preventDefault();
-          activeEditor.blur();
-        }
+      // Wire always-visible textarea (auto-grow + save on input)
+      const ta = item.querySelector<HTMLTextAreaElement>('.remark-sidebar-note-editor');
+      if (!ta) return;
+      const id = (item as HTMLElement).dataset.annId;
+
+      const autoResize = (): void => {
+        ta.style.height = 'auto';
+        const lineHeight = parseInt(getComputedStyle(ta).lineHeight) || 18;
+        const maxH = lineHeight * 5 + 12;
+        ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
+        ta.style.overflow = ta.scrollHeight > maxH ? 'auto' : 'hidden';
+      };
+
+      // Auto-resize on content
+      requestAnimationFrame(autoResize);
+
+      let saveTimer: ReturnType<typeof setTimeout> | null = null;
+      ta.addEventListener('input', () => {
+        autoResize();
+        // Debounced save (300ms)
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          if (!id) return;
+          const ann = annotations.find(a => a.id === id);
+          if (ann) {
+            ann.note = ta.value.trim();
+            void saveAnnotations();
+          }
+        }, 300);
       });
-      noteEl?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = (item as HTMLElement).dataset.annId;
-        if (!id) return;
+
+      // Stop keyboard events from bubbling (prevents ext shortcuts)
+      ta.addEventListener('keydown', (e) => { e.stopPropagation(); });
+      ta.addEventListener('keyup', (e) => { e.stopPropagation(); });
+
+      // Auto-delete empty: double-fade sidebar note only, then remove (3s total)
+      ta.addEventListener('blur', () => {
+        if (!id || !config.autoDeleteEmpty) return;
         const ann = annotations.find(a => a.id === id);
-        if (!ann) return;
+        if (!ann || ann.note.trim()) return; // Has note → keep
 
-        // Replace with textarea
-        const ta = document.createElement('textarea');
-        ta.className = 'remark-sidebar-note-editor';
-        ta.value = ann.note;
-        ta.placeholder = t('remark_add_note', 'Add a note…');
-        ta.rows = 1;
-        noteEl.replaceWith(ta);
+        // Cancel any existing timer for this id
+        if (autoDeleteTimers.has(id)) clearTimeout(autoDeleteTimers.get(id)!);
 
-        // Auto-expand textarea up to 5 lines
-        const autoResize = (): void => {
-          ta.style.height = 'auto';
-          const lineHeight = parseInt(getComputedStyle(ta).lineHeight) || 18;
-          const maxH = lineHeight * 5 + 12; // 5 lines + padding
-          ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
-          ta.style.overflow = ta.scrollHeight > maxH ? 'auto' : 'hidden';
-        };
-        ta.addEventListener('input', autoResize);
-        // Initial auto-resize after DOM insertion
-        requestAnimationFrame(autoResize);
+        const timer = setTimeout(() => {
+          autoDeleteTimers.delete(id);
+          // Re-check: user may have re-focused or typed
+          if (document.activeElement === ta) return;
+          const annCheck = annotations.find(a => a.id === id);
+          if (!annCheck || annCheck.note.trim()) return;
 
-        ta.focus();
-        // Place cursor at end without selecting text
-        const len = ta.value.length;
-        ta.setSelectionRange(len, len);
+          const sidebarItem = sidebarEl?.querySelector<HTMLElement>(`.remark-sidebar-item[data-ann-id="${id}"]`);
 
-        const saveEdit = (): void => {
-          const newNote = ta.value.trim();
-          updateAnnotationNote(id, newNote);
-          // renderSidebarContent is called inside updateAnnotationNote
-        };
+          // Phase 1: fade sidebar note (0→800ms)
+          if (sidebarItem) sidebarItem.classList.add('remark-item-fading');
 
-        ta.addEventListener('blur', saveEdit);
-        ta.addEventListener('keydown', (ke) => {
-          if (ke.key === 'Enter' && !ke.shiftKey) {
-            ke.preventDefault();
-            ta.blur();
-          }
-          if (ke.key === 'Escape') {
-            ta.removeEventListener('blur', saveEdit);
-            renderSidebarContent();
-          }
-        });
+          setTimeout(() => {
+            // Phase 2: fade back (800→1600ms)
+            if (sidebarItem) sidebarItem.classList.remove('remark-item-fading');
+
+            setTimeout(() => {
+              // Re-check before final removal
+              if (document.activeElement === ta) return;
+              const annFinal = annotations.find(a => a.id === id);
+              if (!annFinal || annFinal.note.trim()) return;
+
+              // Phase 3: final fade + collapse (1600→3000ms)
+              if (sidebarItem) sidebarItem.classList.add('remark-item-collapsing');
+
+              setTimeout(() => {
+                silentRemoveAnnotation(id);
+              }, 1400);
+            }, 800);
+          }, 800);
+        }, config.autoDeleteDelay);
+
+        autoDeleteTimers.set(id, timer);
+      });
+
+      // Cancel auto-delete on re-focus
+      ta.addEventListener('focus', () => {
+        if (id && autoDeleteTimers.has(id)) {
+          clearTimeout(autoDeleteTimers.get(id)!);
+          autoDeleteTimers.delete(id);
+        }
       });
     });
 
-    // Handle pending focus from click chain (when clicking note B while A was editing)
+    // Handle pending focus from click chain
     if (pendingFocusId) {
       const focusId = pendingFocusId;
       pendingFocusId = null;
@@ -1012,90 +1380,16 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     updateExportBtnState();
   }
 
-  // ─── Highlights ────────────────────────────────────────────────────────────
+  // ─── Highlights (mark-based) ─────────────────────────────────────────────────
 
   function renderHighlights(): void {
-    clearHighlights();
-    const container = getContainer();
-    if (!container) return;
-
-    // Only render active (non-deleted) annotations
-    const visibleAnnotations = annotations.filter(a => !softDeletedIds.has(a.id));
-
-    for (const ann of visibleAnnotations) {
-      const blocks = container.querySelectorAll<HTMLElement>('[data-line]');
-      for (const block of blocks) {
-        const { start: blockLine, end: blockEnd } = getBlockRange(block);
-
-        if (rangesOverlap(blockLine, blockEnd, ann.startLine, ann.endLine)) {
-          block.classList.add('remark-highlighted');
-          block.style.setProperty('--remark-bg', COLOR_MAP[ann.color].bg);
-          block.style.setProperty('--remark-border', COLOR_MAP[ann.color].border);
-
-          // For narrowed (sub-block) annotations, highlight the specific element
-          const isNarrowed = ann.startLine > blockLine || ann.endLine < blockEnd;
-          if (isNarrowed) {
-            // Table rows
-            const tbody = block.querySelector('tbody');
-            if (tbody) {
-              Array.from(tbody.querySelectorAll<HTMLElement>('tr')).forEach((row, idx) => {
-                const rowLine = blockLine + 2 + idx;
-                if (rangesOverlap(ann.startLine, ann.endLine, rowLine, rowLine)) {
-                  row.classList.add('remark-row-highlighted');
-                  row.dataset.remarkColor = ann.color;
-                }
-              });
-            }
-            // List items
-            const lis = block.querySelectorAll<HTMLElement>('li');
-            if (lis.length > 0) {
-              Array.from(lis).forEach((li, idx) => {
-                const liLine = blockLine + idx;
-                if (rangesOverlap(ann.startLine, ann.endLine, liLine, liLine)) {
-                  li.classList.add('remark-li-highlighted');
-                  li.dataset.remarkColor = ann.color;
-                }
-              });
-            }
-          }
-
-          if (!block.querySelector(`.remark-badge[data-ann-id="${ann.id}"]`)) {
-            const badge = document.createElement('span');
-            badge.className = 'remark-badge';
-            badge.dataset.annId = ann.id;
-            badge.textContent = '✕';
-            badge.title = `${t('remark_delete', 'Delete')}: ${ann.note || getColorLabel(ann.color)}`;
-            badge.style.color = COLOR_MAP[ann.color].border;
-            block.style.position = 'relative';
-            badge.addEventListener('click', (e) => {
-              e.stopPropagation();
-              removeAnnotation(ann.id);
-            });
-            block.appendChild(badge);
-          }
-        }
-      }
-    }
+    // Clear existing marks and re-apply from annotations
+    clearMarks();
+    restoreMarks();
   }
 
   function clearHighlights(): void {
-    const container = getContainer();
-    if (!container) return;
-
-    container.querySelectorAll('.remark-highlighted').forEach(el => {
-      el.classList.remove('remark-highlighted');
-      (el as HTMLElement).style.removeProperty('--remark-bg');
-      (el as HTMLElement).style.removeProperty('--remark-border');
-    });
-    container.querySelectorAll('.remark-row-highlighted').forEach(el => {
-      el.classList.remove('remark-row-highlighted');
-      delete (el as HTMLElement).dataset.remarkColor;
-    });
-    container.querySelectorAll('.remark-li-highlighted').forEach(el => {
-      el.classList.remove('remark-li-highlighted');
-      delete (el as HTMLElement).dataset.remarkColor;
-    });
-    container.querySelectorAll('.remark-badge').forEach(el => el.remove());
+    clearMarks();
   }
 
   // ─── Export ────────────────────────────────────────────────────────────────
@@ -1181,77 +1475,54 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       .remark-mode-active {
         cursor: text;
       }
-      /* Choreographed exit: fade highlights before removing them */
-      .remark-exiting .remark-highlighted,
-      .remark-exiting .remark-badge,
-      .remark-exiting .remark-row-highlighted,
-      .remark-exiting .remark-li-highlighted {
+      /* Choreographed exit: fade marks before removing them */
+      .remark-exiting mark.remark-ann {
         opacity: 0;
         transition: opacity 120ms ease-out;
       }
-      /* Landing pulse — stronger ring+glow for sidebar navigation */
-      @keyframes remark-landing-anim {
-        0%   { box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.6); background-color: rgba(250, 204, 21, 0.25); }
-        100% { box-shadow: 0 0 0 0 transparent; background-color: transparent; }
+
+      /* ── Inline <mark> highlights ─────────────────────────────── */
+      mark.remark-ann {
+        background-color: rgba(250, 204, 21, 0.25) !important;
+        border-radius: 2px;
+        cursor: pointer;
+        padding: 1px 0;
+        transition: opacity 0.3s ease-out, background-color 0.2s;
       }
-      .remark-landing {
-        animation: remark-landing-anim 1s ease-out;
-        border-radius: 3px;
+      /* Hide structural whitespace marks between block elements */
+      ul > mark.remark-ann, ol > mark.remark-ann,
+      tr > mark.remark-ann, tbody > mark.remark-ann,
+      thead > mark.remark-ann, table > mark.remark-ann {
+        display: none !important;
       }
-      /* Row-level highlight for table annotations with narrowed line ranges */
-      tr.remark-row-highlighted { background: rgba(250, 204, 21, 0.35) !important; }
-      tr.remark-row-highlighted[data-remark-color="green"] { background: rgba(74, 222, 128, 0.35) !important; }
-      tr.remark-row-highlighted[data-remark-color="blue"] { background: rgba(96, 165, 250, 0.35) !important; }
-      tr.remark-row-highlighted[data-remark-color="pink"] { background: rgba(244, 114, 182, 0.35) !important; }
-      li.remark-li-highlighted { background: rgba(250, 204, 21, 0.3) !important; border-radius: 3px; }
-      li.remark-li-highlighted[data-remark-color="green"] { background: rgba(74, 222, 128, 0.3) !important; }
-      li.remark-li-highlighted[data-remark-color="blue"] { background: rgba(96, 165, 250, 0.3) !important; }
-      li.remark-li-highlighted[data-remark-color="pink"] { background: rgba(244, 114, 182, 0.3) !important; }
+      mark.remark-ann-yellow { background-color: rgba(255, 212, 0, 0.25) !important; }
+      mark.remark-ann-green  { background-color: rgba(46, 160, 67, 0.18) !important; }
+      mark.remark-ann-blue   { background-color: rgba(9, 105, 218, 0.15) !important; }
+      mark.remark-ann-pink   { background-color: rgba(219, 97, 162, 0.18) !important; }
+
+      /* Auto-delete animation: double-fade then collapse */
+      /* Landing pulse on mark */
+      @keyframes remark-mark-landing {
+        0%   { box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.5); }
+        100% { box-shadow: 0 0 0 0 transparent; }
+      }
+      mark.remark-ann.remark-landing {
+        animation: remark-mark-landing 0.8s ease-out;
+        border-radius: 2px;
+      }
+      @keyframes remark-item-landing {
+        0%   { background: rgba(250, 204, 21, 0.12); }
+        100% { background: transparent; }
+      }
+      .remark-sidebar-item.remark-item-landing {
+        animation: remark-item-landing 0.8s ease-out;
+      }
+
+      /* Hover outline for selectable blocks */
       .remark-mode-active [data-line][data-block-id]:not(:has(img, svg, canvas, figure, video)):hover {
         outline: 1px dashed var(--color-nav-active-border, var(--color-theme-accent, var(--color-primary, #2563eb)));
         outline-offset: 2px;
         border-radius: 3px;
-      }
-      /* Temporary highlight on the block being annotated */
-      .remark-popup-target {
-        outline: 2px dashed var(--color-nav-active-border, var(--color-theme-accent, var(--color-primary, #2563eb))) !important;
-        outline-offset: 3px;
-        border-radius: 3px;
-        background: var(--color-nav-active-bg, var(--color-theme-accent-subtle, var(--color-primary-subtle, rgba(37, 99, 235, 0.06))));
-      }
-      .remark-highlighted {
-        background: var(--remark-bg, rgba(250, 204, 21, 0.15));
-        border-left: 3px solid var(--remark-border, rgba(250, 204, 21, 0.6));
-        padding-left: 8px;
-        border-radius: 3px;
-        transition: background 0.2s;
-        cursor: pointer;
-      }
-      .remark-badge {
-        position: absolute;
-        top: 2px;
-        right: -24px;
-        font-size: 11px;
-        font-weight: 700;
-        cursor: pointer;
-        user-select: none;
-        opacity: 0;
-        transition: opacity 0.15s, background 0.15s;
-        width: 16px;
-        height: 16px;
-        line-height: 16px;
-        text-align: center;
-        border-radius: 50%;
-        background: var(--gray-100, #f3f4f6);
-      }
-      .remark-highlighted:hover .remark-badge,
-      .remark-badge:hover {
-        opacity: 1;
-      }
-      .remark-badge:hover {
-        background: var(--color-danger-bg, rgba(239, 68, 68, 0.15));
-        color: var(--color-danger, #ef4444) !important;
-        transform: scale(1.1);
       }
 
       /* Tooltip */
@@ -1335,6 +1606,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         flex: 1;
         overflow-y: auto;
         padding: 8px;
+        font-size: var(--remark-font-size, 13px);
       }
       .remark-sidebar-empty {
         color: var(--gray-400, #9ca3af);
@@ -1399,7 +1671,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       .remark-sidebar-quote {
         font-style: italic;
         color: var(--gray-500, #6b7280);
-        font-size: 12px;
+        font-size: calc(var(--remark-font-size, 13px) - 1px);
         line-height: 1.4;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1407,127 +1679,82 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
       }
-      .remark-sidebar-note {
-        margin-top: 4px;
-        font-size: 12px;
-        color: var(--color-text-primary, #1a1a1a);
-        background: var(--gray-50, #f9fafb);
-        padding: 4px 8px;
-        border-radius: 4px;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 5;
-        -webkit-box-orient: vertical;
-        line-height: 18px;
-      }
-
-      /* Popup */
-      .remark-popup {
-        position: fixed;
-        z-index: 10001;
-        background: var(--color-bg-surface, #fff);
-        border: 1px solid var(--color-border, #e2e8f0);
-        border-radius: 8px;
-        box-shadow: var(--shadow-floating, 0 4px 16px rgba(0,0,0,0.15));
-        padding: 12px;
-        width: 320px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 13px;
-        color: var(--color-text-primary, #1a1a1a);
-      }
-      .remark-popup-header {
-        margin-bottom: 8px;
-      }
-      .remark-popup-quote {
-        font-style: italic;
-        color: var(--gray-500, #6b7280);
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .remark-popup-colors {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 8px;
-      }
-      .remark-color-btn {
-        border: 2px solid transparent;
-        border-radius: 6px;
-        background: var(--gray-100, #f3f4f6);
-        padding: 4px 8px;
-        cursor: pointer;
-        font-size: 16px;
-        color: var(--color-text-primary, #1a1a1a);
-        transition: border-color 0.15s;
-      }
-      .remark-color-btn:hover {
-        background: var(--gray-200, #e5e7eb);
-      }
-      .remark-color-btn.active {
-        border-color: var(--color-nav-active-border, var(--color-theme-accent, var(--color-primary, #2563eb)));
-        background: var(--color-nav-active-bg, var(--color-theme-accent-bg, var(--color-primary-light, #eff6ff)));
-        color: var(--color-nav-active-text, var(--color-theme-accent, var(--color-primary, #2563eb)));
-      }
-      .remark-note-input {
+      .remark-sidebar-note-editor {
         width: 100%;
         box-sizing: border-box;
         border: 1px solid var(--color-border, #e2e8f0);
-        border-radius: 6px;
-        padding: 8px;
-        font-size: 13px;
+        border-radius: 4px;
+        padding: 4px 6px;
+        font-size: var(--remark-font-size, 13px);
         font-family: inherit;
-        resize: vertical;
-        min-height: 48px;
-        margin-bottom: 8px;
-        color: inherit;
+        resize: none;
+        overflow: hidden;
+        margin-top: 4px;
         background: var(--gray-50, #f9fafb);
+        color: var(--color-text-primary, #1a1a1a);
+        line-height: 1.4;
+        transition: border-color 0.15s, box-shadow 0.15s;
       }
-      .remark-note-input:focus {
+      .remark-sidebar-note-editor:focus {
         outline: none;
         border-color: var(--color-nav-active-border, var(--color-theme-accent, var(--color-primary, #2563eb)));
+        background: var(--color-bg-surface, #fff);
         box-shadow: 0 0 0 2px var(--color-theme-accent-subtle, var(--color-primary-subtle, #dbeafe));
       }
-      .remark-popup-actions {
+      .remark-sidebar-note-editor::placeholder {
+        color: var(--gray-400, #9ca3af);
+        font-style: italic;
+      }
+
+      /* ── Sidebar polish: line ref pill, color picker, seq badge ── */
+      .remark-sidebar-ref {
         display: flex;
-        justify-content: flex-end;
-        gap: 8px;
         align-items: center;
+        gap: 6px;
       }
-      .remark-color-toggle {
-        font-size: 18px;
-        line-height: 1;
-        padding: 2px 6px;
-        border: 1px solid var(--color-border, #e2e8f0);
-        border-radius: 6px;
-        background: var(--gray-50, #f9fafb);
+      .remark-color-dot {
         cursor: pointer;
-        margin-right: auto;
-        transition: background 0.15s;
+        font-size: 14px;
+        transition: transform 0.1s;
       }
-      .remark-color-toggle:hover {
-        background: var(--gray-200, #e5e7eb);
+      .remark-color-dot:hover {
+        transform: scale(1.2);
       }
-      .remark-popup-actions button {
-        padding: 6px 14px;
-        border-radius: 6px;
-        font-size: 13px;
+      .remark-lineref-pill {
+        font-family: 'SF Mono', Consolas, 'Liberation Mono', monospace;
+        font-size: 10px;
+        font-weight: 600;
+        background: var(--gray-100, #f3f4f6);
+        color: var(--gray-600, #4b5563);
+        padding: 1px 6px;
+        border-radius: 8px;
+        letter-spacing: 0.3px;
+      }
+      .remark-ann-seq {
+        font-size: 10px;
+        color: var(--gray-400, #9ca3af);
+      }
+      .remark-color-picker {
+        display: flex;
+        gap: 4px;
+        padding: 4px 0;
+        margin-bottom: 2px;
+      }
+      .remark-color-opt {
         cursor: pointer;
-        border: 1px solid var(--color-border, #e2e8f0);
-        background: var(--gray-50, #f9fafb);
-        color: inherit;
-        transition: background 0.15s;
+        font-size: 16px;
+        padding: 2px 4px;
+        border-radius: 4px;
+        transition: background 0.1s;
+        opacity: 0.6;
       }
-      .remark-popup-actions button:hover {
+      .remark-color-opt:hover {
+        background: var(--gray-100, #f3f4f6);
+        opacity: 1;
+      }
+      .remark-color-opt.active {
+        opacity: 1;
         background: var(--gray-200, #e5e7eb);
-      }
-      .remark-save-btn {
-        background: var(--color-theme-accent, var(--color-primary, #2563eb)) !important;
-        color: var(--color-text-on-primary, #fff) !important;
-        border-color: var(--color-theme-accent, var(--color-primary, #2563eb)) !important;
-      }
-      .remark-save-btn:hover {
-        background: var(--color-theme-accent-hover, var(--color-primary-hover, #1d4ed8)) !important;
       }
 
       /* Toolbar button active state */
@@ -1556,30 +1783,6 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         pointer-events: none;
       }
 
-      /* Sidebar note editable */
-      .remark-sidebar-note[data-editable] {
-        cursor: pointer;
-      }
-      .remark-note-placeholder {
-        color: var(--gray-400, #9ca3af) !important;
-        font-style: italic;
-      }
-      .remark-sidebar-note-editor {
-        width: 100%;
-        box-sizing: border-box;
-        border: 1px solid var(--color-nav-active-border, var(--color-theme-accent, var(--color-primary, #2563eb)));
-        border-radius: 4px;
-        padding: 4px 6px;
-        font-size: 12px;
-        font-family: inherit;
-        resize: none;
-        overflow: hidden;
-        margin-top: 4px;
-        background: var(--color-bg-surface, #fff);
-        color: var(--color-text-primary, #1a1a1a);
-        box-shadow: 0 0 0 2px var(--color-theme-accent-subtle, var(--color-primary-subtle, #dbeafe));
-        line-height: 18px;
-      }
       .remark-sidebar-count {
         color: var(--gray-500, #6b7280);
         font-weight: normal;
@@ -1588,33 +1791,28 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
 
       /* ── UX Delight: Animations ─────────────────────────────── */
       @media (prefers-reduced-motion: no-preference) {
-        /* Popup scale-in */
-        .remark-popup {
-          animation: remark-popup-in 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-          transform-origin: top center;
+        /* Sidebar item fade-in */
+        .remark-sidebar-item {
+          animation: remark-item-in 0.15s ease-out;
+          transition: opacity 0.5s ease, max-height 0.5s ease, margin 0.5s ease, padding 0.5s ease;
+          max-height: 400px;
+          overflow: hidden;
         }
-        @keyframes remark-popup-in {
-          from { opacity: 0; transform: scale(0.9) translateY(-4px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
+        @keyframes remark-item-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-
-        /* Color button ink splash on selection */
-        .remark-color-btn.active {
-          animation: remark-ink 0.3s ease-out;
+        .remark-sidebar-item.remark-item-fading {
+          opacity: 0.3;
         }
-        @keyframes remark-ink {
-          0% { box-shadow: 0 0 0 0 var(--color-theme-accent-subtle, var(--color-primary-subtle, #dbeafe)); }
-          70% { box-shadow: 0 0 0 6px transparent; }
-          100% { box-shadow: none; }
+        .remark-sidebar-item.remark-item-collapsing {
+          opacity: 0;
+          max-height: 0;
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
         }
-      }
-
-      /* Color button labels */
-      .remark-color-label {
-        font-size: 11px;
-        vertical-align: middle;
-        color: inherit;
-        opacity: 0.8;
       }
 
     `;

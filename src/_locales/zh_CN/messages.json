@@ -380,8 +380,60 @@
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
   "remark_cancel": {
-    "message": "取消并移除",
+    "message": "取消",
     "description": "Cancel button in the annotation popup"
+  },
+  "remark_cfg_title": {
+    "message": "批注模式",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "自动删除空批注",
+    "description": ""
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "复制后关闭标签页",
+    "description": ""
+  },
+  "remark_cfg_default_color": {
+    "message": "默认颜色",
+    "description": ""
+  },
+  "remark_cfg_done": {
+    "message": "完成",
+    "description": ""
+  },
+  "remark_cfg_font_size": {
+    "message": "字体大小",
+    "description": ""
+  },
+  "remark_cfg_highlight_style": {
+    "message": "高亮样式",
+    "description": ""
+  },
+  "remark_cfg_opacity": {
+    "message": "Opacity",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "恢复默认设置",
+    "description": ""
+  },
+  "remark_cfg_style_bg": {
+    "message": "背景色",
+    "description": ""
+  },
+  "remark_cfg_style_border": {
+    "message": "底部边框",
+    "description": ""
+  },
+  "remark_cfg_style_underline": {
+    "message": "下划线",
+    "description": ""
+  },
+  "remark_cfg_style_wavy": {
+    "message": "波浪线",
+    "description": ""
   },
   "remark_change_color": {
     "message": "更改颜色",
@@ -435,6 +487,10 @@
     "message": "点击编辑",
     "description": "Tooltip on a remark note in the sidebar indicating it is editable"
   },
+  "remark_empty": {
+    "message": "选中文字以添加批注",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "选择文本以添加批注",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "批注模式",
     "description": "Toolbar button tooltip to enter Remark Mode"
+  },
+  "remark_save": {
+    "message": "保存",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "设置",
+    "description": ""
   },
   "remark_sidebar_title": {
     "message": "批注",

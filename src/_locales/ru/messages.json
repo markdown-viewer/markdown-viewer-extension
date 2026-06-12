@@ -383,6 +383,58 @@
     "message": "Отменить и удалить",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
   },
+  "remark_cfg_title": {
+    "message": "Режим аннотаций",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Автоудаление пустых заметок",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Закрыть вкладку после копирования",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Цвет по умолчанию",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_done": {
+    "message": "Готово",
+    "description": "Button to close config panel"
+  },
+  "remark_cfg_font_size": {
+    "message": "Размер шрифта",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Стиль выделения",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_opacity": {
+    "message": "Непрозрачность",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "Сбросить настройки",
+    "description": "Button to reset all config to defaults"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Фон",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Рамка",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Подчёркивание",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Волнистый",
+    "description": "Highlight style: wavy underline"
+  },
   "remark_change_color": {
     "message": "Изменить цвет",
     "description": "Tooltip for changing the remark color"
@@ -435,6 +487,10 @@
     "message": "Нажмите для редактирования",
     "description": "Tooltip for editing an existing remark note"
   },
+  "remark_empty": {
+    "message": "Выделите текст для добавления заметок",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "Выделите текст, чтобы добавить заметки",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "Режим заметок",
     "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_save": {
+    "message": "Сохранить",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "Настройки",
+    "description": "Settings button tooltip"
   },
   "remark_sidebar_title": {
     "message": "Заметки",

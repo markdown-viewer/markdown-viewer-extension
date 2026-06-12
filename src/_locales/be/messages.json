@@ -383,6 +383,58 @@
     "message": "Скасаваць і выдаліць",
     "description": "Button text for cancelling a new remark and removing the temporary mark"
   },
+  "remark_cfg_title": {
+    "message": "Рэжым анатацый",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Аўтавыдаленне пустых нататак",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Закрыць укладку пасля капіявання",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Колер па змаўчанні",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_done": {
+    "message": "Гатова",
+    "description": "Button to close config panel"
+  },
+  "remark_cfg_font_size": {
+    "message": "Памер шрыфту",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Стыль вылучэння",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_opacity": {
+    "message": "Непразрыстасць",
+    "description": "Config: highlight opacity"
+  },
+  "remark_cfg_reset": {
+    "message": "Скінуць налады",
+    "description": "Button to reset all config to defaults"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Фон",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Рамка",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Падкрэсленне",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Хвалісты",
+    "description": "Highlight style: wavy underline"
+  },
   "remark_change_color": {
     "message": "Змяніць колер",
     "description": "Tooltip for changing the remark color"
@@ -435,6 +487,10 @@
     "message": "Націсніце, каб рэдагаваць",
     "description": "Tooltip for editing an existing remark note"
   },
+  "remark_empty": {
+    "message": "Вылучыце тэкст, каб дадаць нататку",
+    "description": "Placeholder shown in sidebar when no remarks exist"
+  },
   "remark_empty_hint": {
     "message": "Вылучыце тэкст, каб дадаць заўвагі",
     "description": "Empty state hint in the remarks sidebar"
@@ -454,6 +510,14 @@
   "remark_mode": {
     "message": "Рэжым заўваг",
     "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_save": {
+    "message": "Захаваць",
+    "description": "Save button in the annotation popup"
+  },
+  "remark_settings": {
+    "message": "Налады",
+    "description": "Settings button tooltip"
   },
   "remark_sidebar_title": {
     "message": "Заўвагі",
