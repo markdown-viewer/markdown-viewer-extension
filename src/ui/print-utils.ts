@@ -4,6 +4,13 @@
  * which blocks window.print().
  */
 export function isPrintAvailable(): boolean {
+  // file: and chrome-extension: protocols are always allowed to print.
+  // Note: file:// URLs have opaque origin (window.origin === 'null') in Chrome,
+  // which would incorrectly fail the sandbox check below.
+  const protocol = window.location.protocol;
+  if (protocol === 'file:' || protocol === 'chrome-extension:') {
+    return true;
+  }
   // CSP sandbox without allow-same-origin sets origin to 'null'
   if (window.origin === 'null') {
     return false;
