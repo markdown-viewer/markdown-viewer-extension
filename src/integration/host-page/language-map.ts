@@ -11,7 +11,7 @@
  *   - GitHub README:     <div class="highlight highlight-source-<lang>">
  *   - GitHub issue/PR:   <pre lang="<lang>"><code>...</code></pre>
  *   - Generic renderers: <pre><code class="language-<lang>">...</code></pre>
- *   - GitLab:            <pre class="code highlight"><code lang="<lang>">
+ *   - GitLab:            <pre data-canonical-lang="<lang>" lang="plaintext">
  *
  * This module normalizes all of them to our renderer registry keys.
  */
@@ -48,7 +48,8 @@ export const SUPPORTED_HOST_PAGE_LANGUAGES: ReadonlySet<string> =
  * The selector covers:
  *   1. GitHub README:    div.highlight.highlight-source-<lang>
  *   2. GitHub issue/PR:  pre[lang="<lang>"]
- *   3. Generic:          pre > code.language-<lang>  (and code.language-<lang> alone)
+ *   3. GitLab:           pre[data-canonical-lang="<lang>"]
+ *   4. Generic:          pre > code.language-<lang>  (and code.language-<lang> alone)
  *
  * The selector is intentionally broad; the scanner re-validates each match
  * and extracts the actual code text.
@@ -64,9 +65,16 @@ export function buildDiagramBlockSelector(): string {
   }
 
   // GitHub issue/PR style: <pre lang="plantuml">
-  // Also covers GitLab and other renderers that set lang on <pre>.
+  // Also covers generic renderers that set lang on <pre>.
   for (const lang of langs) {
     parts.push(`pre[lang="${lang}"]`);
+  }
+
+  // GitLab style: <pre data-canonical-lang="vega-lite" lang="plaintext">
+  // GitLab sets lang="plaintext" for diagram blocks and stores the actual
+  // language in data-canonical-lang.
+  for (const lang of langs) {
+    parts.push(`pre[data-canonical-lang="${lang}"]`);
   }
 
   // Generic markdown style: <pre><code class="language-plantuml">

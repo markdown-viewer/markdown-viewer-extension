@@ -225,8 +225,15 @@ async function detectAndInject(): Promise<void> {
   const path = document.location.pathname;
   const matchedExt = getMatchedExtension(path);
 
-  // Not a supported extension
+  // Not a supported extension — still check for diagram blocks on HTML pages.
+  // GitLab issue/merge-request/wiki pages (e.g. /group/project/-/issues/2)
+  // have no file extension but may contain diagram code blocks.
   if (!matchedExt) {
+    const contentType = (document as unknown as DocumentWithContentType).contentType
+      || (document as unknown as DocumentWithContentType).mimeType;
+    if (contentType && contentType.includes('text/html')) {
+      detectHtmlPageContent();
+    }
     return;
   }
 

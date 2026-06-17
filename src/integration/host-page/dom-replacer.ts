@@ -38,30 +38,31 @@ const HOST_PAGE_STYLE_CSS = `
   overflow: hidden;
   background: var(--bg-color, #ffffff);
 }
-.mdv-host-diagram__image {
+.mdv-host-diagram .mdv-host-diagram__image {
   padding: 16px;
   text-align: center;
   background: transparent;
 }
-.mdv-host-diagram__image img {
+.mdv-host-diagram .mdv-host-diagram__image img {
   max-width: 100%;
   height: auto;
 }
-.mdv-host-diagram__source {
+.mdv-host-diagram .mdv-host-diagram__source {
+  margin: 0;
   border-top: 1px solid var(--border-color, #d0d7de);
   background: var(--bg-color-muted, #f6f8fa);
 }
-.mdv-host-diagram__source summary {
+.mdv-host-diagram .mdv-host-diagram__source summary {
   padding: 8px 16px;
   cursor: pointer;
   font-size: 12px;
   color: var(--fg-color-muted, #57606a);
   user-select: none;
 }
-.mdv-host-diagram__source summary:hover {
+.mdv-host-diagram .mdv-host-diagram__source summary:hover {
   background: var(--bg-color-hover, #eaeef2);
 }
-.mdv-host-diagram__source pre {
+.mdv-host-diagram .mdv-host-diagram__source pre {
   margin: 0;
   padding: 12px 16px;
   overflow-x: auto;
@@ -71,7 +72,11 @@ const HOST_PAGE_STYLE_CSS = `
   background: transparent;
   border: 0;
 }
-.mdv-host-diagram__error {
+.mdv-host-diagram .mdv-host-diagram__source pre code {
+  margin: 0;
+  padding: 0;
+}
+.mdv-host-diagram .mdv-host-diagram__error {
   padding: 12px 16px;
   background: #ffeef0;
   color: #82071e;
@@ -80,13 +85,13 @@ const HOST_PAGE_STYLE_CSS = `
   white-space: pre-wrap;
   word-break: break-word;
 }
-.mdv-host-diagram__loading {
+.mdv-host-diagram .mdv-host-diagram__loading {
   padding: 24px;
   text-align: center;
   color: var(--fg-color-muted, #57606a);
   font-size: 13px;
 }
-.mdv-host-diagram__loading::before {
+.mdv-host-diagram .mdv-host-diagram__loading::before {
   content: "";
   display: inline-block;
   width: 14px;
@@ -106,17 +111,17 @@ const HOST_PAGE_STYLE_CSS = `
     border-color: var(--border-color, #30363d);
     background: var(--bg-color, #0d1117);
   }
-  .mdv-host-diagram__source {
+  .mdv-host-diagram .mdv-host-diagram__source {
     border-color: var(--border-color, #30363d);
     background: var(--bg-color-muted, #161b22);
   }
-  .mdv-host-diagram__source summary {
+  .mdv-host-diagram .mdv-host-diagram__source summary {
     color: var(--fg-color-muted, #8b949e);
   }
-  .mdv-host-diagram__source summary:hover {
+  .mdv-host-diagram .mdv-host-diagram__source summary:hover {
     background: var(--bg-color-hover, #21262d);
   }
-  .mdv-host-diagram__loading {
+  .mdv-host-diagram .mdv-host-diagram__loading {
     color: var(--fg-color-muted, #8b949e);
   }
 }

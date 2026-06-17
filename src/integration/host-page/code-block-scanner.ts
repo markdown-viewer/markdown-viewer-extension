@@ -58,6 +58,7 @@ function hashString(input: string): string {
  * The selector matches several shapes; this function normalizes them:
  *   - div.highlight.highlight-source-<lang>  →  read from class
  *   - pre[lang="<lang>"]                     →  read from lang attr
+ *   - pre[data-canonical-lang="<lang>"]      →  read from data-canonical-lang attr (GitLab)
  *   - pre > code.language-<lang>             →  read from class
  *   - code.language-<lang>                   →  read from class
  */
@@ -71,8 +72,13 @@ function extractLanguage(el: HTMLElement): string | null {
     }
   }
 
-  // Shape 2: pre[lang="..."]
+  // Shape 2: pre[data-canonical-lang="..."] or pre[lang="..."]
   if (el.tagName === 'PRE') {
+    // GitLab sets lang="plaintext" and stores the actual language in
+    // data-canonical-lang. Check it first so it takes precedence.
+    const canonicalLang = el.getAttribute('data-canonical-lang');
+    if (canonicalLang) return canonicalLang.toLowerCase();
+
     const lang = el.getAttribute('lang');
     if (lang) return lang.toLowerCase();
 
@@ -136,6 +142,9 @@ function extractCodeText(el: HTMLElement): string {
  *   - <div class="highlight highlight-source-<lang>">  (syntax-highlighted)
  *   - <div class="snippet-clipboard-content">          (no syntax highlighting)
  *
+ * GitLab wraps code blocks in:
+ *   - <div class="gl-relative markdown-code-block js-markdown-code">
+ *
  * If the matched element is inside such a wrapper, we replace the wrapper
  * so the copy button doesn't remain as an orphan.
  *
@@ -150,9 +159,13 @@ function findReplacementTarget(el: HTMLElement): HTMLElement {
     }
   }
 
-  // Walk up to the GitHub code-block wrapper if present.
-  // This covers both div.highlight and div.snippet-clipboard-content.
-  const wrapper = el.closest('div.snippet-clipboard-content, div.highlight');
+  // Walk up to the code-block wrapper if present.
+  // This covers:
+  //   - GitHub: div.highlight, div.snippet-clipboard-content
+  //   - GitLab: div.gl-relative.markdown-code-block.js-markdown-code
+  const wrapper = el.closest(
+    'div.snippet-clipboard-content, div.highlight, .gl-relative.markdown-code-block.js-markdown-code',
+  );
   if (wrapper && wrapper.parentElement) {
     return wrapper as HTMLElement;
   }
@@ -338,7 +351,9 @@ export function createDiagramCodeBlockScanner(
       if (!lang) continue;
 
       // Double-check via the language map (selector may over-match)
-      if (!SUPPORTED_HOST_PAGE_LANGUAGES.has(lang)) continue;
+      if (!SUPPORTED_HOST_PAGE_LANGUAGES.has(lang)) {
+        continue;
+      }
 
       const renderType = resolveRenderType(lang);
       if (!renderType) continue;
