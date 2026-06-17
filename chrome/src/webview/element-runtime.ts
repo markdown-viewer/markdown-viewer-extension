@@ -4,6 +4,7 @@
 import type { PluginRenderer } from '../../../src/types/index';
 import { attachMarkdownViewerElementRuntime, bindThemeSyncFromSettingsBroadcast, type MarkdownViewerElementFactoryOptions } from '../../../src/integration/element';
 import { initializeViewerCore } from '../../../src/core/viewer/viewer-bootstrap';
+import { createDiagramCodeBlockScanner, type DiagramCodeBlockScanner } from '../../../src/integration/host-page/code-block-scanner';
 import { platform } from './index';
 
 export async function initializeElementRuntime(): Promise<PluginRenderer> {
@@ -34,6 +35,15 @@ export async function initializeElementRuntime(): Promise<PluginRenderer> {
     }
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Scan for diagram code blocks (PlantUML, Mermaid, Vega, DOT, etc.) on the
+  // host page and render them via the offscreen pipeline. The scanner is
+  // idempotent — if no diagram blocks are present, it does nothing.
+  const diagramScanner: DiagramCodeBlockScanner = createDiagramCodeBlockScanner({
+    renderer: options.renderer,
+    setThemeConfig: (config) => platform.renderer.setThemeConfig(config),
+  });
+  diagramScanner.scan();
 
   return options.renderer;
 }

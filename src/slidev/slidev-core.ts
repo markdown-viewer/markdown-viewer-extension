@@ -12,6 +12,7 @@ import MarkdownIt from 'markdown-it'
 import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs'
 import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs'
 import katex from 'katex'
+import { CODE_BLOCK_LANGUAGE_MAP, DIAGRAM_CODE_BLOCK_LANGUAGE_SET } from '../types/formats'
 
 import { createHighlighterCoreSync } from '@shikijs/core'
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript'
@@ -174,15 +175,13 @@ function renderKatex(latex: string, displayMode: boolean): string {
 
 // ── Diagram types ──────────────────────────────────────────────────────
 
-const DIAGRAM_TYPES = new Set([
-  'mermaid', 'plantuml', 'puml', 'vega', 'vega-lite', 'vegalite',
-  'dot', 'infographic', 'canvas', 'drawio',
-])
+// Diagram language set and alias resolution come from the central format
+// registry (formats.json → formats.ts). Adding a new diagram type there
+// automatically makes it recognized by Slidev fence blocks.
+const DIAGRAM_TYPES = DIAGRAM_CODE_BLOCK_LANGUAGE_SET
 
 function normalizeDiagramType(lang: string): string {
-  if (lang === 'puml') return 'plantuml'
-  if (lang === 'vegalite') return 'vega-lite'
-  return lang
+  return CODE_BLOCK_LANGUAGE_MAP[lang] || lang
 }
 
 // ── v-click processor ──────────────────────────────────────────────────

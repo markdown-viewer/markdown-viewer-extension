@@ -11,6 +11,10 @@ export interface FormatDefinition {
   extensions: string[];
   /** VS Code language ID (e.g., 'mermaid', 'graphviz') */
   languageId: string;
+  /** Code-block language identifiers that map to this fileType (e.g., ['plantuml', 'puml', 'wsd']). */
+  codeBlockLanguages: string[];
+  /** Whether this format is a diagram type (rendered visually). */
+  isDiagram: boolean;
 }
 
 /**
@@ -23,7 +27,11 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
     "extensions": [
       "slides.md"
     ],
-    "languageId": "markdown"
+    "languageId": "markdown",
+    "codeBlockLanguages": [
+      "slidev"
+    ],
+    "isDiagram": false
   },
   {
     "fileType": "mermaid",
@@ -31,7 +39,11 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
       "mermaid",
       "mmd"
     ],
-    "languageId": "mermaid"
+    "languageId": "mermaid",
+    "codeBlockLanguages": [
+      "mermaid"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "plantuml",
@@ -39,14 +51,24 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
       "plantuml",
       "puml"
     ],
-    "languageId": "plantuml"
+    "languageId": "plantuml",
+    "codeBlockLanguages": [
+      "plantuml",
+      "puml",
+      "wsd"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "vega",
     "extensions": [
       "vega"
     ],
-    "languageId": "vega"
+    "languageId": "vega",
+    "codeBlockLanguages": [
+      "vega"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "vega-lite",
@@ -54,7 +76,12 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
       "vl",
       "vega-lite"
     ],
-    "languageId": "vega"
+    "languageId": "vega",
+    "codeBlockLanguages": [
+      "vega-lite",
+      "vegalite"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "dot",
@@ -62,34 +89,78 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
       "gv",
       "dot"
     ],
-    "languageId": "graphviz"
+    "languageId": "graphviz",
+    "codeBlockLanguages": [
+      "dot",
+      "graphviz"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "infographic",
     "extensions": [
       "infographic"
     ],
-    "languageId": "infographic"
+    "languageId": "infographic",
+    "codeBlockLanguages": [
+      "infographic"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "canvas",
     "extensions": [
       "canvas"
     ],
-    "languageId": "canvas"
+    "languageId": "canvas",
+    "codeBlockLanguages": [
+      "canvas"
+    ],
+    "isDiagram": true
   },
   {
     "fileType": "drawio",
     "extensions": [
       "drawio"
     ],
-    "languageId": "drawio"
+    "languageId": "drawio",
+    "codeBlockLanguages": [
+      "drawio"
+    ],
+    "isDiagram": true
   }
 ];
 
 // =============================================================================
 // Derived lookup tables (built once from SUPPORTED_FORMATS)
 // =============================================================================
+
+/** Diagram formats only (excludes slidev and other non-diagram formats). */
+export const DIAGRAM_FORMATS: readonly FormatDefinition[] =
+  SUPPORTED_FORMATS.filter(f => f.isDiagram);
+
+/** All code-block language identifiers recognized as diagrams (lowercased). */
+export const DIAGRAM_CODE_BLOCK_LANGUAGES: readonly string[] =
+  Array.from(new Set(DIAGRAM_FORMATS.flatMap(f => f.codeBlockLanguages.map(l => l.toLowerCase()))));
+
+/**
+ * Map code-block language identifier (lowercased) → fileType.
+ * Includes aliases such as 'wsd' → 'plantuml', 'vegalite' → 'vega-lite', 'graphviz' → 'dot'.
+ * Use this to resolve any fence-block or host-page code-block language to the internal render type.
+ */
+export const CODE_BLOCK_LANGUAGE_MAP: Readonly<Record<string, string>> = (() => {
+  const map: Record<string, string> = {};
+  for (const f of DIAGRAM_FORMATS) {
+    for (const lang of f.codeBlockLanguages) {
+      map[lang.toLowerCase()] = f.fileType;
+    }
+  }
+  return map;
+})();
+
+/** Set of all code-block language identifiers (lowercased) for fast membership checks. */
+export const DIAGRAM_CODE_BLOCK_LANGUAGE_SET: ReadonlySet<string> =
+  new Set(DIAGRAM_CODE_BLOCK_LANGUAGES);
 
 /** Map file extension (without dot) → fileType. Includes 'md'/'markdown' → 'markdown'. */
 export const EXTENSION_TO_FILE_TYPE: Record<string, string> = { md: 'markdown', markdown: 'markdown' };

@@ -8,6 +8,7 @@ import {
   ALL_SUPPORTED_EXTENSIONS,
 } from '../../../src/types/formats';
 import { getCodePreviewMatchedExtension } from '../../../src/utils/code-preview';
+import { buildDiagramBlockSelector } from '../../../src/integration/host-page/language-map';
 
 const webExtensionApi = getWebExtensionApi();
 
@@ -148,6 +149,76 @@ function injectContentScript(): void {
 }
 
 /**
+ * Detect <markdown-viewer> elements or diagram code blocks on an HTML page
+ * and request element-runtime injection if found.
+ *
+ * Used for:
+ *   - .html files that may contain <markdown-viewer> tags
+ *   - Any URL whose content type is text/html (e.g. GitHub blob pages where
+ *     the URL ends in .md but the page is rendered as HTML by the host site)
+ *
+ * Injection is lazy: if no target is found immediately, a MutationObserver
+ * watches for late-added elements.
+ */
+function detectHtmlPageContent(): void {
+  let injected = false;
+  const requestInject = (): void => {
+    if (injected) return;
+    injected = true;
+    const request = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      type: 'INJECT_ELEMENT_RUNTIME',
+      payload: {},
+      timestamp: Date.now(),
+      source: 'content-detector',
+    };
+    const sendPromise = webExtensionApi.runtime.sendMessage(request);
+    if (sendPromise && typeof sendPromise.then === 'function') {
+      sendPromise.catch(() => {
+        // Ignore errors - fire and forget
+      });
+    }
+  };
+
+  const hasMarkdownViewer = (): boolean => Boolean(document.querySelector('markdown-viewer'));
+
+  // Check if the page contains any diagram code block (PlantUML, Mermaid,
+  // Vega, DOT, etc.) that we can render. Uses the same selector as the
+  // scanner so detection stays in sync with rendering coverage.
+  const diagramSelector = buildDiagramBlockSelector();
+  const hasDiagramCodeBlock = (): boolean => Boolean(document.querySelector(diagramSelector));
+
+  const shouldInject = (): boolean => hasMarkdownViewer() || hasDiagramCodeBlock();
+
+  if (shouldInject()) {
+    requestInject();
+    return;
+  }
+
+  // Watch for late-added <markdown-viewer> elements or diagram code blocks;
+  // inject lazily.
+  const startObserver = (): void => {
+    if (!document.body) {
+      // body not ready yet — wait for DOMContentLoaded
+      document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+      return;
+    }
+    if (shouldInject()) {
+      requestInject();
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      if (shouldInject()) {
+        observer.disconnect();
+        requestInject();
+      }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  };
+  startObserver();
+}
+
+/**
  * Main detection and injection logic
  */
 async function detectAndInject(): Promise<void> {
@@ -160,56 +231,11 @@ async function detectAndInject(): Promise<void> {
   }
 
   // HTML files: only request element-runtime injection if the page actually
-  // contains a <markdown-viewer> tag. Otherwise injecting CSS+JS would have
-  // global side effects (e.g. ui/styles.css sets body{overflow:hidden}) and
-  // break unrelated websites.
+  // contains a <markdown-viewer> tag or diagram code blocks. Otherwise
+  // injecting CSS+JS would have global side effects (e.g. ui/styles.css
+  // sets body{overflow:hidden}) and break unrelated websites.
   if (matchedExt === '.html') {
-    let injected = false;
-    const requestInject = (): void => {
-      if (injected) return;
-      injected = true;
-      const request = {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        type: 'INJECT_ELEMENT_RUNTIME',
-        payload: {},
-        timestamp: Date.now(),
-        source: 'content-detector',
-      };
-      const sendPromise = webExtensionApi.runtime.sendMessage(request);
-      if (sendPromise && typeof sendPromise.then === 'function') {
-        sendPromise.catch(() => {
-          // Ignore errors - fire and forget
-        });
-      }
-    };
-
-    const hasMarkdownViewer = (): boolean => Boolean(document.querySelector('markdown-viewer'));
-
-    if (hasMarkdownViewer()) {
-      requestInject();
-      return;
-    }
-
-    // Watch for late-added <markdown-viewer> elements; inject lazily.
-    const startObserver = (): void => {
-      if (!document.body) {
-        // body not ready yet — wait for DOMContentLoaded
-        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
-        return;
-      }
-      if (hasMarkdownViewer()) {
-        requestInject();
-        return;
-      }
-      const observer = new MutationObserver(() => {
-        if (hasMarkdownViewer()) {
-          observer.disconnect();
-          requestInject();
-        }
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    };
-    startObserver();
+    detectHtmlPageContent();
     return;
   }
 
@@ -222,6 +248,10 @@ async function detectAndInject(): Promise<void> {
     return;
   }
   if (!processable) {
+    // Page is HTML (e.g. GitHub blob page where URL ends in .md but content
+    // type is text/html). Fall back to HTML page detection so diagram code
+    // blocks on host sites can still be rendered.
+    detectHtmlPageContent();
     return;
   }
 

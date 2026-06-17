@@ -1,11 +1,13 @@
 {
-  "formats": [    { "fileType": "slidev",      "extensions": ["slides.md"],  "languageId": "markdown" },    { "fileType": "mermaid", "extensions": ["mermaid", "mmd"] },
-    { "fileType": "plantuml", "extensions": ["plantuml", "puml"] },
-    { "fileType": "vega", "extensions": ["vega"] },
-    { "fileType": "vega-lite", "extensions": ["vl", "vega-lite"], "languageId": "vega" },
-    { "fileType": "dot", "extensions": ["gv", "dot"], "languageId": "graphviz" },
-    { "fileType": "infographic", "extensions": ["infographic"] },
-    { "fileType": "canvas", "extensions": ["canvas"] },
-    { "fileType": "drawio", "extensions": ["drawio"] }
+  "formats": [
+    { "fileType": "slidev", "extensions": ["slides.md"], "languageId": "markdown", "isDiagram": false },
+    { "fileType": "mermaid", "extensions": ["mermaid", "mmd"], "codeBlockLanguages": ["mermaid"] },
+    { "fileType": "plantuml", "extensions": ["plantuml", "puml"], "codeBlockLanguages": ["plantuml", "puml", "wsd"] },
+    { "fileType": "vega", "extensions": ["vega"], "codeBlockLanguages": ["vega"] },
+    { "fileType": "vega-lite", "extensions": ["vl", "vega-lite"], "languageId": "vega", "codeBlockLanguages": ["vega-lite", "vegalite"] },
+    { "fileType": "dot", "extensions": ["gv", "dot"], "languageId": "graphviz", "codeBlockLanguages": ["dot", "graphviz"] },
+    { "fileType": "infographic", "extensions": ["infographic"], "codeBlockLanguages": ["infographic"] },
+    { "fileType": "canvas", "extensions": ["canvas"], "codeBlockLanguages": ["canvas"] },
+    { "fileType": "drawio", "extensions": ["drawio"], "codeBlockLanguages": ["drawio"] }
   ]
 }

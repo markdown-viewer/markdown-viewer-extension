@@ -6,6 +6,7 @@
  */
 
 import type { ASTNode, PluginRenderer, PluginRenderResult, UnifiedRenderResult } from '../types/index';
+import { CODE_BLOCK_LANGUAGE_MAP } from '../types/formats';
 
 export class BasePlugin {
   type: string;
@@ -48,11 +49,19 @@ export class BasePlugin {
       return null;
     }
 
-    // Check language for code blocks
-    if (this.language && node.lang !== this.language) {
+    // Check language for code blocks.
+    // The central CODE_BLOCK_LANGUAGE_MAP maps all aliases (e.g. 'wsd',
+    // 'puml', 'vegalite', 'graphviz') to fileType, so subclasses don't
+    // need to override extractContent just to handle language aliases.
+    if (this.language && node.lang) {
+      const resolvedType = CODE_BLOCK_LANGUAGE_MAP[node.lang.toLowerCase()];
+      if (resolvedType !== this.type) {
+        return null;
+      }
+    } else if (this.language && node.lang !== this.language) {
       return null;
     }
-    
+
     return node.value || null;
   }
 
