@@ -112,6 +112,7 @@ export interface ViewerMainOptions {
 export interface ViewerMainRuntime {
   openDocument(content: string, options?: { scrollLine?: number; anchor?: string }): Promise<void>;
   updateContent(content: string, targetLine?: number): Promise<void>;
+  renderSlidev(content: string): Promise<void>;
   setTheme(themeId: string): Promise<void>;
   requestAnchor(anchor: string): Promise<void>;
   setScrollLine(line: number): void;
@@ -476,7 +477,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           void viewerAssembler?.reportHeadingPresence(hasHeadings);
         },
         onHeadings: () => {
-          if (isCodeViewActive()) {
+          if (isCodeViewActive() || isTocDisabledForCurrentFile()) {
             hideTocForCodeView();
             return;
           }
@@ -574,9 +575,13 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   }
 
   // ── Slidev mode: .slides.md files render as presentations ────────────
-  const initialUrl = getActiveDocumentUrl();
-  const isSlidevByExtension = /\.slides\.md$/i.test(initialUrl);
-  if (isSlidevByExtension) {
+  const isSlidevFile = (path: string): boolean => /\.slides\.md$/i.test(path);
+
+  const renderSlidevContent = async (content: string): Promise<void> => {
+    // Mark that we're in Slidev mode so the embed layer can detect it and
+    // trigger a page reload when switching back to a regular file.
+    document.documentElement.dataset.slidevActive = '1';
+
     // Remove preload style that hides page content (opacity: 0 !important)
     document.getElementById('markdown-viewer-preload')?.remove();
 
@@ -586,8 +591,6 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     document.documentElement.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
 
     // Notify parent workspace that the frame is themed and ready to reveal.
-    // The normal markdown path does this after theme setup; Slidev must do the
-    // same here because it returns early and never reaches that code.
     try {
       if (window.parent !== window) {
         window.parent.postMessage({ type: 'VIEWER_RENDERED' }, '*');
@@ -595,7 +598,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     } catch { /* cross-origin parent — ignore */ }
 
     await initSlidevViewer({
-      rawContent,
+      rawContent: content,
       container: document.body,
       renderDiagram: (type, code) =>
         platform.renderer.render(type, code).then((r) => ({
@@ -628,7 +631,26 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         saveToHistory(platform);
       },
     });
+  };
+
+  const initialUrl = getActiveDocumentUrl();
+  if (isSlidevFile(initialUrl)) {
+    await renderSlidevContent(rawContent);
     return;
+  }
+
+  // ── Non-workspace mode: set tocDisabled based on the document URL ────────
+  // Workspace mode already sets data-toc-disabled via applyOpenDocumentMetadata
+  // in viewer-embed.ts. For non-workspace mode (direct file open in browser /
+  // HTML conversion), derive it from the current URL so the same TOC-hiding
+  // logic applies consistently.
+  // Note: keep TOC enabled for htmlConverted pages (reading-mode on arbitrary
+  // web pages) since their content may still benefit from heading navigation.
+  if (document.documentElement.dataset.tocDisabled === undefined && !htmlConverted) {
+    const isMd = /\.(md|markdown)$/i.test(initialUrl) && !/\.slides\.md$/i.test(initialUrl);
+    if (!isMd) {
+      document.documentElement.dataset.tocDisabled = '1';
+    }
   }
 
   // Wrap non-markdown file content (e.g., mermaid, vega) in markdown format.
@@ -657,7 +679,28 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     document.body.classList.add('toc-hidden');
   };
 
+  const isTocDisabledForCurrentFile = (): boolean => {
+    return document.documentElement.dataset.tocDisabled === '1';
+  };
+
+  const applyTocButtonVisibility = (): void => {
+    const tocBtn = document.getElementById('toggle-toc-btn');
+    if (!tocBtn) return;
+    if (isTocDisabledForCurrentFile()) {
+      tocBtn.style.display = 'none';
+    } else {
+      tocBtn.style.display = '';
+    }
+  };
+
   const applyPredictedTocLayout = (hasHeadings: boolean | undefined, tocVisible = initialTocVisible): void => {
+    applyTocButtonVisibility();
+
+    if (isTocDisabledForCurrentFile()) {
+      hideTocForCodeView();
+      return;
+    }
+
     if (isCodeViewActive()) {
       hideTocForCodeView();
       return;
@@ -864,6 +907,14 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     document.body.classList.add('toc-hidden');
   }
   applyTocPanelSide(Boolean(initialSwapPanelSide));
+  applyTocButtonVisibility();
+
+  // If TOC is disabled for the current file (non-.md), ensure the panel starts
+  // hidden even though initialTocClass may have rendered it visible.
+  if (isTocDisabledForCurrentFile()) {
+    hideTocForCodeView();
+  }
+
   await initGitbookSidebarResize();
 
   getOrCreateMountedViewerAdapter();
@@ -922,6 +973,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           contentLength: effect.renderModel.directCodeView.content.length,
         });
         hideTocForCodeView();
+        // Re-apply code view presentation after render so line numbers are
+        // decorated on the *new* code block. The earlier call (from the
+        // apply-presentation effect) may have found the *old* code block
+        // during code→code switches and skipped setting up the observer.
+        applyCodeViewPresentation(true);
         restoreDirectCodeViewScrollAfterRender(effect.targetLine);
         return;
       }
@@ -929,7 +985,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       logViewerDebug('surface.render.preview', {
         targetLine: effect.targetLine,
       });
-      await generateTOC();
+      if (isTocDisabledForCurrentFile()) {
+        hideTocForCodeView();
+      } else {
+        await generateTOC();
+      }
       updateActiveTocItem();
       restorePreviewScrollAfterRender(effect.targetLine);
     },
@@ -1358,6 +1418,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         await viewerAssembler.requestTargetLine(targetLine);
       }
     }),
+    renderSlidev: (content) => renderSlidevContent(content),
     setTheme: (themeId) => handleSetTheme(themeId),
     requestAnchor: async (anchor) => {
       if (!viewerAssembler) {

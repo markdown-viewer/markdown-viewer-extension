@@ -3,6 +3,7 @@
 // File/folder icons: material-icon-theme (MIT License) — https://github.com/material-extensions/vscode-material-icon-theme
 
 import * as mi from './file-icons-data';
+import { EXT_LANG_MAP } from '../../../src/utils/extension-categories';
 
 // ─── UI icons (Lucide, stroke-based, follows currentColor) ───
 const A = 'xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
@@ -22,48 +23,88 @@ export const folderClosed = `<svg ${A}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0
 export const folderOpen = `<svg ${A}><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>`;
 export const folderPlus = `<svg ${A}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
 
+// ─── Language → icon mapping (derived from shared extension-categories) ───
+const LANG_ICON: Record<string, string> = {
+  'javascript': mi.javascript,
+  'typescript': mi.typescript,
+  'python': mi.python,
+  'ruby': mi.ruby,
+  'go': mi.go,
+  'rust': mi.rust,
+  'java': mi.java,
+  'kotlin': mi.kotlin,
+  'swift': mi.swift,
+  'dart': mi.dart,
+  'c': mi.c,
+  'cpp': mi.cpp,
+  'csharp': mi.java,
+  'php': mi.php,
+  'lua': mi.lua,
+  'r': mi.r,
+  'scala': mi.scala,
+  'zig': mi.zig,
+  'perl': mi.perl,
+  'vue': mi.vue,
+  'svelte': mi.javascript,
+  'html': mi.html,
+  'css': mi.css,
+  'scss': mi.css,
+  'less': mi.css,
+  'xml': mi.xml,
+  'json': mi.json,
+  'yaml': mi.yaml,
+  'toml': mi.toml,
+  'ini': mi.settings,
+  'bash': mi.console,
+  'fish': mi.console,
+  'powershell': mi.console,
+  'bat': mi.console,
+  'markdown': mi.markdown,
+  'plaintext': mi.file,
+  'latex': mi.tex,
+  'csv': mi.table,
+  'sql': mi.database,
+};
+
+// Per-extension icon overrides (where icon differs from the language default).
+const EXT_ICON_OVERRIDE: Record<string, string> = {
+  'jsx': mi.react,
+  'tsx': mi.reactTs,
+  'log': mi.log,       // .log uses mi.log, not plaintext's mi.file
+};
+
+function buildLangExtMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const ext of Object.keys(EXT_LANG_MAP)) {
+    if (ext in EXT_ICON_OVERRIDE) {
+      map[ext] = EXT_ICON_OVERRIDE[ext];
+    } else {
+      const lang = EXT_LANG_MAP[ext];
+      map[ext] = LANG_ICON[lang] || mi.file;
+    }
+  }
+  return map;
+}
+
 // ─── Extension → icon mapping ───
 const extMap: Record<string, string> = {
-  // Markdown
+  // ── Language-derived (from shared extension-categories.ts) ──
+  ...buildLangExtMap(),
+
+  // ── Markdown (excluded from EXT_LANG_MAP — rendered, not code-previewed) ──
   'md': mi.markdown, 'markdown': mi.markdown,
-  // Diagrams
+
+  // ── Diagrams (not in EXT_LANG_MAP — rendered, not syntax-highlighted) ──
   'mermaid': mi.mermaid, 'mmd': mi.mermaid,
   'plantuml': mi.mermaid, 'puml': mi.mermaid,
   'gv': mi.settings, 'dot': mi.settings,
   'drawio': mi.settings,
-  // Charts
+
+  // ── Charts ──
   'vega': mi.table, 'vl': mi.table, 'vega-lite': mi.table,
-  // Slides
-  'slides.md': mi.powerpoint,
-  // Design / Canvas
+
+  // ── Design / Canvas ──
   'infographic': mi.image, 'canvas': mi.image,
-  // JavaScript / TypeScript
-  'js': mi.javascript, 'mjs': mi.javascript, 'cjs': mi.javascript,
-  'ts': mi.typescript, 'mts': mi.typescript, 'cts': mi.typescript,
-  'jsx': mi.react, 'tsx': mi.reactTs,
-  // Frameworks
-  'vue': mi.vue, 'svelte': mi.javascript,
-  // Systems / Backend
-  'py': mi.python, 'rb': mi.ruby, 'go': mi.go, 'rs': mi.rust,
-  'java': mi.java, 'kt': mi.kotlin, 'swift': mi.swift, 'dart': mi.dart,
-  'c': mi.c, 'cpp': mi.cpp, 'h': mi.c, 'hpp': mi.cpp,
-  'cs': mi.java, 'php': mi.php, 'lua': mi.lua, 'r': mi.r,
-  'scala': mi.scala, 'zig': mi.zig, 'perl': mi.perl, 'pl': mi.perl,
-  // Web
-  'html': mi.html, 'htm': mi.html,
-  'css': mi.css, 'scss': mi.css, 'less': mi.css, 'sass': mi.css,
-  'xml': mi.xml, 'xsl': mi.xml, 'xslt': mi.xml, 'svg': mi.svg,
-  // Data / Config
-  'json': mi.json, 'jsonc': mi.json, 'json5': mi.json,
-  'yaml': mi.yaml, 'yml': mi.yaml, 'toml': mi.toml, 'ini': mi.settings,
-  'env': mi.settings, 'properties': mi.settings,
-  // Shell / Terminal
-  'sh': mi.console, 'bash': mi.console, 'zsh': mi.console,
-  'fish': mi.console, 'ps1': mi.console, 'bat': mi.console, 'cmd': mi.console,
-  // Text / Docs
-  'txt': mi.file, 'log': mi.log, 'rtf': mi.word,
-  'tex': mi.tex, 'bib': mi.tex,
-  'csv': mi.table, 'tsv': mi.table,
   // Images
   'png': mi.image, 'jpg': mi.image, 'jpeg': mi.image,
   'gif': mi.image, 'webp': mi.image, 'bmp': mi.image, 'ico': mi.image,
@@ -84,7 +125,11 @@ const extMap: Record<string, string> = {
   // PDF / Font
   'pdf': mi.pdf, 'woff': mi.font, 'woff2': mi.font, 'ttf': mi.font, 'otf': mi.font, 'eot': mi.font,
   // DB
-  'sql': mi.database, 'sqlite': mi.database, 'db': mi.database,
+  'sqlite': mi.database, 'db': mi.database,
+  // Text / Docs (non-language)
+  'rtf': mi.word,
+  // Vector
+  'svg': mi.svg,
   // Doc files
   'doc': mi.word, 'docx': mi.word, 'odt': mi.word,
   'ppt': mi.powerpoint, 'pptx': mi.powerpoint, 'odp': mi.powerpoint,

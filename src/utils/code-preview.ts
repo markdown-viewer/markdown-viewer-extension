@@ -5,23 +5,7 @@
 
 import hljs from 'highlight.js/lib/common';
 import { renderMarkdownCodeBlockHtml } from '../core/markdown-processor';
-
-const CODE_PREVIEW_EXTENSIONS: readonly string[] = [
-  '.txt', '.log', '.mdx',
-  '.js', '.mjs', '.cjs', '.jsx',
-  '.ts', '.mts', '.cts', '.tsx', '.d.ts',
-  '.py', '.rb', '.go', '.rs',
-  '.java', '.kt', '.swift', '.dart',
-  '.c', '.cpp', '.h', '.hpp', '.cs',
-  '.php', '.lua', '.r', '.scala', '.zig', '.pl', '.perl',
-  '.vue', '.svelte',
-  '.css', '.scss', '.sass', '.less',
-  '.xml', '.xsl', '.xslt',
-  '.json', '.jsonc', '.json5',
-  '.yaml', '.yml', '.toml', '.ini', '.env', '.properties',
-  '.sh', '.bash', '.zsh', '.fish', '.ps1', '.bat', '.cmd',
-  '.csv', '.tsv', '.sql', '.tex', '.bib',
-].sort((a, b) => b.length - a.length);
+import { EXT_LANG_MAP, CODE_PREVIEW_EXTENSIONS } from './extension-categories';
 
 export function getCodePreviewMatchedExtension(path: string): string | null {
   const lowerPath = path.toLowerCase();
@@ -34,25 +18,11 @@ export function getCodePreviewMatchedExtension(path: string): string | null {
 }
 
 export function toCodeFenceLanguage(extWithDot: string): string {
-  switch (extWithDot) {
-    case '.d.ts':
-    case '.cts':
-    case '.mts':
-      return 'ts';
-    case '.cjs':
-    case '.mjs':
-      return 'js';
-    case '.ps1':
-      return 'powershell';
-    case '.cmd':
-      return 'bat';
-    case '.yml':
-      return 'yaml';
-    case '.tex':
-      return 'latex';
-    default:
-      return extWithDot.replace(/^\./, '');
+  const key = extWithDot.replace(/^\./, '');
+  if (key in EXT_LANG_MAP) {
+    return EXT_LANG_MAP[key];
   }
+  return key;
 }
 
 export function getCodeFenceLanguageForPath(path: string): string | null {

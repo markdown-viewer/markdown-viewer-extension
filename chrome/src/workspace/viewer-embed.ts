@@ -100,6 +100,26 @@ if (EMBED_MODE) {
   (document.head || document.documentElement).appendChild(style);
 }
 
+// ── Restore pending content after Slidev→normal file switch reload ──────
+// When switching away from a .slides.md file the viewer page is reloaded
+// because renderSlidevContent destroyed the normal viewer DOM. Before the
+// reload we stash the incoming OPEN_DOCUMENT message in sessionStorage;
+// here we replay it through the normal message handler so initializeViewerMain
+// picks up the content and renders it with a fresh DOM.
+(function restorePendingOpenDocument() {
+  try {
+    const raw = sessionStorage.getItem('mv:pendingOpen');
+    if (!raw) return;
+    sessionStorage.removeItem('mv:pendingOpen');
+    const message = JSON.parse(raw) as ViewerOpenDocumentMessage;
+    if (message && typeof message.content === 'string') {
+      // Replay through the normal handler — it will call ensureViewerInitialized
+      // which triggers startViewer → initializeViewerMain.
+      void handleDocumentMessage(message, 'open');
+    }
+  } catch { /* malformed JSON or storage blocked — ignore */ }
+})();
+
 function scrollToAnchor(anchor: string): void {
   const normalized = decodeURIComponent(anchor || '').replace(/^#/, '').trim();
   if (!normalized) return;
@@ -139,6 +159,43 @@ function applyOpenDocumentMetadata(message: ViewerOpenDocumentMessage): void {
   } else {
     delete document.documentElement.dataset.viewerWorkspaceName;
     delete document.documentElement.dataset.viewerWorkspaceFilePath;
+  }
+
+  // Only enable TOC for plain .md / .markdown files (exclude .slides.md,
+  // .drawio, .mermaid, and image previews whose filename is e.g. image.png.md).
+  const IMAGE_PREVIEW_EXTS = /\.(svg|png|jpe?g|gif|webp|bmp|ico|tiff?|avif)\.(md|markdown)$/i;
+  const tocEnabled = /\.(md|markdown)$/i.test(filename)
+    && !/\.slides\.md$/i.test(filename)
+    && !IMAGE_PREVIEW_EXTS.test(filename);
+  if (tocEnabled) {
+    delete document.documentElement.dataset.tocDisabled;
+    // When switching back to .md from a non-.md file, the TOC panel may still be
+    // hidden from the previous applyOpenDocumentMetadata call. Restore it so the
+    // render pipeline's applyPredictedTocLayout can correctly manage visibility.
+    const tocDiv = document.getElementById('table-of-contents');
+    const overlayDiv = document.getElementById('toc-overlay');
+    if (tocDiv) {
+      tocDiv.style.display = '';
+      tocDiv.classList.remove('hidden');
+    }
+    if (overlayDiv) {
+      overlayDiv.classList.remove('hidden');
+    }
+    document.body.classList.remove('toc-hidden');
+  } else {
+    document.documentElement.dataset.tocDisabled = '1';
+    // Immediately close the TOC panel so stale content from the previous file
+    // is not visible while the render pipeline runs asynchronously.
+    const tocDiv = document.getElementById('table-of-contents');
+    const overlayDiv = document.getElementById('toc-overlay');
+    if (tocDiv) {
+      tocDiv.style.display = 'none';
+      tocDiv.classList.add('hidden');
+    }
+    if (overlayDiv) {
+      overlayDiv.classList.add('hidden');
+    }
+    document.body.classList.add('toc-hidden');
   }
 
   applyCodeViewPresentation(codeView);
@@ -273,7 +330,25 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
 
   if (mode === 'open') {
     if (wasInitialized) {
-      await runtime.openDocument(content, { scrollLine: targetLine });
+      const filename = (message as ViewerOpenDocumentMessage).filename || '';
+      const isSlides = /\.slides\.md$/i.test(filename);
+      const cameFromSlidev = document.documentElement.dataset.slidevActive === '1';
+
+      if (isSlides) {
+        await runtime.renderSlidev(content);
+      } else if (cameFromSlidev) {
+        // Switching away from Slidev — the normal viewer DOM was destroyed.
+        // Save the pending open-document message to sessionStorage, reload the
+        // page, and restore it on the next load so initializeViewerMain can
+        // pick it up with a fresh DOM.
+        try {
+          sessionStorage.setItem('mv:pendingOpen', JSON.stringify(message));
+        } catch { /* storage blocked */ }
+        window.location.reload();
+        return; // never reached after reload
+      } else {
+        await runtime.openDocument(content, { scrollLine: targetLine });
+      }
     }
   } else {
     await runtime.updateContent(content, targetLine);
@@ -340,5 +415,12 @@ document.addEventListener('click', (event) => {
   // Relative path — delegate to workspace parent to open via File System Access API
   window.parent.postMessage({ type: 'WORKSPACE_NAVIGATE', path: href }, '*');
 });
+
+// Set up workspace file/image resolvers before notifying the parent that the
+// viewer is ready. This ensures the workspace file reader (used by the SVG
+// plugin to resolve relative image paths) is available before the first render,
+// avoiding a race where `new URL(relativePath, _baseUrl)` fails because
+// `_baseUrl` is an empty file:// URL in workspace mode.
+workspaceEmbedBridge.ensureConnected();
 
 parentBridge.notifyViewerReady();

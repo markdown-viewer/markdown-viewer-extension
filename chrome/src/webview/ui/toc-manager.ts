@@ -77,6 +77,14 @@ export function createTocManager(
       return;
     }
 
+    if (document.documentElement.dataset.tocDisabled === '1') {
+      tocDiv.style.display = 'none';
+      tocDiv.classList.add('hidden');
+      document.body.classList.add('toc-hidden');
+      document.getElementById('toc-overlay')?.classList.add('hidden');
+      return;
+    }
+
     const headings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
     if (headings.length === 0) {

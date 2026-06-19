@@ -271,6 +271,19 @@ export function createWorkspaceEmbedHostUiController(
     }
 
     destroyFloatingTocPanel();
+
+    // When TOC is disabled for the current file (non-.md / non-.markdown),
+    // keep the panel hidden — do not undo the state set by applyOpenDocumentMetadata.
+    if (document.documentElement.dataset.tocDisabled === '1') {
+      if (tocDiv) {
+        tocDiv.classList.add('hidden');
+        tocDiv.style.display = 'none';
+      }
+      document.body.classList.add('toc-hidden');
+      if (overlayDiv) overlayDiv.classList.add('hidden');
+      return;
+    }
+
     if (tocDiv) {
       tocDiv.classList.remove('hidden');
       tocDiv.style.display = '';
