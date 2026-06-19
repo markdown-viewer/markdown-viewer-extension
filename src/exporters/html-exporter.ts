@@ -164,6 +164,8 @@ function removeEphemeralUi(root: HTMLElement): void {
     parent.replaceChild(text, el);
     parent.normalize();
   });
+  // Remove non-functional copy buttons that only make sense in the live preview
+  root.querySelectorAll('.mv-code-copy-btn').forEach((btn) => btn.remove());
 }
 
 function stripRuntimeWrappers(root: HTMLElement): void {
