@@ -110,6 +110,9 @@ export function createRemarkPlugin(
           const content = plugin.extractContent(node);
           if (!content) return;
 
+          const isInline = plugin.isInline();
+          const placeholderPlugin = { ...plugin, isInline: () => isInline } as typeof plugin;
+
           // Determine initial status: URLs need fetching
           const initialStatus = plugin.isUrl(content) ? 'fetching' : 'ready';
 
@@ -121,7 +124,7 @@ export function createRemarkPlugin(
                 
                 // If renderer returns null (e.g., empty content), skip rendering
                 if (renderResult) {
-                  replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline(), sourceHash as string);
+                  replacePlaceholderWithImage(id, renderResult, plugin.type, isInline, sourceHash as string);
                 } else {
                   // Remove placeholder element if content is empty
                   const placeholder = document.getElementById(id);
@@ -146,7 +149,7 @@ export function createRemarkPlugin(
               }
             },
             plugin.createTaskData(content),
-            plugin,
+            placeholderPlugin,
             translate,
             initialStatus
           );

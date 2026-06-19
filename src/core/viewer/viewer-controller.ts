@@ -26,6 +26,8 @@ import {
   type BlockMeta,
 } from '../markdown-document';
 import { hasHeadingBlocks } from '../markdown-block-splitter';
+import { parseFootnotes } from '../footnote-model.ts';
+import { applyFootnotes } from '../footnote-postprocessor.ts';
 
 import GithubSlugger from 'github-slugger';
 import { rewriteObsidianLinks } from '../../utils/obsidian-link-rewrite';
@@ -178,6 +180,8 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
 
   const taskManager = providedTaskManager ?? new AsyncTaskManager(translate);
   const normalizedMarkdown = rewriteObsidianLinks(markdown);
+  const footnotes = parseFootnotes(normalizedMarkdown);
+  const renderMarkdown = footnotes.bodyMarkdown;
 
   // Check if this is a fresh render
   const isFirstRender = container.childNodes.length === 0 || clearContainer;
@@ -192,7 +196,7 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   const doc = getDocument();
   
   // Update document and get DOM commands
-  const updateResult = doc.update(normalizedMarkdown);
+  const updateResult = doc.update(renderMarkdown);
   onHeadingPresenceKnown?.(hasHeadingBlocks(doc.getBlocks()));
   
   // Create shared slugger for unique heading IDs across blocks
@@ -208,6 +212,8 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
     // Normalize heading IDs after incremental DOM changes to ensure uniqueness
     normalizeHeadingIds(container);
   }
+
+  await applyFootnotes(container, footnotes, processor);
 
   // Notify streaming complete
   onStreamingComplete?.();
@@ -229,7 +235,7 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   // This allows the caller to set scroll position before async tasks modify DOM.
 
   return {
-    title: extractTitle(normalizedMarkdown),
+    title: extractTitle(renderMarkdown),
     headings,
     taskManager,
   };

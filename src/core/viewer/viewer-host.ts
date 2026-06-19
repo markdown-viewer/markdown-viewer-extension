@@ -321,8 +321,12 @@ export function scrollToAnchor(
   if (scrollContainer) {
     const containerRect = scrollContainer.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    const top = targetRect.top - containerRect.top + scrollContainer.scrollTop;
-    scrollContainer.scrollTo({ top: Math.max(0, top), behavior });
+    const targetTop = targetRect.top - containerRect.top + scrollContainer.scrollTop;
+
+    scrollContainer.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior,
+    });
     return true;
   }
 

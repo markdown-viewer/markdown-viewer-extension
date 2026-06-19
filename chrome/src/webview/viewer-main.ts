@@ -1011,6 +1011,14 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     if (window.location.hash) {
       const fragment = decodeURIComponent(window.location.hash.slice(1)).trim();
       pendingAnchor = fragment.length > 0 ? fragment : null;
+      // Footnote anchors are post-processed into the DOM after markdown render.
+      // Reusing a stale footnote hash from a previous session causes an initial
+      // auto-scroll race that interferes with the first user click. Only honor
+      // initial hashes for normal document anchors; let footnotes navigate via
+      // explicit click/hashchange after the document is visible.
+      if (pendingAnchor?.startsWith('footnote-')) {
+        pendingAnchor = null;
+      }
     }
 
     toolbarManager.initializeToolbar();

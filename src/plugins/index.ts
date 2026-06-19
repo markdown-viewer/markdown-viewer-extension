@@ -124,8 +124,15 @@ export function registerRemarkPlugins(
             const content = plugin.extractContent(node);
             if (!content) continue;
 
+            // Capture inline/block mode at match time. Some plugins (notably SVG)
+            // derive inline mode from the current AST node type; reading isInline()
+            // later inside async callbacks can observe a different node and corrupt
+            // layout (e.g. inline badge images becoming block diagrams).
+            const isInline = plugin.isInline();
+
             // This plugin can handle this node, create async task
             const initialStatus = plugin.isUrl(content) ? 'fetching' : 'ready';
+            const placeholderPlugin = { ...plugin, isInline: () => isInline } as typeof plugin;
 
             const result = asyncTask(
               async (data: TaskData) => {
@@ -144,7 +151,7 @@ export function registerRemarkPlugins(
                   const renderResult = await renderer.render(plugin.type, processedCode);
                   
                   if (renderResult) {
-                    replacePlaceholderWithImage(id, renderResult, plugin.type, plugin.isInline(), sourceHash as string);
+                    replacePlaceholderWithImage(id, renderResult, plugin.type, isInline, sourceHash as string);
                     // Sync rendered content back to in-memory cache
                     // This ensures block moves don't lose rendered diagrams
                     syncBlockHtmlFromDOM(id);
@@ -173,7 +180,7 @@ export function registerRemarkPlugins(
                 }
               },
               plugin.createTaskData(content),
-              plugin,
+              placeholderPlugin,
               translate,
               initialStatus
             );

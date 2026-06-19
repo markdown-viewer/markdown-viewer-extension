@@ -30,6 +30,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkGemoji from 'remark-gemoji';
 import remarkSuperSub from '../plugins/remark-super-sub';
+import { buildDocxFootnoteMarkdown } from '../core/footnote-model.ts';
 import { visit } from 'unist-util-visit';
 import { loadThemeForDOCX } from './theme-to-docx';
 import { rewriteObsidianLinks } from '../utils/obsidian-link-rewrite';
@@ -454,6 +455,7 @@ class DocxExporter {
     const [frontmatter, cleanMarkdown] = this.extractFrontmatter(markdown);
     this.frontmatterContent = frontmatter;
     const normalizedMarkdown = rewriteObsidianLinks(cleanMarkdown);
+    const footnoteAwareMarkdown = buildDocxFootnoteMarkdown(normalizedMarkdown);
 
     const processor = unified()
       .use(remarkParse)
@@ -464,7 +466,7 @@ class DocxExporter {
       .use(remarkGemoji)
       .use(remarkSuperSub);
 
-    const ast = processor.parse(normalizedMarkdown);
+    const ast = processor.parse(footnoteAwareMarkdown);
     const transformed = processor.runSync(ast);
 
     this.linkDefinitions = new Map();

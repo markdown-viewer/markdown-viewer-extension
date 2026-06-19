@@ -224,6 +224,8 @@ export function themeToCSS(
   // Block spacing (uses colorScheme for blockquote border)
   css.push(generateBlockSpacingCSS(layoutScheme, colorScheme));
 
+  css.push(generateFootnoteCSS());
+
   return css.join('\n\n').replace(/#markdown-content/g, CONTENT_ROOT_SELECTOR);
 }
 
@@ -688,6 +690,49 @@ ${hrStyles.join('\n')}
   }
 
   return css.join('\n\n');
+}
+
+function generateFootnoteCSS(): string {
+  return `
+#markdown-content sup.footnote-ref {
+  font-size: 0.8em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  top: -0.5em;
+}
+#markdown-content sup.footnote-ref a {
+  text-decoration: none;
+  color: var(--md-accent, #0366d6);
+  font-weight: 600;
+}
+#markdown-content sup.footnote-ref a:hover {
+  text-decoration: underline;
+}
+#markdown-content section.footnotes {
+  font-size: 0.9em;
+}
+#markdown-content section.footnotes ul {
+  list-style: disc;
+  padding-left: 1.5em;
+  margin: 0;
+}
+#markdown-content section.footnotes .footnote-item {
+  margin: 0.3em 0;
+  line-height: 1.5;
+}
+#markdown-content section.footnotes .footnote-label {
+  font-weight: 600;
+  color: var(--md-accent, #0366d6);
+  margin-right: 0.35em;
+}
+#markdown-content section.footnotes .footnote-item > .footnote-content > :first-child {
+  margin-top: 0;
+}
+#markdown-content section.footnotes .footnote-item > .footnote-content > :last-child {
+  margin-bottom: 0;
+}
+`.trim();
 }
 
 // ============================================================================
