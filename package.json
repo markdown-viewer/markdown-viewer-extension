@@ -20,6 +20,7 @@
     "build:android": "node mobile/build-app.js android",
     "build:macos": "node mobile/build-app.js macos",
     "app:init": "cd mobile && flutter pub get",
+    "check:homepage-i18n": "node scripts/check-homepage-i18n.cjs",
     "typecheck": "npx tsc --noEmit"
   },
   "keywords": [
