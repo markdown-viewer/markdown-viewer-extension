@@ -311,7 +311,7 @@ async function handleDocumentUpdate(
 ): Promise<void> {
   const { content, filename, documentBaseUri, forceRender, scrollLine } = payload;
   const container = document.getElementById('markdown-content');
-  
+
   if (!container) {
     console.error('[VSCode Webview] Content container not found');
     return;
@@ -343,74 +343,99 @@ async function handleDocumentUpdate(
   const lowerFilename = newFilename.toLowerCase();
   const isSlidevByExtension = lowerFilename.endsWith('.slides.md');
   if (isSlidevByExtension) {
-    isSlidevMode = true;
-    tocPanel?.setHeadings([]);
+    try {
+      isSlidevMode = true;
+      tocPanel?.setHeadings([]);
 
-    // Hide normal markdown wrapper, use vscode-root as container
-    const wrapper = document.getElementById('markdown-wrapper');
-    if (wrapper) wrapper.style.display = 'none';
+      // Hide normal markdown wrapper and content container,
+      // use vscode-root directly as the slidev viewport
+      const wrapper = document.getElementById('markdown-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+      const contentArea = document.getElementById('vscode-content');
+      if (contentArea) contentArea.style.display = 'none';
 
-    const root = document.getElementById('vscode-root')!;
-    root.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
-    document.documentElement.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
-    document.body.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
+      const root = document.getElementById('vscode-root')!;
+      root.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
+      document.documentElement.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
+      document.body.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
 
-    // Reuse or create a slidev container
-    let slidevContainer = document.getElementById('slidev-container');
-    if (!slidevContainer) {
-      slidevContainer = document.createElement('div');
-      slidevContainer.id = 'slidev-container';
-      slidevContainer.style.cssText = 'width:100%;height:100%';
-      root.appendChild(slidevContainer);
-    }
-
-    const baseUri = window.VSCODE_WEBVIEW_BASE_URI;
-    const nonce = window.VSCODE_NONCE;
-
-    // Cache theme bundles for reuse between getThemeCode and onThemeReady
-    let themeBundles: Record<string, { code: string; fonts: Record<string, string>; fontUrl?: string; colorSchema?: string }> | null = null;
-    async function fetchBundles() {
-      if (!themeBundles) {
-        const resp = await fetch(`${baseUri}/slidev-theme-bundles.json`);
-        if (resp.ok) themeBundles = await resp.json();
+      // Reuse or create a slidev container
+      let slidevContainer = document.getElementById('slidev-container');
+      if (!slidevContainer) {
+        slidevContainer = document.createElement('div');
+        slidevContainer.id = 'slidev-container';
+        slidevContainer.style.cssText = 'width:100%;height:100%';
+        root.appendChild(slidevContainer);
       }
-      return themeBundles;
-    }
 
-    await initSlidevViewer({
-      rawContent: content,
-      container: slidevContainer,
-      mode: 'list',
-      renderDiagram: (type, code) =>
-        platform.renderer.render(type, code).then((r) => ({
-          base64: r.base64!,
-          width: r.width,
-          height: r.height,
-        })),
-      onThemeReady: async (name) => {
-        const bundles = await fetchBundles();
-        const entry = bundles?.[name];
-        if (entry?.fonts) {
-          platform.renderer.setThemeConfig({
-            ...platform.renderer.getThemeConfig(),
-            fontFamily: entry.fonts.sans || entry.fonts.serif || undefined,
-            fontUrl: entry.fontUrl,
-            colorSchema: entry.colorSchema as 'light' | 'dark' | 'both' | undefined,
-          });
+      const baseUri = window.VSCODE_WEBVIEW_BASE_URI;
+      const nonce = window.VSCODE_NONCE;
+
+      // Cache theme bundles for reuse between getThemeCode and onThemeReady
+      let themeBundles: Record<string, { code: string; fonts: Record<string, string>; fontUrl?: string; colorSchema?: string }> | null = null;
+      async function fetchBundles() {
+        if (!themeBundles) {
+          const resp = await fetch(`${baseUri}/slidev-theme-bundles.json`);
+          if (resp.ok) themeBundles = await resp.json();
         }
-      },
-      getShellHtml: async () => {
-        const resp = await fetch(`${baseUri}/slidev-shell-inline.html`);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const html = await resp.text();
-        return html.replaceAll('__SLIDEV_NONCE__', nonce);
-      },
-      getThemeCode: async (name) => {
-        const bundles = await fetchBundles();
-        return bundles?.[name]?.code;
-      },
-    });
-    return;
+        return themeBundles;
+      }
+
+      const SLIDEV_TIMEOUT_MS = 15000;
+      await Promise.race([
+        initSlidevViewer({
+        rawContent: content,
+        container: slidevContainer,
+        mode: 'list',
+        renderDiagram: (type, code) =>
+          platform.renderer.render(type, code).then((r) => ({
+            base64: r.base64!,
+            width: r.width,
+            height: r.height,
+          })),
+        onThemeReady: async (name) => {
+          const bundles = await fetchBundles();
+          const entry = bundles?.[name];
+          if (entry?.fonts) {
+            platform.renderer.setThemeConfig({
+              ...platform.renderer.getThemeConfig(),
+              fontFamily: entry.fonts.sans || entry.fonts.serif || undefined,
+              fontUrl: entry.fontUrl,
+              colorSchema: entry.colorSchema as 'light' | 'dark' | 'both' | undefined,
+            });
+          }
+        },
+        getShellHtml: async () => {
+          const resp = await fetch(`${baseUri}/slidev-shell-inline.html`);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const html = await resp.text();
+          return html.replaceAll('__SLIDEV_NONCE__', nonce);
+        },
+        getThemeCode: async (name) => {
+          const bundles = await fetchBundles();
+          return bundles?.[name]?.code;
+        },
+      }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Slidev init timed out after ${SLIDEV_TIMEOUT_MS}ms`)), SLIDEV_TIMEOUT_MS)
+        ),
+      ]);
+      return;
+    } catch (err) {
+      console.error('[Slidev] Failed to initialize:', err);
+      // Restore normal layout and fall through to regular markdown rendering
+      isSlidevMode = false;
+      const wrapper = document.getElementById('markdown-wrapper');
+      if (wrapper) wrapper.style.display = '';
+      const contentArea = document.getElementById('vscode-content');
+      if (contentArea) contentArea.style.display = '';
+      const root = document.getElementById('vscode-root');
+      if (root) root.style.cssText = '';
+      document.documentElement.style.cssText = '';
+      document.body.style.cssText = '';
+      const sc = document.getElementById('slidev-container');
+      if (sc) sc.remove();
+    }
   }
 
   // ── Normal markdown mode ─────────────────────────────────────────────
@@ -421,6 +446,8 @@ async function handleDocumentUpdate(
     if (slidevContainer) slidevContainer.remove();
     const wrapper = document.getElementById('markdown-wrapper');
     if (wrapper) wrapper.style.display = '';
+    const contentArea = document.getElementById('vscode-content');
+    if (contentArea) contentArea.style.display = '';
     const root = document.getElementById('vscode-root');
     if (root) root.style.cssText = '';
     document.documentElement.style.cssText = '';

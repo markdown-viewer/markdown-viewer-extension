@@ -1214,7 +1214,7 @@ export class MarkdownPreviewPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline' https://fonts.googleapis.com; script-src 'nonce-${nonce}' 'unsafe-eval'; img-src ${webview.cspSource} data: https: blob:; font-src ${webview.cspSource} data: https://fonts.gstatic.com; frame-src ${webview.cspSource} blob:; connect-src ${webview.cspSource} https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline' https://fonts.googleapis.com; script-src 'nonce-${nonce}' 'unsafe-eval'; img-src ${webview.cspSource} data: https: blob:; font-src ${webview.cspSource} data: https://fonts.gstatic.com; frame-src ${webview.cspSource} 'self' blob:; connect-src ${webview.cspSource} https:;">
   <link rel="stylesheet" href="${styleUri}">
   <link rel="stylesheet" href="${settingsStyleUri}">
   <link rel="stylesheet" href="${searchStyleUri}">

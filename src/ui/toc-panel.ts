@@ -52,6 +52,7 @@ export function createTocPanel(options: TocPanelOptions = {}): TocPanel {
   `;
 
   const fab = root.querySelector('.vscode-toc-fab') as HTMLButtonElement;
+  fab.style.display = 'none'; // hidden until headings are set
   const overlay = root.querySelector('.vscode-toc-overlay') as HTMLDivElement;
   const drawer = root.querySelector('.vscode-toc-drawer') as HTMLElement;
   const closeBtn = root.querySelector('.vscode-toc-close') as HTMLButtonElement;
@@ -124,11 +125,14 @@ export function createTocPanel(options: TocPanelOptions = {}): TocPanel {
     if (headings.length === 0) {
       emptyState.style.display = 'block';
       fab.disabled = true;
+      fab.style.display = 'none';
+      hide();
       return;
     }
 
     emptyState.style.display = 'none';
     fab.disabled = false;
+    fab.style.display = '';
 
     for (const heading of headings) {
       const li = document.createElement('li');
