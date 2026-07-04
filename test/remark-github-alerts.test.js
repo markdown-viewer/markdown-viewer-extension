@@ -143,4 +143,49 @@ describe('remark-github-alerts', () => {
     assert.ok(!html.includes('markdown-alert'));
     assert.ok(html.includes('[!HIGHLIGHT]'));
   });
+
+  it('should tolerate trailing whitespace after the marker', () => {
+    const input = '> [!NOTE]   \n> body after spaces';
+    const html = toHtml(input);
+    assert.match(html, /class="markdown-alert markdown-alert-note"/);
+    assert.ok(html.includes('body after spaces'));
+    assert.ok(!html.includes('[!NOTE]'));
+  });
+
+  it('should handle a body whose first node is inline formatting', () => {
+    // The marker line is the entire first text node; the body begins with a
+    // <strong> node. Exercises the "rest is empty" branch of the plugin.
+    const input = '> [!TIP]\n> **bold only**';
+    const html = toHtml(input);
+    assert.match(html, /class="markdown-alert markdown-alert-tip"/);
+    assert.ok(html.includes('<strong>bold only</strong>'));
+    assert.ok(!html.includes('[!TIP]'));
+  });
+
+  it('should preserve a list inside the alert body', () => {
+    const input = ['> [!IMPORTANT]', '> - first item', '> - second item'].join('\n');
+    const html = toHtml(input);
+    assert.ok(html.includes('markdown-alert-important'));
+    assert.ok(html.includes('<li>first item</li>'));
+    assert.ok(html.includes('<li>second item</li>'));
+    assert.ok(!html.includes('[!IMPORTANT]'));
+  });
+
+  it('should render multiple alerts in sequence independently', () => {
+    const input = [
+      '> [!NOTE]',
+      '> first alert body',
+      '',
+      '> [!WARNING]',
+      '> second alert body',
+    ].join('\n');
+    const ast = parseToAst(input);
+    const kinds = alertKinds(ast);
+    assert.deepStrictEqual(kinds, ['note', 'warning']);
+    const html = toHtml(input);
+    assert.ok(html.includes('markdown-alert-note'));
+    assert.ok(html.includes('markdown-alert-warning'));
+    assert.ok(html.includes('first alert body'));
+    assert.ok(html.includes('second alert body'));
+  });
 });
