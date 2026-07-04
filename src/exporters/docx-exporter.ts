@@ -30,6 +30,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkGemoji from 'remark-gemoji';
 import remarkSuperSub from '../plugins/remark-super-sub';
+import remarkGithubAlerts from '../plugins/remark-github-alerts';
 import { buildDocxFootnoteMarkdown } from '../core/footnote-model.ts';
 import { visit } from 'unist-util-visit';
 import { loadThemeForDOCX } from './theme-to-docx';
@@ -464,7 +465,8 @@ class DocxExporter {
       .use(remarkGfm, { singleTilde: false })
       .use(remarkMath)
       .use(remarkGemoji)
-      .use(remarkSuperSub);
+      .use(remarkSuperSub)
+      .use(remarkGithubAlerts);  // GitHub-style alert syntax
 
     const ast = processor.parse(footnoteAwareMarkdown);
     const transformed = processor.runSync(ast);

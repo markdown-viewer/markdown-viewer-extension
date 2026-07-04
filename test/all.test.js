@@ -7,4 +7,5 @@ import './markdown-processor.test.js';
 import './markdown-document.test.js';
 import './docx-math-converter.test.js';
 import './remark-super-sub.test.js';
+import './remark-github-alerts.test.js';
 import './remark-mode.test.ts';
