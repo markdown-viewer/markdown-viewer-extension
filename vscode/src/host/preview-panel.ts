@@ -87,7 +87,7 @@ export class MarkdownPreviewPanel {
     cacheStorage: CacheStorage,
     column?: vscode.ViewColumn
   ): MarkdownPreviewPanel {
-    const targetColumn = column || vscode.ViewColumn.Beside;
+    const targetColumn = column ?? vscode.ViewColumn.Active;
 
     // If panel already exists, show it
     if (MarkdownPreviewPanel.currentPanel) {

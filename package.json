@@ -267,8 +267,14 @@
     ],
     "commands": [
       {
+        "command": "markdownViewer.preview",
+        "title": "docu.md: Open Preview",
+        "category": "Markdown Viewer",
+        "icon": "$(go-to-file)"
+      },
+      {
         "command": "markdownViewer.previewToSide",
-        "title": "Open Markdown Preview to the Side (Advanced)",
+        "title": "docu.md: Open Preview to the Side",
         "category": "Markdown Viewer",
         "icon": "$(go-to-file)"
       },
@@ -299,14 +305,26 @@
       "markdownViewer.actionsMenu": [
         {
           "command": "markdownViewer.previewToSide",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "markdownViewer.preview",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio",
+          "group": "navigation@0"
+        },
+        {
+          "command": "markdownViewer.previewToSide",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio",
           "group": "navigation@1"
         }
       ],
       "editor/title": [
         {
           "submenu": "markdownViewer.actionsMenu",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio",
           "group": "navigation@0"
         },
         {
@@ -322,8 +340,12 @@
       ],
       "commandPalette": [
         {
+          "command": "markdownViewer.preview",
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio"
+        },
+        {
           "command": "markdownViewer.previewToSide",
-          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md"
+          "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio"
         }
       ]
     },
@@ -391,7 +413,7 @@
         "command": "markdownViewer.previewToSide",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || resourceExtname == .svg || resourceExtname == .md"
+        "when": "editorLangId == markdown || editorLangId == mermaid || editorLangId == plantuml || editorLangId == vega || editorLangId == graphviz || editorLangId == infographic || editorLangId == canvas || editorLangId == drawio || resourceExtname == .md || resourceExtname == .mermaid || resourceExtname == .mmd || resourceExtname == .plantuml || resourceExtname == .puml || resourceExtname == .vega || resourceExtname == .vl || resourceExtname == .vega-lite || resourceExtname == .gv || resourceExtname == .dot || resourceExtname == .infographic || resourceExtname == .canvas || resourceExtname == .drawio || resourceExtname == .svg"
       }
     ]
   },

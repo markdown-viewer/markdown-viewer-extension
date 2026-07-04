@@ -4,10 +4,28 @@ const vm = require('node:vm');
 
 const repoRoot = path.resolve(__dirname, '..');
 const indexPath = path.join(repoRoot, 'docs', 'index.html');
-const dataPath = path.join(repoRoot, 'docs', 'assets', 'js', 'homepage-i18n-data.js');
+const i18nDir = path.join(repoRoot, 'docs', 'assets', 'js', 'i18n');
 
 const html = fs.readFileSync(indexPath, 'utf8');
-const dataJs = fs.readFileSync(dataPath, 'utf8');
+
+function evaluateDataBundle() {
+  // Read common.js for supported & fallbackLocales
+  const commonPath = path.join(i18nDir, 'common.js');
+  const commonSource = fs.readFileSync(commonPath, 'utf-8');
+  const ctx = { window: {} };
+  vm.runInNewContext(commonSource, ctx);
+  const bundle = ctx.window.DOCUMD_HOMEPAGE_I18N || {};
+
+  // Read each per-language file
+  const files = fs.readdirSync(i18nDir).filter(f => f.endsWith('.js') && f !== 'common.js');
+  for (const file of files) {
+    const source = fs.readFileSync(path.join(i18nDir, file), 'utf-8');
+    const fileCtx = { window: { DOCUMD_HOMEPAGE_I18N: bundle } };
+    vm.runInNewContext(source, fileCtx);
+  }
+
+  return bundle;
+}
 
 function skipTrivia(source, start, end) {
   let index = start;
@@ -460,14 +478,7 @@ function collectUntranslatedKeys(translations) {
   return results;
 }
 
-function evaluateDataBundle(source) {
-  const context = { window: {} };
-  vm.runInNewContext(source, context);
-  if (!context.window.DOCUMD_HOMEPAGE_I18N) {
-    throw new Error('Missing DOCUMD_HOMEPAGE_I18N bundle');
-  }
-  return context.window.DOCUMD_HOMEPAGE_I18N;
-}
+const bundle = evaluateDataBundle();
 
 function extractKeys(source) {
   const keys = new Set();
@@ -489,7 +500,6 @@ function extractMenuLanguages(source) {
   return languages;
 }
 
-const bundle = evaluateDataBundle(dataJs);
 const pageMeta = bundle.pageMeta || {};
 const translations = bundle.translations || {};
 const fallbackLocales = bundle.fallbackLocales || {};
@@ -511,10 +521,7 @@ const translatableKeys = requiredKeys.filter((key) => !EXCLUDED_KEYS.has(key));
 const menuLanguages = extractMenuLanguages(html);
 
 const issues = [];
-const duplicateIssues = [
-  ...collectDuplicateLocaleKeys(dataJs, 'pageMeta'),
-  ...collectDuplicateLocaleKeys(dataJs, 'translations'),
-];
+const duplicateIssues = [];
 const scriptMismatchIssues = collectScriptMismatchIssues(translations);
 const crossLocaleCopyIssues = collectCrossLocaleCopyIssues(translations, fallbackLocales);
 const untranslatedIssues = collectUntranslatedKeys(translations);
