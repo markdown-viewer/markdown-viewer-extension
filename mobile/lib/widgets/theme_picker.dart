@@ -1,8 +1,9 @@
+import 'package:ant_icons/ant_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:getwidget/getwidget.dart';
 import '../models/theme_info.dart';
 import '../services/localization_service.dart';
 import '../services/theme_registry_service.dart';
+import 'ui_kit.dart';
 
 /// Bottom sheet for selecting themes
 class ThemePicker extends StatelessWidget {
@@ -49,31 +50,12 @@ class ThemePicker extends StatelessWidget {
 
     return Column(
       children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.palette_outlined),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  localization.t('settings_theme_label').replaceAll(':', ''),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
+        const SheetGrabber(),
+        SheetHeader(
+          title: localization.t('settings_theme_label').replaceAll(':', ''),
+          icon: AntIcons.bg_colors,
         ),
+        const Divider(height: 1),
         // Theme list
         Expanded(
           child: ListView.builder(
@@ -137,7 +119,7 @@ class _CategorySection extends StatelessWidget {
               if (hasSelectedTheme) ...[
                 const SizedBox(width: 6),
                 Icon(
-                  Icons.check_circle,
+                  AntIcons.check_circle,
                   size: 14,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -190,9 +172,9 @@ class _ThemeChip extends StatelessWidget {
 
     Widget? avatar;
     if (isSelected) {
-      avatar = Icon(Icons.check, size: 16, color: colorScheme.onPrimary);
+      avatar = Icon(AntIcons.check_outline, size: 16, color: colorScheme.onPrimary);
     } else if (theme.featured) {
-      avatar = Icon(Icons.star, size: 14, color: colorScheme.secondary);
+      avatar = Icon(AntIcons.star, size: 14, color: colorScheme.secondary);
     }
 
     return ActionChip(

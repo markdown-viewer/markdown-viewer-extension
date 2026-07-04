@@ -87,15 +87,16 @@ final ThemeData appTheme = ThemeData(
   bottomSheetTheme: const BottomSheetThemeData(
     backgroundColor: Colors.white,
     surfaceTintColor: Colors.transparent,
+    showDragHandle: false,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
   ),
   snackBarTheme: SnackBarThemeData(
     backgroundColor: AppColors.gray800,
     contentTextStyle: const TextStyle(color: Colors.white),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(8),
     ),
     behavior: SnackBarBehavior.floating,
   ),
@@ -104,12 +105,58 @@ final ThemeData appTheme = ThemeData(
     surfaceTintColor: Colors.transparent,
     elevation: 8,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(20),
     ),
   ),
   listTileTheme: const ListTileThemeData(
-    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+    iconColor: AppColors.gray600,
+    minVerticalPadding: 10,
   ),
+  filledButtonTheme: FilledButtonThemeData(
+    style: FilledButton.styleFrom(
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    ),
+  ),
+  textButtonTheme: TextButtonThemeData(
+    style: TextButton.styleFrom(
+      foregroundColor: AppColors.primary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      shape: const StadiumBorder(),
+      side: const BorderSide(color: AppColors.gray300),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    ),
+  ),
+  chipTheme: ChipThemeData(
+    backgroundColor: Colors.white,
+    side: const BorderSide(color: AppColors.gray200),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    labelStyle: const TextStyle(fontSize: 13, color: AppColors.gray900),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+  ),
+  switchTheme: SwitchThemeData(
+    thumbColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.selected)
+          ? Colors.white
+          : AppColors.gray400,
+    ),
+    trackColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.selected)
+          ? AppColors.primary
+          : AppColors.gray100,
+    ),
+    trackOutlineColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.selected)
+          ? AppColors.primary
+          : AppColors.gray300,
+    ),
+  ),
+  dividerColor: AppColors.gray200,
 );
 
 

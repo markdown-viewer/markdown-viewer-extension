@@ -3,7 +3,7 @@ name: markdown_viewer_mobile
 description: "Markdown to perfect Word in one click — Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing"
 publish_to: 'none'
 
-version: 5.1.0+1
+version: 5.1.1+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -19,7 +19,6 @@ dependencies:
   package_info_plus: ^9.0.0
   ant_icons: ^2.0.0-nullsafety.0
   url_launcher: ^6.3.1
-  getwidget: ^7.0.0
 
 dev_dependencies:
   flutter_test:

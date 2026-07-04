@@ -6,7 +6,6 @@ import 'package:ant_icons/ant_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -24,6 +23,7 @@ import 'services/recent_files_service.dart';
 import 'services/settings_service.dart';
 import 'services/theme_registry_service.dart';
 import 'pages/settings_page.dart';
+import 'widgets/ui_kit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -345,37 +345,51 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     for (int i = 0; i < 20; i++) {
       try {
         final result = await _controller.runJavaScriptReturningResult(
-          'typeof window.openDocument',
+          'window.__mobileWebViewReady === true',
         );
 
-        if (result.toString().contains('function')) {
-          setState(() {
-            _webViewReady = true;
-          });
-
-          // Apply saved font size (zoom level) via native pageZoom
-          final savedFontSize = settingsService.fontSize;
-          await _setPageZoom(savedFontSize);
-          
-          // Load pending content if any
-          if (_pendingContent != null) {
-            // Skip separate _sendThemeData: loadMarkdown payload includes themeId,
-            // and WebView's handleLoadMarkdown will apply the theme before rendering.
-            // Sending theme separately would cause a race condition (theme rerender
-            // competing with the initial content render).
-            await _loadMarkdownIntoWebView(_pendingContent!, _pendingFilename ?? 'document.md');
-            _pendingContent = null;
-            _pendingFilename = null;
-          } else {
-            // No pending content: send theme data to WebView normally
-            await _sendThemeData(_currentTheme);
-          }
+        if (result.toString().contains('true')) {
+          await _markWebViewReady();
           return;
         }
       } catch (e) {
         // Ignore check errors, will retry
       }
       await Future.delayed(const Duration(milliseconds: 300));
+    }
+  }
+
+  Future<void> _markWebViewReady() async {
+    if (_webViewReady) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _webViewReady = true;
+      });
+    } else {
+      _webViewReady = true;
+    }
+
+    // Apply saved font size (zoom level) only after the WebView frontend has
+    // completed its async initialization.
+    final savedFontSize = settingsService.fontSize;
+    await _setPageZoom(savedFontSize);
+
+    if (_pendingContent != null) {
+      // Skip separate _sendThemeData: loadMarkdown payload includes themeId,
+      // and WebView's handleLoadMarkdown will apply the theme before rendering.
+      // Sending theme separately would cause a race condition (theme rerender
+      // competing with the initial content render).
+      await _loadMarkdownIntoWebView(
+        _pendingContent!,
+        _pendingFilename ?? 'document.md',
+      );
+      _pendingContent = null;
+      _pendingFilename = null;
+    } else {
+      await _sendThemeData(_currentTheme);
     }
   }
 
@@ -393,12 +407,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
 
       switch (type) {
         case 'WEBVIEW_READY':
-          _webViewReady = true;
-          if (_pendingContent != null) {
-            _loadMarkdownIntoWebView(_pendingContent!, _pendingFilename ?? 'document.md');
-            _pendingContent = null;
-            _pendingFilename = null;
-          }
+          _markWebViewReady();
           break;
 
         case 'THEME_CHANGED':
@@ -1384,9 +1393,6 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.5,
         minChildSize: 0.3,
@@ -1395,57 +1401,26 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
         builder: (context, scrollController) => SafeArea(
           child: Column(
             children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).hintColor.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              // Title
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    GFAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      size: GFSize.SMALL,
-                      child: Icon(
-                        AntIcons.history,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      localization.t('recent_files'),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _clearRecentFiles();
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        localization.t('clear_all'),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ],
+              const SheetGrabber(),
+              SheetHeader(
+                title: localization.t('recent_files'),
+                icon: AntIcons.history,
+                showClose: false,
+                trailing: TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _clearRecentFiles();
+                  },
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    localization.t('clear_all'),
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
               ),
               const Divider(height: 1),
@@ -1456,18 +1431,25 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
                   itemCount: recentFiles.length,
                   itemBuilder: (context, index) {
                     final file = recentFiles[index];
-                    return GFListTile(
-                      avatar: GFAvatar(
-                        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        size: GFSize.SMALL,
-                        child: Icon(
-                          AntIcons.file_markdown_outline,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    return ListTile(
+                      leading: LeadingIcon(
+                        AntIcons.file_markdown_outline,
+                        background: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        foreground:
+                            Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      titleText: file.name,
-                      subTitleText: _formatRecentFilePath(file.path),
+                      title: Text(
+                        file.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        _formatRecentFilePath(file.path),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       onTap: () {
                         Navigator.pop(context);
                         _openRecentFile(file);
@@ -1559,37 +1541,34 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
             },
           ) : null,
           appBar: AppBar(
-            titleSpacing: 0,
-            leadingWidth: 0,
-            leading: const SizedBox.shrink(),
-            shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 0.5)),
-            title: Row(
-              children: [
-                // Left side: TOC only
-                IconButton(
-                  icon: const Icon(AntIcons.menu),
-                  onPressed: _hasContent ? _showToc : null,
-                  tooltip: localization.t('toc'),
-                ),
-                // Center title (flexible)
-                Expanded(
-                  child: Text(
-                    _hasContent ? (_currentFilename ?? '') : localization.t('extensionName'),
-                    style: const TextStyle(fontSize: 16),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                // Right side: Share (More is in actions)
-                if (_hasContent)
-                  IconButton(
-                    icon: const Icon(AntIcons.share_alt),
-                    onPressed: _shareFile,
-                    tooltip: localization.t('share'),
-                  ),
-              ],
+            centerTitle: true,
+            shape: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                width: 0.5,
+              ),
+            ),
+            leading: _hasContent
+                ? IconButton(
+                    icon: const Icon(AntIcons.menu),
+                    onPressed: _showToc,
+                    tooltip: localization.t('toc'),
+                  )
+                : null,
+            title: Text(
+              _hasContent
+                  ? (_currentFilename ?? '')
+                  : localization.t('extensionName'),
+              style: const TextStyle(fontSize: 16),
+              overflow: TextOverflow.ellipsis,
             ),
             actions: [
+              if (_hasContent)
+                IconButton(
+                  icon: const Icon(AntIcons.share_alt),
+                  onPressed: _shareFile,
+                  tooltip: localization.t('share'),
+                ),
               Builder(
                 builder: (context) => IconButton(
                   icon: const Icon(AntIcons.ellipsis),
@@ -1597,6 +1576,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
                   onPressed: () => _showMoreMenu(context),
                 ),
               ),
+              const SizedBox(width: 4),
             ],
           ),
           body: _hasContent ? _buildContentView() : _buildEmptyState(),
@@ -1625,30 +1605,35 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     return Container(
       color: Colors.black.withValues(alpha: 0.6),
       child: Center(
-        child: GFCard(
-          boxFit: BoxFit.cover,
+        child: Card(
           margin: const EdgeInsets.all(32),
-          padding: const EdgeInsets.all(24),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const GFLoader(type: GFLoaderType.circle),
-              const SizedBox(height: 16),
-              Text(
-                phaseText,
-                style: const TextStyle(fontSize: 16),
-              ),
-              if (_exportTotal > 0) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '$_exportProgress / $_exportTotal',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).hintColor,
-                  ),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(strokeWidth: 3),
                 ),
+                const SizedBox(height: 20),
+                Text(
+                  phaseText,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                if (_exportTotal > 0) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '$_exportProgress / $_exportTotal',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -1975,45 +1960,31 @@ class _RecentFileItem extends StatelessWidget {
   void _showOptionsMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).hintColor.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 8),
+            const SheetGrabber(),
             // File name header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
               child: Row(
                 children: [
-                  GFAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    size: GFSize.SMALL,
-                    child: Icon(
-                      AntIcons.file_markdown_outline,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  LeadingIcon(
+                    AntIcons.file_markdown_outline,
+                    size: 34,
+                    iconSize: 16,
+                    background:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    foreground: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       file.name,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                          ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -2022,32 +1993,29 @@ class _RecentFileItem extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            GFListTile(
-              avatar: GFAvatar(
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                size: GFSize.SMALL,
-                child: Icon(
-                  AntIcons.close,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+            ListTile(
+              leading: LeadingIcon(
+                AntIcons.close,
+                size: 34,
+                iconSize: 16,
+                background:
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                foreground: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              titleText: localization.t('remove_from_list'),
+              title: Text(localization.t('remove_from_list')),
               onTap: () {
                 Navigator.pop(context);
                 onRemove();
               },
             ),
             if (isImportedFile && onDeleteFile != null)
-              GFListTile(
-                avatar: GFAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                  size: GFSize.SMALL,
-                  child: Icon(
-                    AntIcons.delete_outline,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+              ListTile(
+                leading: LeadingIcon(
+                  AntIcons.delete_outline,
+                  size: 34,
+                  iconSize: 16,
+                  background: Theme.of(context).colorScheme.errorContainer,
+                  foreground: Theme.of(context).colorScheme.error,
                 ),
                 title: Text(
                   localization.t('delete_file'),
@@ -2067,24 +2035,22 @@ class _RecentFileItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GFListTile(
-      avatar: GFAvatar(
-        backgroundColor: isImportedFile 
+    return ListTile(
+      leading: LeadingIcon(
+        AntIcons.file_markdown_outline,
+        background: isImportedFile
             ? Theme.of(context).colorScheme.secondaryContainer
             : Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(
-          AntIcons.file_markdown_outline,
-          color: isImportedFile 
-              ? Theme.of(context).colorScheme.secondary 
-              : Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        foreground: isImportedFile
+            ? Theme.of(context).colorScheme.secondary
+            : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       title: Text(
         file.name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subTitle: Row(
+      subtitle: Row(
         children: [
           if (isImportedFile) ...[
             Icon(
@@ -2107,9 +2073,9 @@ class _RecentFileItem extends StatelessWidget {
           ),
         ],
       ),
-      icon: GFIconButton(
-        icon: const Icon(Icons.more_vert, size: 20),
-        type: GFButtonType.transparent,
+      trailing: IconButton(
+        icon: const Icon(AntIcons.more, size: 20),
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         onPressed: () => _showOptionsMenu(context),
       ),
       onTap: onTap,
@@ -2138,41 +2104,35 @@ class _TocDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GFDrawer(
+    return Drawer(
       child: SafeArea(
         child: Column(
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Theme.of(context).dividerColor),
+                  bottom: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
               ),
               child: Row(
                 children: [
-                  GFAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    size: GFSize.SMALL,
-                    child: Icon(
-                      AntIcons.unordered_list,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
-                  ),
+                  const LeadingIcon(AntIcons.unordered_list,
+                      size: 34, iconSize: 18),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       localization.t('toc'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ),
-                  GFIconButton(
-                    icon: const Icon(Icons.close),
-                    type: GFButtonType.transparent,
+                  IconButton(
+                    icon: const Icon(AntIcons.close, size: 18),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -2211,7 +2171,7 @@ class _TocDrawer extends StatelessWidget {
   }
 }
 
-/// Single TOC item with GetWidget style
+/// Single TOC item rendered as a Material list tile.
 class _TocItem extends StatelessWidget {
   final String text;
   final int level;
@@ -2225,14 +2185,15 @@ class _TocItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GFListTile(
-      padding: EdgeInsets.only(
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      contentPadding: EdgeInsets.only(
         left: 16.0 + (level - 1) * 16.0,
         right: 16,
-        top: 4,
-        bottom: 4,
       ),
-      avatar: level <= 2
+      minLeadingWidth: 6,
+      leading: level <= 2
           ? Container(
               width: 6,
               height: 6,
@@ -2257,111 +2218,7 @@ class _TocItem extends StatelessWidget {
   }
 }
 
-/// Bottom sheet for font size adjustment
-class _FontSizeBottomSheet extends StatefulWidget {
-  final int initialSize;
-  final void Function(int) onChanged;
-
-  const _FontSizeBottomSheet({
-    required this.initialSize,
-    required this.onChanged,
-  });
-
-  @override
-  State<_FontSizeBottomSheet> createState() => _FontSizeBottomSheetState();
-}
-
-class _FontSizeBottomSheetState extends State<_FontSizeBottomSheet> {
-  late int _currentSize;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentSize = widget.initialSize;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Calculate zoom percentage: 16pt = 100%
-    final zoomPercent = (_currentSize * 100 / 16).round();
-    final isDefault = _currentSize == 16;
-    
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                GFAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  size: GFSize.SMALL,
-                  child: Icon(
-                    AntIcons.font_size,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  localization.t('zoom'),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                if (!isDefault)
-                  GFButton(
-                    onPressed: () {
-                      setState(() {
-                        _currentSize = 16;
-                      });
-                      widget.onChanged(16);
-                    },
-                    text: localization.t('reset'),
-                    type: GFButtonType.transparent,
-                    size: GFSize.SMALL,
-                  ),
-                GFBadge(
-                  text: '$zoomPercent%',
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  textColor: Theme.of(context).colorScheme.primary,
-                  shape: GFBadgeShape.pills,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Text('A', style: TextStyle(fontSize: 12)),
-                Expanded(
-                  child: Slider(
-                    value: _currentSize.toDouble(),
-                    min: 12,
-                    max: 24,
-                    divisions: 12,
-                    onChanged: (value) {
-                      setState(() {
-                        _currentSize = value.round();
-                      });
-                      widget.onChanged(_currentSize);
-                    },
-                  ),
-                ),
-                const Text('A', style: TextStyle(fontSize: 24)),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Confirm dialog with GetWidget style
+/// Confirm dialog rendered with Material 3 styling.
 class _ConfirmDialog extends StatelessWidget {
   final String title;
   final String content;
@@ -2389,18 +2246,16 @@ class _ConfirmDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                GFAvatar(
-                  backgroundColor: isDestructive
+                LeadingIcon(
+                  isDestructive ? AntIcons.warning : AntIcons.question_circle_outline,
+                  size: 34,
+                  iconSize: 18,
+                  background: isDestructive
                       ? Theme.of(context).colorScheme.errorContainer
                       : Theme.of(context).colorScheme.primaryContainer,
-                  size: GFSize.SMALL,
-                  child: Icon(
-                    isDestructive ? Icons.warning_amber_rounded : Icons.help_outline,
-                    size: 18,
-                    color: isDestructive
-                        ? Theme.of(context).colorScheme.error
-                        : Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
+                  foreground: isDestructive
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2422,22 +2277,20 @@ class _ConfirmDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                GFButton(
+                OutlinedButton(
                   onPressed: () => Navigator.pop(context, false),
-                  text: cancelText,
-                  type: GFButtonType.outline2x,
-                  shape: GFButtonShape.pills,
-                  size: GFSize.SMALL,
+                  child: Text(cancelText),
                 ),
                 const SizedBox(width: 12),
-                GFButton(
+                FilledButton(
                   onPressed: () => Navigator.pop(context, true),
-                  text: confirmText,
-                  shape: GFButtonShape.pills,
-                  size: GFSize.SMALL,
-                  color: isDestructive
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.primary,
+                  style: isDestructive
+                      ? FilledButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.error,
+                        )
+                      : null,
+                  child: Text(confirmText),
                 ),
               ],
             ),
@@ -2448,7 +2301,7 @@ class _ConfirmDialog extends StatelessWidget {
   }
 }
 
-/// About dialog with GetWidget style
+/// About dialog rendered with Material 3 styling.
 class _AboutDialog extends StatelessWidget {
   final String appName;
   final String version;
@@ -2504,11 +2357,12 @@ class _AboutDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            GFButton(
-              onPressed: () => Navigator.pop(context),
-              text: 'OK',
-              shape: GFButtonShape.pills,
-              fullWidthButton: true,
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
             ),
           ],
         ),

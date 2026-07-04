@@ -30,6 +30,9 @@ import { isExternalUrl, splitPathAndFragment } from '../../../src/utils/document
 
 declare global {
   var bridge: PlatformBridgeAPI | undefined;
+  interface Window {
+    __mobileWebViewReady?: boolean;
+  }
 }
 
 // Make platform globally available (same as Chrome)
@@ -184,10 +187,10 @@ async function initialize(): Promise<void> {
       console.error('[Mobile] Failed to load theme at init:', error);
     }
 
-    // Pre-initialize render iframe (don't wait, let it load in background)
-    platform.renderer.ensureReady().catch((err: Error) => {
-      console.warn('[Mobile] Render frame pre-init failed:', err?.message, err?.stack);
-    });
+    // Pre-initialize render iframe and wait for a real ready handshake before
+    // telling Flutter it can inject documents. Cold-start share flow is very
+    // sensitive to this order on Android.
+    await platform.renderer.ensureReady();
 
     // Initialize scroll sync controller FIRST (before message handlers)
     // Uses #markdown-content as container, window scroll for mobile
@@ -220,6 +223,11 @@ async function initialize(): Promise<void> {
 
     // Set up message handlers from host app (Flutter)
     setupMessageHandlers();
+
+    // Expose an explicit readiness bit for the Flutter side. Polling for
+    // `window.openDocument` is too early because that function is assigned
+    // before async initialization and render-worker bootstrapping finish.
+    window.__mobileWebViewReady = true;
 
     // Notify host app that WebView is ready
     platform.notifyReady();

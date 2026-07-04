@@ -1,15 +1,6 @@
 // Mobile/VSCode Iframe Render Worker
 // Entry point for the render iframe in Flutter WebView or VSCode srcdoc
 
-// Send ready message immediately before any imports fail
-try {
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: 'RENDER_FRAME_READY' }, '*');
-  }
-} catch (e) {
-  // Ignore errors
-}
-
 import { RenderChannel } from '../../../src/messaging/channels/render-channel';
 import { WindowPostMessageTransport } from '../../../src/messaging/transports/window-postmessage-transport';
 
