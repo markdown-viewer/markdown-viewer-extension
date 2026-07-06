@@ -238,7 +238,7 @@ Pick one platform and install:
 
 ### Full Markdown Syntax Support
 
-Headings · Paragraphs · Bold · Italic · Strikethrough · Lists · Task lists · Blockquotes · Code blocks (100+ languages highlighted) · Tables · Links · Images · PlantUML diagrams · Mermaid diagrams · Vega / Vega-Lite charts · drawio diagrams · Canvas diagrams · Infographic charts · Graphviz DOT graphs · LaTeX formulas · HTML · GFM extensions
+Headings · Paragraphs · Bold · Italic · Strikethrough · Lists · Task lists · Blockquotes · GitHub Alerts · Code blocks (100+ languages highlighted) · Tables · Links · Images · PlantUML diagrams · Mermaid diagrams · Vega / Vega-Lite charts · drawio diagrams · Canvas diagrams · Infographic charts · Graphviz DOT graphs · LaTeX formulas · HTML · GFM extensions
 
 ### 29 Themes
 

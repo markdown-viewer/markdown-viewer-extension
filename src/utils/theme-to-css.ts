@@ -226,6 +226,9 @@ export function themeToCSS(
 
   css.push(generateFootnoteCSS());
 
+  // GitHub-style alerts (blockquote.markdown-alert)
+  css.push(generateAlertCSS(colorScheme));
+
   return css.join('\n\n').replace(/#markdown-content/g, CONTENT_ROOT_SELECTOR);
 }
 
@@ -733,6 +736,72 @@ function generateFootnoteCSS(): string {
   margin-bottom: 0;
 }
 `.trim();
+}
+
+/**
+ * Generate CSS for GitHub-style alerts.
+ *
+ * Alerts are blockquotes tagged with `markdown-alert` (+ a per-kind class) by
+ * the remark-github-alerts plugin. Each kind gets a signature border/background
+ * colour; backgrounds are tinted against the page colour via color-mix so they
+ * adapt to both light and dark themes without extra rules.
+ *
+ * @param colorScheme - Color scheme configuration (page/surface colours)
+ * @returns CSS string for alert styling
+ */
+function generateAlertCSS(colorScheme: ColorScheme): string {
+  const page = colorScheme.background?.page || '#ffffff';
+
+  // GitHub's canonical alert palette.
+  const alertKinds: { key: string; color: string }[] = [
+    { key: 'note', color: '#0969da' },
+    { key: 'tip', color: '#1a7f37' },
+    { key: 'important', color: '#8250df' },
+    { key: 'warning', color: '#9a6700' },
+    { key: 'caution', color: '#cf222e' },
+  ];
+
+  const rules: string[] = [];
+
+  rules.push(`#markdown-content blockquote.markdown-alert {
+  margin: 0.6em 0;
+  padding: 0.4em 0.9em;
+  border-left: 4px solid var(--md-alert-border, #d0d7de);
+  background-color: var(--md-alert-bg, transparent);
+  color: inherit;
+}`);
+
+  // Tighten paragraph spacing inside alerts so the title sits close to the body.
+  rules.push(`#markdown-content blockquote.markdown-alert > p {
+  margin: 0.25em 0;
+}`);
+  rules.push(`#markdown-content blockquote.markdown-alert > p:first-child {
+  margin-top: 0;
+}`);
+  rules.push(`#markdown-content blockquote.markdown-alert > p:last-child {
+  margin-bottom: 0;
+}`);
+
+  rules.push(`#markdown-content .markdown-alert-title {
+  font-weight: 600;
+  line-height: 1.3;
+}`);
+  rules.push(`#markdown-content blockquote.markdown-alert > .markdown-alert-title {
+  margin-bottom: 0.35em;
+}`);
+
+  for (const kind of alertKinds) {
+    const bg = `color-mix(in srgb, ${kind.color} 10%, ${page})`;
+    rules.push(`#markdown-content blockquote.markdown-alert-${kind.key} {
+  border-left-color: ${kind.color};
+  background-color: ${bg};
+}`);
+    rules.push(`#markdown-content blockquote.markdown-alert-${kind.key} > .markdown-alert-title {
+  color: ${kind.color};
+}`);
+  }
+
+  return rules.join('\n\n');
 }
 
 // ============================================================================
