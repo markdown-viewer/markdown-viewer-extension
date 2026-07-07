@@ -60,6 +60,82 @@ export function convertPluginResultToHTML(
 }
 
 /**
+ * Create a DOM element from unified plugin render result.
+ *
+ * Uses createElement + explicit property assignment (img.src = ...) instead of
+ * HTML string parsing (outerHTML/innerHTML). This is required because Firefox
+ * has a known bug (Bug 2019834) where <img> elements with data: URI src
+ * inserted via HTML parsing fail to load on first encounter (clean cache),
+ * showing alt text instead of the image. Using createElement bypasses this
+ * bug and reliably loads data: URI images across all browsers.
+ *
+ * @param renderResult - Unified render result from plugin.renderToCommon()
+ * @param pluginType - Plugin type for alt text
+ * @param sourceHash - Content hash for DOM diff matching
+ * @returns DOM element, or null for empty results
+ */
+export function createPluginResultElement(
+  renderResult: UnifiedRenderResult,
+  pluginType = 'diagram',
+  sourceHash?: string
+): HTMLElement | null {
+  if (renderResult.type === 'empty') {
+    return null;
+  }
+
+  if (renderResult.type === 'error') {
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'background: #fee; border-left: 4px solid #f00; padding: 10px; font-size: 12px;';
+    pre.textContent = renderResult.content.text || '';
+    return pre;
+  }
+
+  // Handle PNG image format
+  if (renderResult.type === 'image') {
+    const { base64, width } = renderResult.content;
+    const { inline } = renderResult.display;
+    // Renderer outputs the PNG at 4x for retina sharpness; design display width is 1/4 of intrinsic.
+    const displayWidth = Math.round((width || 0) / 4);
+
+    const img = document.createElement('img');
+    // Key: set src via JS property assignment, NOT via HTML parser.
+    // This bypasses Firefox Bug 2019834 where data: URI images inserted via
+    // outerHTML/innerHTML fail to load on first encounter (clean cache).
+    img.src = `data:image/png;base64,${base64}`;
+    img.alt = `${pluginType} diagram`;
+    img.style.cssText = 'max-width: 100%; height: auto;';
+
+    if (inline) {
+      img.className = 'diagram-inline';
+      if (displayWidth > 0) {
+        img.style.width = `${displayWidth}px`;
+      }
+      if (sourceHash) {
+        img.dataset.sourceHash = sourceHash;
+        img.dataset.pluginType = pluginType;
+        img.dataset.pluginRendered = 'true';
+      }
+      return img;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'diagram-block';
+    wrapper.style.cssText = displayWidth > 0
+      ? `width: ${displayWidth}px; max-width: 100%; margin: 20px auto; text-align: center;`
+      : 'margin: 20px auto; text-align: center;';
+    if (sourceHash) {
+      wrapper.dataset.sourceHash = sourceHash;
+      wrapper.dataset.pluginType = pluginType;
+      wrapper.dataset.pluginRendered = 'true';
+    }
+    wrapper.appendChild(img);
+    return wrapper;
+  }
+
+  return null;
+}
+
+/**
  * Replace placeholder with rendered content in DOM
  * @param id - Placeholder element ID
  * @param result - Render result with base64, width, height, format
@@ -72,19 +148,19 @@ export function replacePlaceholderWithImage(id: string, result: PluginRenderResu
   if (placeholder) {
     // Preserve source hash from placeholder for DOM diff matching
     const sourceHash = (placeholder as HTMLElement).dataset?.sourceHash;
-    
+
     // Validate source hash match to prevent concurrent rendering race conditions
     if (sourceHash && expectedSourceHash !== sourceHash) {
       return;
     }
-    
+
     // Convert result to unified format (always PNG)
-    const content: UnifiedRenderResult['content'] = { 
-      base64: result.base64, 
-      width: result.width, 
-      height: result.height 
+    const content: UnifiedRenderResult['content'] = {
+      base64: result.base64,
+      width: result.width,
+      height: result.height
     };
-    
+
     const renderResult: UnifiedRenderResult = {
       type: 'image',
       content: content,
@@ -93,7 +169,17 @@ export function replacePlaceholderWithImage(id: string, result: PluginRenderResu
         alignment: isInline ? 'left' : 'center'
       }
     };
-    placeholder.outerHTML = convertPluginResultToHTML(id, renderResult, pluginType, sourceHash);
+
+    // Use createElement-based DOM construction instead of outerHTML string
+    // assignment. This avoids Firefox Bug 2019834 where data: URI images
+    // inserted via HTML parsing (outerHTML/innerHTML) fail to load on first
+    // encounter with a clean browser cache.
+    const element = createPluginResultElement(renderResult, pluginType, sourceHash);
+    if (element) {
+      placeholder.replaceWith(element);
+    } else {
+      placeholder.remove();
+    }
 
     // Register intermediate formats for diagram export (SVG, DrawIO)
     if (sourceHash && (result.svg || result.drawioXml)) {
