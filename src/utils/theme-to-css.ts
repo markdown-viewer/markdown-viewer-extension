@@ -142,6 +142,8 @@ interface LayoutBlockConfig {
   paddingHorizontal?: string;
   /** Optional border width for horizontal rule (hr). Color comes from colorScheme.rule.color or table.border fallback. */
   borderWidth?: string;
+  /** Whether the theme supports first-line indentation on paragraphs. */
+  firstLineIndent?: boolean;
 }
 
 /**
@@ -208,7 +210,8 @@ export function themeToCSS(
   layoutScheme: LayoutScheme,
   colorScheme: ColorScheme,
   tableStyle: TableStyleConfig,
-  codeTheme: CodeThemeConfig
+  codeTheme: CodeThemeConfig,
+  firstLineIndent = 0
 ): string {
   const css: string[] = [];
 
@@ -222,7 +225,7 @@ export function themeToCSS(
   css.push(generateCodeCSS(theme.fontScheme.code, codeTheme, layoutScheme.code, layoutScheme.body.fontSize, colorScheme));
 
   // Block spacing (uses colorScheme for blockquote border)
-  css.push(generateBlockSpacingCSS(layoutScheme, colorScheme));
+  css.push(generateBlockSpacingCSS(layoutScheme, colorScheme, firstLineIndent));
 
   css.push(generateFootnoteCSS());
 
@@ -599,7 +602,7 @@ function generateCodeCSS(
  * @param colorScheme - Color scheme configuration (for blockquote border)
  * @returns CSS string
  */
-function generateBlockSpacingCSS(layoutScheme: LayoutScheme, colorScheme: ColorScheme): string {
+function generateBlockSpacingCSS(layoutScheme: LayoutScheme, colorScheme: ColorScheme, firstLineIndent = 0): string {
   const css: string[] = [];
   const blocks = layoutScheme.blocks;
 
@@ -613,8 +616,15 @@ function generateBlockSpacingCSS(layoutScheme: LayoutScheme, colorScheme: ColorS
   if (blocks.paragraph) {
     const marginBefore = toPx(blocks.paragraph.spacingBefore);
     const marginAfter = toPx(blocks.paragraph.spacingAfter);
+    const styles: string[] = [
+      `  margin: ${marginBefore} 0 ${marginAfter} 0;`
+    ];
+    // First-line indent: only if theme supports it AND user has enabled it
+    if (blocks.paragraph.firstLineIndent && firstLineIndent > 0) {
+      styles.push(`  text-indent: ${firstLineIndent}em;`);
+    }
     css.push(`#markdown-content p {
-  margin: ${marginBefore} 0 ${marginAfter} 0;
+${styles.join('\n')}
 }`);
   }
 
@@ -863,7 +873,14 @@ export async function loadAndApplyTheme(themeId: string): Promise<void> {
     }
 
     // Generate and apply CSS
-    const css = themeToCSS(theme, layoutScheme, colorScheme, tableStyle, codeTheme);
+    let firstLineIndent = 0;
+    try {
+      const settings = platform?.settings;
+      if (settings) {
+        firstLineIndent = await settings.get('firstLineIndent');
+      }
+    } catch { /* use default 0 */ }
+    const css = themeToCSS(theme, layoutScheme, colorScheme, tableStyle, codeTheme, firstLineIndent);
     applyThemeCSS(css);
     
     // Set renderer theme config for diagrams (Mermaid, Graphviz, etc.)

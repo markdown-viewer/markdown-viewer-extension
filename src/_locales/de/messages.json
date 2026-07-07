@@ -379,10 +379,6 @@
     "message": "Anmerkung hinzufügen…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_cfg_title": {
-    "message": "Anmerkungsmodus",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Leere Anmerkungen automatisch löschen",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Wellig",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Anmerkungsmodus",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Alle Anmerkungen löschen",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Aus Liste entfernen",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Zurücksetzen",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Als DrawIO speichern",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Seitenumbruch",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Erstzeileneinzug",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 Zeichen",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 Zeichen",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 Zeichen",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 Zeichen",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Anzahl der Zeichen zum Einrücken der ersten Zeile von Textabsätzen. Wirkt nur bei Themes, die Einrückung unterstützen.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Kein Einzug",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatter-Anzeige:",

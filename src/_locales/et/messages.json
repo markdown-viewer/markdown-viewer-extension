@@ -379,10 +379,6 @@
     "message": "Lisa märkus…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Märkuste režiim",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Kustuta tühjad märkmed automaatselt",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Laineline",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Märkuste režiim",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Kustuta kõik märkmed",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Eemalda loendist",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Lähtesta",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Salvesta DrawIO-na",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Leheküljevahetus",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Esimese rea taane",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 märk",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 märki",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 märki",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 märki",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Põhiteksti lõikude esimese rea taande sümbolite arv. Kehtib ainult teemadel, mis toetavad taandeid.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Taandeta",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatteri kuvamine:",

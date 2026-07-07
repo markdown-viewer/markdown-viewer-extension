@@ -141,6 +141,7 @@ interface Settings {
   tableMergeEmpty?: boolean;
   tableLayout?: TableLayout;
   swapPanelSide?: PanelSideMode;
+  firstLineIndent?: number;
 }
 
 /**
@@ -184,6 +185,7 @@ export function createSettingsTabManager({
     tableMergeEmpty: true,
     tableLayout: 'center',
     swapPanelSide: false,
+    firstLineIndent: 2,
   };
   let currentTheme = 'default';
   let themes: ThemeDefinition[] = [];
@@ -335,6 +337,20 @@ export function createSettingsTabManager({
           settings.swapPanelSide = swapPanelSideEl.checked;
           await saveSettingsToStorage();
           notifySettingChanged('swapPanelSide', settings.swapPanelSide);
+        });
+      }
+    }
+
+    // First-line indent
+    const firstLineIndentEl = document.getElementById('first-line-indent') as HTMLSelectElement | null;
+    if (firstLineIndentEl) {
+      firstLineIndentEl.value = String(settings.firstLineIndent ?? 2);
+      if (!firstLineIndentEl.dataset.listenerAdded) {
+        firstLineIndentEl.dataset.listenerAdded = 'true';
+        firstLineIndentEl.addEventListener('change', async () => {
+          settings.firstLineIndent = parseInt(firstLineIndentEl.value, 10);
+          await saveSettingsToStorage();
+          notifySettingChanged('firstLineIndent', settings.firstLineIndent);
         });
       }
     }
@@ -869,6 +885,7 @@ export function createSettingsTabManager({
         tableMergeEmpty: true,
         tableLayout: 'center',
         swapPanelSide: false,
+        firstLineIndent: 2,
       };
 
       await storageSet({

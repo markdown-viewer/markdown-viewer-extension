@@ -379,10 +379,6 @@
     "message": "Pridėti pastabą…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Anotacijų režimas",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Automatiškai trinti tuščias pastabas",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Banguotas",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Anotacijų režimas",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Išvalyti visas pastabas",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Pašalinti iš sąrašo",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Atstatyti",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Išsaugoti kaip DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Puslapio lūžis",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Pirmos eilutės įtrauka",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 simbolis",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 simboliai",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 simboliai",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 simboliai",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Simbolių skaičius pastrapų pirmos eilutės įtraukai. Veikia tik temose, palaikančiose įtrauką.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Be įtraukos",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatter rodymas:",

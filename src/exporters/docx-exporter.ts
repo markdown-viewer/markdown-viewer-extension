@@ -101,6 +101,7 @@ class DocxExporter {
   private frontmatterDisplay: FrontmatterDisplay = 'hide';
   private tableMergeEmpty = true;  // Default: enabled
   private tableLayout: 'left' | 'center' | 'center-full-width' = 'center';  // Default: center
+  private firstLineIndent = 0;  // Default: no indent (0-4 characters)
   
   // Converters (initialized in exportToDocx)
   private tableConverter: TableConverter | null = null;
@@ -223,18 +224,20 @@ class DocxExporter {
       try {
         const settings = globalThis.platform?.settings;
         if (settings) {
-          const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout] = await Promise.all([
+          const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout, firstLineIndent] = await Promise.all([
             settings.get('docxHrDisplay'),
             settings.get('docxEmojiStyle'),
             settings.get('frontmatterDisplay'),
             settings.get('tableMergeEmpty'),
             settings.get('tableLayout'),
+            settings.get('firstLineIndent'),
           ]);
           this.docxHrDisplay = hrDisplay;
           this.docxEmojiStyle = emojiStyle;
           this.frontmatterDisplay = frontmatterDisplay;
           this.tableMergeEmpty = tableMergeEmpty;
           this.tableLayout = tableLayout || 'center';
+          this.firstLineIndent = typeof firstLineIndent === 'number' ? firstLineIndent : 0;
         } else {
           this.docxHrDisplay = 'hide';
           this.frontmatterDisplay = 'hide';
@@ -793,10 +796,24 @@ class DocxExporter {
       parentStyle
     );
 
-    return new Paragraph({
+    const paragraphOptions: {
+      children?: ParagraphChild[];
+      text?: string;
+      indent?: { firstLine?: number };
+    } = {
       children: children.length > 0 ? children : undefined,
       text: children.length === 0 ? '' : undefined,
-    });
+    };
+
+    // Apply first-line indent if theme supports it AND user has enabled it
+    if (this.themeStyles?.firstLineIndentEnabled && this.firstLineIndent > 0) {
+      const bodySizeHalfPt = this.themeStyles.default.run.size; // half-points
+      const bodySizePt = bodySizeHalfPt / 2;
+      const twipsPerEm = bodySizePt * 20; // 1pt = 20 twips
+      paragraphOptions.indent = { firstLine: Math.round(this.firstLineIndent * twipsPerEm) };
+    }
+
+    return new Paragraph(paragraphOptions);
   }
 
   private convertCodeBlock(node: DOCXASTNode, listLevel = 0, blockquoteNestLevel = 0): Paragraph {

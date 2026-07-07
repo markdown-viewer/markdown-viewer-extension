@@ -379,10 +379,6 @@
     "message": "Ajouter une remarque…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_cfg_title": {
-    "message": "Mode annotation",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Supprimer automatiquement les remarques vides",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Ondulé",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Mode annotation",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Effacer toutes les remarques",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Retirer de la liste",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Réinitialiser",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Enregistrer en DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Saut de page",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Retrait de première ligne",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 caractère",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 caractères",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 caractères",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 caractères",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Nombre de caractères pour le retrait de la première ligne des paragraphes de texte. Ne s'applique qu'aux thèmes prenant en charge le retrait.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Aucun retrait",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Affichage du Frontmatter :",

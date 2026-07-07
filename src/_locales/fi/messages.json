@@ -379,10 +379,6 @@
     "message": "Lisää huomautus…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Huomautustila",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Poista tyhjät muistiinpanot automaattisesti",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Aaltoileva",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Huomautustila",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Tyhjennä kaikki huomautukset",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Remove from list",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Palauta",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Tallenna DrawIO-muodossa",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Sivunvaihto",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Ensimmäisen rivin sisennys",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 merkki",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 merkkiä",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 merkkiä",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 merkkiä",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Merkkien määrä leipätekstikappaleiden ensimmäisen rivin sisennykseen. Vaikuttaa vain teemoihin, jotka tukevat sisennystä.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Ei sisennystä",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatter-näyttö:",

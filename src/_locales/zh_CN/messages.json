@@ -379,10 +379,6 @@
     "message": "添加批注…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_cfg_title": {
-    "message": "批注模式",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "自动删除空批注",
     "description": ""
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "波浪线",
     "description": ""
+  },
+  "remark_cfg_title": {
+    "message": "批注模式",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "清空所有批注",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "从列表移除",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "重置",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "保存为 DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "分页",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "首行缩进",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 字符",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 字符",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 字符",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 字符",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "正文段落首行缩进字符数。仅对支持缩进的主题生效。",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "不缩进",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatter 显示:",

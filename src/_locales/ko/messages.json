@@ -379,10 +379,6 @@
     "message": "메모 추가…",
     "description": "Placeholder for the note input in the annotation popup and sidebar"
   },
-  "remark_cfg_title": {
-    "message": "주석 모드",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "빈 메모 자동 삭제",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "물결",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "주석 모드",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "모든 주석 지우기",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "목록에서 제거",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "재설정",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "DrawIO로 저장",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "페이지 나누기",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "첫 줄 들여쓰기",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1자",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2자",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3자",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4자",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "본문 단락 첫 줄을 들여쓸 문자 수입니다. 들여쓰기를 지원하는 테마에서만 적용됩니다.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "들여쓰기 없음",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatter 표시:",

@@ -379,10 +379,6 @@
     "message": "Aggiungi annotazione…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Modalità annotazione",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Elimina automaticamente le note vuote",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Ondulato",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Modalità annotazione",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Cancella tutte le annotazioni",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Rimuovi dall'elenco",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Reimposta",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Salva come DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Interruzione di pagina",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Rientro prima riga",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 carattere",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 caratteri",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 caratteri",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 caratteri",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Numero di caratteri per il rientro della prima riga dei paragrafi di testo. Ha effetto solo per i temi che supportano il rientro.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Nessun rientro",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Visualizzazione Frontmatter:",

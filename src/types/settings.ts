@@ -16,7 +16,8 @@ export type SettingKey =
   | 'frontmatterDisplay'
   | 'preferredLocale'
   | 'docxHrDisplay'
-  | 'docxEmojiStyle';
+  | 'docxEmojiStyle'
+  | 'firstLineIndent';
 
 /**
  * Setting value types mapped by key
@@ -31,6 +32,7 @@ export interface SettingTypes {
   preferredLocale: string;
   docxHrDisplay: 'pageBreak' | 'line' | 'hide';
   docxEmojiStyle: 'apple' | 'windows' | 'system';
+  firstLineIndent: number; // 0 = no indent, 1-4 = number of characters
 }
 
 /**
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: SettingTypes = {
   preferredLocale: 'auto',
   docxHrDisplay: 'hide',
   docxEmojiStyle: 'system',
+  firstLineIndent: 2,
 };
 
 /**

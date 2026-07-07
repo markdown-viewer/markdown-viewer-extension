@@ -379,10 +379,6 @@
     "message": "Tambah catatan…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Mod anotasi",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Padam nota kosong secara automatik",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Berombak",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Mod anotasi",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Kosongkan semua catatan",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Alih keluar dari senarai",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Tetapkan semula",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Simpan sebagai DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Pemisah halaman",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Inden baris pertama",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 aksara",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 aksara",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 aksara",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 aksara",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Bilangan aksara untuk mengindenkan baris pertama perenggan teks. Hanya berkuat kuasa untuk tema yang menyokong indentasi.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Tiada inden",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Paparan Frontmatter:",

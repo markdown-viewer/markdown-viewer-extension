@@ -379,10 +379,6 @@
     "message": "Dodaj uwagę…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Tryb adnotacji",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Automatycznie usuwaj puste notatki",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Falisty",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Tryb adnotacji",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Wyczyść wszystkie uwagi",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Remove from list",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Resetuj",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Zapisz jako DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Podział strony",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Wcięcie pierwszego wiersza",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 znak",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 znaki",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 znaki",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 znaki",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Liczba znaków wcięcia pierwszego wiersza akapitów tekstu. Działa tylko w motywach obsługujących wcięcia.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Bez wcięcia",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Wyświetlanie Frontmatter:",

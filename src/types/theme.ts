@@ -200,6 +200,9 @@ export interface LayoutBlockConfig {
   /** Optional border width for horizontal rule. Color from colorScheme.rule.color.
    *  Web preview only — not applied by DOCX/other renderers. */
   borderWidth?: string;
+  /** Whether the theme supports first-line indentation on paragraphs.
+   *  Actual indent amount is controlled by user setting (0-4 characters). */
+  firstLineIndent?: boolean;
 }
 
 /**

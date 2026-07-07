@@ -379,10 +379,6 @@
     "message": "Opmerking toevoegen…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Annotatiemodus",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Lege opmerkingen automatisch verwijderen",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Golvend",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Annotatiemodus",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Alle opmerkingen wissen",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Remove from list",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Resetten",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Opslaan als DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Pagina-einde",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Inspringing eerste regel",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 teken",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 tekens",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 tekens",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 tekens",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Aantal tekens om de eerste regel van tekstalinea's te laten inspringen. Werkt alleen voor thema's die inspringing ondersteunen.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Geen inspringing",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Frontmatter weergave:",

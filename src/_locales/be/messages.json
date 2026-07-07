@@ -379,10 +379,6 @@
     "message": "Дадаць заўвагу…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Рэжым анатацый",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Аўтавыдаленне пустых нататак",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Хвалісты",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Рэжым анатацый",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Ачысціць усе заўвагі",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Выдаліць са спісу",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Скінуць",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Захаваць як DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Разрыў старонкі",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Водступ першага радка",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 сімвал",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 сімвалы",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 сімвалы",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 сімвалы",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Колькасць сімвалаў для водступу першага радка асноўных абзацаў. Дзейнічае толькі для тэм, якія падтрымліваюць водступы.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Без водступу",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Адлюстраванне Frontmatter:",

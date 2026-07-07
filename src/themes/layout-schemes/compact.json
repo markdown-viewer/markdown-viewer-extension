@@ -24,7 +24,7 @@
   },
   
   "blocks": {
-    "paragraph": { "spacingAfter": "8pt" },
+    "paragraph": { "spacingAfter": "8pt", "firstLineIndent": false },
     "list": { "spacingAfter": "10pt" },
     "listItem": { "spacingAfter": "2pt" },
     "blockquote": {

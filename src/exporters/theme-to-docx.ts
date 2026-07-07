@@ -83,6 +83,8 @@ interface LayoutBlockConfig {
   spacingAfter?: string;
   paddingVertical?: string;
   paddingHorizontal?: string;
+  /** Whether the theme supports first-line indentation on paragraphs. */
+  firstLineIndent?: boolean;
 }
 
 /**
@@ -202,6 +204,7 @@ export function themeToDOCXStyles(
     pageBackground,
     blockquoteBackground,
     blockSpacing,
+    firstLineIndentEnabled: layoutScheme.blocks.paragraph.firstLineIndent === true,
   };
 }
 

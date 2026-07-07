@@ -379,10 +379,6 @@
     "message": "Adicionar observação…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "Modo de anotação",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "Excluir notas vazias automaticamente",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "Ondulado",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "Modo de anotação",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "Limpar todas as observações",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Remover da lista",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "Redefinir",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "Salvar como DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "Quebra de página",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "Recuo da primeira linha",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 caractere",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 caracteres",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 caracteres",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 caracteres",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "Número de caracteres para recuar a primeira linha dos parágrafos de texto. Só tem efeito em temas que suportam recuo.",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "Sem recuo",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "Exibição do Frontmatter:",

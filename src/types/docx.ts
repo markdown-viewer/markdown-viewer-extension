@@ -198,6 +198,8 @@ export interface DOCXThemeStyles {
   /** Blockquote background shading (hex without #), omitted when theme does not define one */
   blockquoteBackground?: string;
   blockSpacing: DOCXBlockSpacing;
+  /** Whether the current theme's layout scheme supports first-line indentation */
+  firstLineIndentEnabled?: boolean;
 }
 
 // =============================================================================

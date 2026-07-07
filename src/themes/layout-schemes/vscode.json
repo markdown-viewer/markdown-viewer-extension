@@ -42,7 +42,7 @@
   },
 
   "blocks": {
-    "paragraph": { "spacingAfter": "12pt" },
+    "paragraph": { "spacingAfter": "12pt", "firstLineIndent": false },
     "list":      { "spacingAfter": "7.35pt" },
     "listItem":  { "spacingAfter": "0pt" },
     "blockquote": {

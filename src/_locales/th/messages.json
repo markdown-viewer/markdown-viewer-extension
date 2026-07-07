@@ -379,10 +379,6 @@
     "message": "เพิ่มหมายเหตุ…",
     "description": "Placeholder and tooltip for adding a remark note"
   },
-  "remark_cfg_title": {
-    "message": "โหมดคำอธิบาย",
-    "description": "Title for remark mode settings card"
-  },
   "remark_cfg_auto_delete": {
     "message": "ลบโน้ตว่างโดยอัตโนมัติ",
     "description": "Config: auto-delete annotations with no note"
@@ -418,6 +414,10 @@
   "remark_cfg_style_wavy": {
     "message": "หยัก",
     "description": "Highlight style: wavy underline"
+  },
+  "remark_cfg_title": {
+    "message": "โหมดคำอธิบาย",
+    "description": "Title for remark mode settings card"
   },
   "remark_clear_all": {
     "message": "ล้างหมายเหตุทั้งหมด",
@@ -494,10 +494,6 @@
   "remove_from_list": {
     "message": "Remove from list",
     "description": "Menu item to remove file from recent list"
-  },
-  "reset": {
-    "message": "รีเซ็ต",
-    "description": "Reset button"
   },
   "save_as_drawio": {
     "message": "บันทึกเป็น DrawIO",
@@ -594,6 +590,34 @@
   "settings_docx_hr_display_page_break": {
     "message": "ตัดหน้า",
     "description": "Option to export horizontal rules as page breaks in DOCX"
+  },
+  "settings_first_line_indent": {
+    "message": "การเยื้องบรรทัดแรก",
+    "description": "Label for first-line indent selector"
+  },
+  "settings_first_line_indent_1": {
+    "message": "1 อักขระ",
+    "description": "Option: 1 character first-line indent"
+  },
+  "settings_first_line_indent_2": {
+    "message": "2 อักขระ",
+    "description": "Option: 2 characters first-line indent"
+  },
+  "settings_first_line_indent_3": {
+    "message": "3 อักขระ",
+    "description": "Option: 3 characters first-line indent"
+  },
+  "settings_first_line_indent_4": {
+    "message": "4 อักขระ",
+    "description": "Option: 4 characters first-line indent"
+  },
+  "settings_first_line_indent_note": {
+    "message": "จำนวนอักขระสำหรับเยื้องบรรทัดแรกของย่อหน้าเนื้อหา มีผลเฉพาะกับธีมที่รองรับการเยื้องเท่านั้น",
+    "description": "Helper note for first-line indent option"
+  },
+  "settings_first_line_indent_off": {
+    "message": "ไม่เยื้อง",
+    "description": "Option to disable first-line indent"
   },
   "settings_frontmatter_display": {
     "message": "การแสดง Frontmatter:",
