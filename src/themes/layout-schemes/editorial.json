@@ -26,7 +26,7 @@
   "blocks": {
     "paragraph": { "spacingAfter": "12pt", "firstLineIndent": true },
     "list": { "spacingAfter": "14pt" },
-    "listItem": { "spacingAfter": "4pt" },
+    "listItem": { "spacingAfter": "4pt", "firstLineIndent": true },
     "blockquote": {
       "spacingBefore": "14pt",
       "spacingAfter": "14pt",

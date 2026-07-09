@@ -1330,6 +1330,9 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           void handleSetTheme(value);
         } else if (key === 'swapPanelSide') {
           applyTocPanelSide(Boolean(value));
+        } else if (key === 'firstLineIndent') {
+          // Regenerate theme CSS to apply new text-indent value
+          void loadAndApplyTheme(currentThemeId ?? '');
         } else {
           // Other settings changed - just re-render with scroll preservation
           if (viewerAssembler) {

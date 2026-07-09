@@ -622,10 +622,20 @@ function generateBlockSpacingCSS(layoutScheme: LayoutScheme, colorScheme: ColorS
     // First-line indent: only if theme supports it AND user has enabled it
     if (blocks.paragraph.firstLineIndent && firstLineIndent > 0) {
       styles.push(`  text-indent: ${firstLineIndent}em;`);
+      styles.push(`  text-indent: ${firstLineIndent}em each-line;`);
     }
     css.push(`#markdown-content p {
 ${styles.join('\n')}
 }`);
+    // Override text-indent on paragraphs inside list items.
+    // Loose lists (blank line between items) wrap content in <p>, which would
+    // inherit the paragraph first-line indent and create a gap between the
+    // list marker and the text. List markers already provide visual hierarchy.
+    if (blocks.paragraph.firstLineIndent && firstLineIndent > 0) {
+      css.push(`#markdown-content li p {
+  text-indent: 0;
+}`);
+    }
   }
 
   // List spacing
@@ -642,8 +652,14 @@ ${styles.join('\n')}
   if (blocks.listItem) {
     const marginBefore = toPx(blocks.listItem.spacingBefore);
     const marginAfter = toPx(blocks.listItem.spacingAfter);
+    const styles: string[] = [
+      `  margin: ${marginBefore} 0 ${marginAfter} 0;`
+    ];
+    if (blocks.listItem.firstLineIndent && firstLineIndent > 0) {
+      styles.push(`  margin-left: ${firstLineIndent}em;`);
+    }
     css.push(`#markdown-content li {
-  margin: ${marginBefore} 0 ${marginAfter} 0;
+${styles.join('\n')}
 }`);
   }
 
@@ -659,6 +675,18 @@ ${styles.join('\n')}
   padding: ${paddingVertical} ${paddingHorizontal};
   border-left-color: ${colorScheme.blockquote.border};
 }`);
+    // Override text-indent on paragraphs inside blockquote (blockquotes are already visually distinct)
+    if (blocks.paragraph.firstLineIndent && firstLineIndent > 0) {
+      css.push(`#markdown-content blockquote p {
+  text-indent: 0;
+}`);
+    }
+    // Override list indent inside blockquote (blockquotes don't follow first-line indent)
+    if (blocks.listItem.firstLineIndent && firstLineIndent > 0) {
+      css.push(`#markdown-content blockquote li {
+  margin-left: 0;
+}`);
+    }
   }
 
   // Code block spacing

@@ -70,19 +70,30 @@ export function bindThemeSyncFromSettingsBroadcast(
     const key = payload?.key;
     const value = payload?.value;
 
-    if (key !== 'themeId' || typeof value !== 'string') {
-      return;
-    }
-
-    controllers.forEach((controller, element) => {
-      if (!element.isConnected) {
-        controllers.delete(element);
-        return;
-      }
-      void controller.switchTheme(value).catch((error) => {
-        console.error('[element-runtime] switchTheme failed on setting change', error);
+    if (key === 'themeId' && typeof value === 'string') {
+      controllers.forEach((controller, element) => {
+        if (!element.isConnected) {
+          controllers.delete(element);
+          return;
+        }
+        void controller.switchTheme(value).catch((error) => {
+          console.error('[element-runtime] switchTheme failed on setting change', error);
+        });
       });
-    });
+    } else if (key === 'firstLineIndent') {
+      const currentTheme = themeManager.getCurrentTheme();
+      if (currentTheme) {
+        controllers.forEach((controller, element) => {
+          if (!element.isConnected) {
+            controllers.delete(element);
+            return;
+          }
+          void controller.switchTheme(currentTheme.id).catch((error) => {
+            console.error('[element-runtime] switchTheme failed on firstLineIndent change', error);
+          });
+        });
+      }
+    }
   });
 }
 

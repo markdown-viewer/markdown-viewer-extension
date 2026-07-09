@@ -6,11 +6,13 @@ import {
   AlignmentType,
   convertInchesToTwip,
   LevelFormat,
+  NumberFormat,
+  LevelSuffix,
   type IParagraphOptions,
   type ParagraphChild,
   type FileChild,
 } from 'docx';
-import type { DOCXThemeStyles, DOCXListNode, DOCXASTNode } from '../types/docx';
+import type { DOCXListNode, DOCXASTNode } from '../types/docx';
 import type { InlineResult, InlineNode } from './docx-inline-converter';
 
 // List item node within a DOCXListNode
@@ -24,9 +26,7 @@ type ConvertInlineNodesFunction = (children: InlineNode[], options?: Record<stri
 type ConvertChildNodeFunction = (node: DOCXASTNode, listLevel?: number) => Promise<FileChild | FileChild[] | null>;
 
 interface ListConverterOptions {
-  themeStyles: DOCXThemeStyles;
   convertInlineNodes: ConvertInlineNodesFunction;
-  getListInstanceCounter: () => number;
   incrementListInstanceCounter: () => number;
 }
 
@@ -34,12 +34,12 @@ interface NumberingLevel {
   level: number;
   format: (typeof LevelFormat)[keyof typeof LevelFormat];
   text: string;
-  alignment: typeof AlignmentType.START;
+  alignment: (typeof AlignmentType)[keyof typeof AlignmentType];
+  suffix?: (typeof LevelSuffix)[keyof typeof LevelSuffix];
   style: {
     paragraph: {
       indent: {
         left: number;
-        hanging: number;
       };
     };
   };
@@ -47,9 +47,10 @@ interface NumberingLevel {
 
 /**
  * Create numbering levels configuration for ordered lists
+ * @param extraLeftIndentTwips - Additional left indent in twips (e.g., for first-line indent)
  * @returns Numbering levels configuration
  */
-export function createNumberingLevels(): NumberingLevel[] {
+export function createNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[] {
   const levels: NumberingLevel[] = [];
   const formats: Array<(typeof LevelFormat)[keyof typeof LevelFormat]> = [
     LevelFormat.DECIMAL,
@@ -62,21 +63,56 @@ export function createNumberingLevels(): NumberingLevel[] {
     LevelFormat.LOWER_LETTER,
     LevelFormat.LOWER_LETTER
   ];
-  const baseIndent = 0.42;
-  const indentStep = 0.42;
-  const hanging = 0.28;
+  // baseIndent = 0.34" (former left) − 0.14" (former hanging). With "special: none"
+  // the number sits at `left`, so subtract the old hanging to keep the list at its
+  // original horizontal position instead of shifting right by the hanging amount.
+  const baseIndent = 0.20;
+  const indentStep = 0.34;
 
   for (let i = 0; i < 9; i++) {
     levels.push({
       level: i,
       format: formats[i],
       text: `%${i + 1}.`,
-      alignment: AlignmentType.START,
+      alignment: AlignmentType.END,
+      suffix: LevelSuffix.SPACE,
       style: {
         paragraph: {
           indent: {
-            left: convertInchesToTwip(baseIndent + i * indentStep),
-            hanging: convertInchesToTwip(i === 8 ? 0.30 : hanging)
+            left: convertInchesToTwip(baseIndent + i * indentStep) + extraLeftIndentTwips,
+          },
+        },
+      },
+    });
+  }
+  return levels;
+}
+
+/**
+ * Create numbering levels configuration for bullet (unordered) lists
+ * @param extraLeftIndentTwips - Additional left indent in twips (e.g., for first-line indent)
+ * @returns Numbering levels configuration
+ */
+export function createBulletNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[] {
+  const levels: NumberingLevel[] = [];
+  const bulletChars = ['\u2022', '\u25E6', '\u25AA', '\u2022', '\u25E6', '\u25AA', '\u2022', '\u25E6', '\u25AA'];
+  // baseIndent = 0.34" (former left) − 0.14" (former hanging). With "special: none"
+  // the number sits at `left`, so subtract the old hanging to keep the list at its
+  // original horizontal position instead of shifting right by the hanging amount.
+  const baseIndent = 0.20;
+  const indentStep = 0.34;
+
+  for (let i = 0; i < 9; i++) {
+    levels.push({
+      level: i,
+      format: NumberFormat.BULLET,
+      text: bulletChars[i],
+      alignment: AlignmentType.END,
+      suffix: LevelSuffix.SPACE,
+      style: {
+        paragraph: {
+          indent: {
+            left: convertInchesToTwip(baseIndent + i * indentStep) + extraLeftIndentTwips,
           },
         },
       },
@@ -86,8 +122,8 @@ export function createNumberingLevels(): NumberingLevel[] {
 }
 
 export interface ListConverter {
-  convertList(node: DOCXListNode): Promise<FileChild[]>;
-  convertListItem(ordered: boolean, item: ListItemNode, level: number, listInstance: number): Promise<FileChild[]>;
+  convertList(node: DOCXListNode, insideBlockquote?: boolean): Promise<FileChild[]>;
+  convertListItem(ordered: boolean, item: ListItemNode, level: number, listInstance: number, insideBlockquote?: boolean): Promise<FileChild[]>;
   setConvertChildNode(fn: ConvertChildNodeFunction): void;
 }
 
@@ -97,13 +133,10 @@ export interface ListConverter {
  * @returns List converter
  */
 export function createListConverter({ 
-  themeStyles: _themeStyles,
   convertInlineNodes, 
-  getListInstanceCounter,
   incrementListInstanceCounter
 }: ListConverterOptions): ListConverter {
-  void _themeStyles;
-  
+
   // Mutable reference to convertChildNode (set later to avoid circular dependency)
   let convertChildNode: ConvertChildNodeFunction | undefined;
 
@@ -119,12 +152,12 @@ export function createListConverter({
    * @param node - List AST node
    * @returns Array of DOCX FileChild elements
    */
-  async function convertList(node: DOCXListNode): Promise<FileChild[]> {
+  async function convertList(node: DOCXListNode, insideBlockquote = false): Promise<FileChild[]> {
     const items: FileChild[] = [];
     const listInstance = incrementListInstanceCounter();
 
     for (const item of node.children) {
-      const converted = await convertListItem(node.ordered ?? false, item as ListItemNode, 0, listInstance);
+      const converted = await convertListItem(node.ordered ?? false, item as ListItemNode, 0, listInstance, insideBlockquote);
       if (converted) {
         items.push(...converted);
       }
@@ -141,7 +174,7 @@ export function createListConverter({
    * @param listInstance - List instance number for numbering
    * @returns Array of DOCX FileChild elements
    */
-  async function convertListItem(ordered: boolean, node: ListItemNode, level: number, listInstance: number): Promise<FileChild[]> {
+  async function convertListItem(ordered: boolean, node: ListItemNode, level: number, listInstance: number, insideBlockquote = false): Promise<FileChild[]> {
     const items: FileChild[] = [];
     const isTaskList = node.checked !== null && node.checked !== undefined;
 
@@ -166,21 +199,30 @@ export function createListConverter({
           ? new Paragraph({
               ...baseParagraphConfig,
               numbering: {
-                reference: 'default-ordered-list',
+                reference: insideBlockquote ? 'blockquote-ordered-list' : 'default-ordered-list',
                 level: level,
                 instance: listInstance,
               },
             })
-          : new Paragraph({
-              ...baseParagraphConfig,
-              bullet: { level: level },
-            });
+          : isTaskList
+            ? new Paragraph({
+                ...baseParagraphConfig,
+                bullet: { level: level },
+              })
+            : new Paragraph({
+                ...baseParagraphConfig,
+                numbering: {
+                  reference: insideBlockquote ? 'blockquote-bullet-list' : 'default-bullet-list',
+                  level: level,
+                  instance: listInstance,
+                },
+              });
 
         items.push(paragraph);
       } else if (child.type === 'list') {
         const listChild = child as DOCXListNode;
         for (const nestedItem of listChild.children) {
-          items.push(...await convertListItem(listChild.ordered ?? false, nestedItem as ListItemNode, level + 1, listInstance));
+          items.push(...await convertListItem(listChild.ordered ?? false, nestedItem as ListItemNode, level + 1, listInstance, insideBlockquote));
         }
       } else if (convertChildNode) {
         // Handle other node types (e.g., blockquote, code, table) within list items

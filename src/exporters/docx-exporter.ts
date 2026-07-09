@@ -59,7 +59,7 @@ import { createCodeHighlighter, type CodeHighlighter } from './docx-code-highlig
 import { downloadBlob } from './docx-download';
 import { createTableConverter, type TableConverter } from './docx-table-converter';
 import { createBlockquoteConverter, type BlockquoteConverter } from './docx-blockquote-converter';
-import { createListConverter, createNumberingLevels, type ListConverter } from './docx-list-converter';
+import { createListConverter, createNumberingLevels, createBulletNumberingLevels, type ListConverter } from './docx-list-converter';
 import { createInlineConverter, type InlineConverter, type InlineNode } from './docx-inline-converter';
 import { ResourceEmbedder } from './resource-embedder';
 
@@ -202,9 +202,7 @@ class DocxExporter {
     this.blockquoteConverter.setConvertChildNode((node, blockquoteNestLevel) => this.convertNode(node, {}, 0, blockquoteNestLevel));
 
     this.listConverter = createListConverter({
-      themeStyles: this.themeStyles,
       convertInlineNodes: (nodes, style) => this.inlineConverter!.convertInlineNodes(nodes, style),
-      getListInstanceCounter: () => this.listInstanceCounter,
       incrementListInstanceCounter: () => this.listInstanceCounter++
     });
 
@@ -292,6 +290,15 @@ class DocxExporter {
         paragraphStyles,
       };
 
+      // Calculate firstLineIndent twips for numbering (list) indent integration
+      let numberingExtraIndentTwips = 0;
+      if (this.themeStyles?.firstLineIndentEnabled && this.firstLineIndent > 0) {
+        const bodySizeHalfPt = this.themeStyles.default.run.size;
+        const bodySizePt = bodySizeHalfPt / 2;
+        const twipsPerEm = bodySizePt * 20;
+        numberingExtraIndentTwips = Math.round(this.firstLineIndent * twipsPerEm);
+      }
+
       const doc = new Document({
         creator: 'Markdown Viewer Extension',
         lastModifiedBy: 'Markdown Viewer Extension',
@@ -302,7 +309,20 @@ class DocxExporter {
           config: [
             {
               reference: 'default-ordered-list',
-              levels: createNumberingLevels(),
+              levels: createNumberingLevels(numberingExtraIndentTwips),
+            },
+            {
+              reference: 'default-bullet-list',
+              levels: createBulletNumberingLevels(numberingExtraIndentTwips),
+            },
+            // Blockquote-internal lists: no first-line indent
+            {
+              reference: 'blockquote-ordered-list',
+              levels: createNumberingLevels(0),
+            },
+            {
+              reference: 'blockquote-bullet-list',
+              levels: createBulletNumberingLevels(0),
             },
           ],
         },
@@ -734,7 +754,7 @@ class DocxExporter {
       case 'paragraph':
         return await this.convertParagraph(node, parentStyle);
       case 'list':
-        return await this.listConverter!.convertList(node as unknown as DOCXListNode);
+        return await this.listConverter!.convertList(node as unknown as DOCXListNode, blockquoteNestLevel > 0);
       case 'code':
         return this.convertCodeBlock(node, listLevel, blockquoteNestLevel);
       case 'blockquote':
@@ -790,30 +810,79 @@ class DocxExporter {
     return new Paragraph(config);
   }
 
-  private async convertParagraph(node: DOCXASTNode, parentStyle: Record<string, unknown> = {}): Promise<Paragraph> {
-    const children = await this.inlineConverter!.convertInlineNodes(
-      (node.children || []) as unknown as InlineNode[],
-      parentStyle
-    );
-
-    const paragraphOptions: {
-      children?: ParagraphChild[];
-      text?: string;
-      indent?: { firstLine?: number };
-    } = {
-      children: children.length > 0 ? children : undefined,
-      text: children.length === 0 ? '' : undefined,
-    };
-
-    // Apply first-line indent if theme supports it AND user has enabled it
+  private async convertParagraph(node: DOCXASTNode, parentStyle: Record<string, unknown> = {}): Promise<Paragraph | Paragraph[]> {
+    // Calculate first-line indent twips if applicable
+    let indentTwips = 0;
     if (this.themeStyles?.firstLineIndentEnabled && this.firstLineIndent > 0) {
       const bodySizeHalfPt = this.themeStyles.default.run.size; // half-points
       const bodySizePt = bodySizeHalfPt / 2;
       const twipsPerEm = bodySizePt * 20; // 1pt = 20 twips
-      paragraphOptions.indent = { firstLine: Math.round(this.firstLineIndent * twipsPerEm) };
+      indentTwips = Math.round(this.firstLineIndent * twipsPerEm);
     }
 
-    return new Paragraph(paragraphOptions);
+    const astChildren = (node.children || []) as unknown as { type?: string }[];
+
+    // Find break positions and split AST children into segments
+    const breakIndices: number[] = [];
+    for (let i = 0; i < astChildren.length; i++) {
+      if (astChildren[i].type === 'break') {
+        breakIndices.push(i);
+      }
+    }
+
+    // No hard breaks: create single paragraph
+    if (breakIndices.length === 0) {
+      const children = await this.inlineConverter!.convertInlineNodes(
+        astChildren as unknown as InlineNode[],
+        parentStyle
+      );
+      return new Paragraph({
+        children: children.length > 0 ? children : undefined,
+        text: children.length === 0 ? '' : undefined,
+        ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+      });
+    }
+
+    // Has hard breaks: split into segments and create multiple paragraphs
+    const paragraphs: Paragraph[] = [];
+    let segmentStart = 0;
+
+    for (let i = 0; i < breakIndices.length; i++) {
+      const breakIdx = breakIndices[i];
+      const isLast = (i === breakIndices.length - 1) && (breakIdx + 1 >= astChildren.length);
+
+      if (breakIdx > segmentStart) {
+        const segment = astChildren.slice(segmentStart, breakIdx);
+        const children = await this.inlineConverter!.convertInlineNodes(
+          segment as unknown as InlineNode[],
+          parentStyle
+        );
+        paragraphs.push(new Paragraph({
+          children: children.length > 0 ? children : undefined,
+          text: children.length === 0 ? '' : undefined,
+          ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+          // Suppress spacing between sub-segments; last segment keeps default spacing
+          ...(isLast ? {} : { spacing: { after: 0 } }),
+        }));
+      }
+      segmentStart = breakIdx + 1;
+    }
+
+    // Remaining children after the last break form the true last segment
+    if (segmentStart < astChildren.length) {
+      const segment = astChildren.slice(segmentStart);
+      const children = await this.inlineConverter!.convertInlineNodes(
+        segment as unknown as InlineNode[],
+        parentStyle
+      );
+      paragraphs.push(new Paragraph({
+        children: children.length > 0 ? children : undefined,
+        text: children.length === 0 ? '' : undefined,
+        ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+      }));
+    }
+
+    return paragraphs.length > 0 ? paragraphs : [new Paragraph({ text: '' })];
   }
 
   private convertCodeBlock(node: DOCXASTNode, listLevel = 0, blockquoteNestLevel = 0): Paragraph {
