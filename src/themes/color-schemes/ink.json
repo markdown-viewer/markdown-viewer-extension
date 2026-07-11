@@ -1,0 +1,37 @@
+{
+  "id": "ink",
+  "name": "水墨灰",
+  "name_en": "Ink Wash",
+  "description": "低饱和墨灰色系，适合中文诗文和水墨气质的长文阅读",
+  "description_en": "Low-saturation ink-gray scheme for Chinese poetry and long-form reading",
+
+  "text": {
+    "primary": "#1f2933",
+    "secondary": "#43515c",
+    "muted": "#6b7280"
+  },
+
+  "accent": {
+    "link": "#3f6f73",
+    "linkHover": "#2f565a"
+  },
+
+  "background": {
+    "page": "#fbfbf8",
+    "surface": "#f1f3ee",
+    "code": "#f3f5f1",
+    "blockquote": "#eef2ed"
+  },
+
+  "blockquote": {
+    "border": "#8aa09a"
+  },
+
+  "table": {
+    "border": "#c5ccc6",
+    "headerBackground": "#edf1ec",
+    "headerText": "#253039",
+    "zebraEven": "#f5f7f3",
+    "zebraOdd": "#ffffff"
+  }
+}

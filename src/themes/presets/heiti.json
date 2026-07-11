@@ -2,8 +2,8 @@
   "id": "heiti",
   "name": "现代黑体",
   "name_en": "Hei Style",
-  "description": "黑体字体，现代简约风格",
-  "description_en": "Hei font with modern minimal style",
+  "description": "黑体字体，清晰紧凑的中文报告风格",
+  "description_en": "Hei font with a clear compact style for Chinese reports",
   "author": "docu.md Markdown Viewer",
   "version": "1.0.0",
   "fontScheme": {
@@ -15,8 +15,8 @@
       "fontFamily": "Monaco"
     }
   },
-  "layoutScheme": "regular",
+  "layoutScheme": "compact",
   "colorScheme": "neutral",
-  "tableStyle": "grid",
+  "tableStyle": "professional",
   "codeTheme": "light-clean"
 }

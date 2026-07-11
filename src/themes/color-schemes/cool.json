@@ -2,36 +2,36 @@
   "id": "cool",
   "name": "冷色调",
   "name_en": "Cool",
-  "description": "清爽的蓝色系，适合技术和科技风格",
-  "description_en": "Cool blue scheme for technical and modern styles",
+  "description": "冷静的蓝灰色系，适合技术和现代阅读",
+  "description_en": "Calm blue-gray scheme for technical and modern reading",
   
   "text": {
-    "primary": "#0f172a",
+    "primary": "#111827",
     "secondary": "#334155",
-    "muted": "#64748b"
+    "muted": "#667085"
   },
   
   "accent": {
-    "link": "#0077b6",
-    "linkHover": "#005f92"
+    "link": "#2563eb",
+    "linkHover": "#1d4ed8"
   },
   
   "background": {
-    "page": "#f7fbff",
-    "surface": "#e7f1fa",
-    "code": "#f0f9ff",
-    "blockquote": "#e0f2fe"
+    "page": "#f8fafc",
+    "surface": "#eef4fb",
+    "code": "#f3f7fb",
+    "blockquote": "#eef6ff"
   },
   
   "blockquote": {
-    "border": "#7dd3fc"
+    "border": "#93c5fd"
   },
   
   "table": {
-    "border": "#7dd3fc",
-    "headerBackground": "#e0f2fe",
-    "headerText": "#0c4a6e",
-    "zebraEven": "#f0f9ff",
+    "border": "#cbd5e1",
+    "headerBackground": "#e8f1fb",
+    "headerText": "#1e3a5f",
+    "zebraEven": "#f3f7fb",
     "zebraOdd": "#ffffff"
   }
 }

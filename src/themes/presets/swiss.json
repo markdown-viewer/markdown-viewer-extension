@@ -2,8 +2,8 @@
   "id": "swiss",
   "name": "瑞士极简",
   "name_en": "Swiss Minimal",
-  "description": "Helvetica 风格，网格系统，极致简洁",
-  "description_en": "Helvetica style with grid system, ultimate simplicity",
+  "description": "Helvetica 风格，紧凑网格系统，适合清爽的现代说明文档",
+  "description_en": "Helvetica style with compact grid structure for clean modern documentation",
   "author": "Markdown Viewer Team",
   "version": "1.0.0",
   "fontScheme": {
@@ -15,8 +15,8 @@
       "fontFamily": "Monaco"
     }
   },
-  "layoutScheme": "regular",
+  "layoutScheme": "compact",
   "colorScheme": "neutral",
-  "tableStyle": "borderless",
+  "tableStyle": "compact",
   "codeTheme": "light-clean"
 }

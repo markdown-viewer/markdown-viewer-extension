@@ -2,8 +2,8 @@
   "id": "water",
   "name": "水墨诗意",
   "name_en": "Ink Poetry",
-  "description": "仿宋字体，中国传统水墨美学",
-  "description_en": "FangSong font with traditional Chinese ink aesthetics",
+  "description": "仿宋字体，低饱和墨灰配色，适合诗文和中文长读",
+  "description_en": "FangSong with low-saturation ink-gray colors for poetry and Chinese long reads",
   "author": "docu.md Markdown Viewer",
   "version": "1.0.0",
   "fontScheme": {
@@ -16,7 +16,7 @@
     }
   },
   "layoutScheme": "book",
-  "colorScheme": "sepia",
-  "tableStyle": "borderless",
+  "colorScheme": "ink",
+  "tableStyle": "minimal-gray",
   "codeTheme": "warm-book"
 }

@@ -2,36 +2,36 @@
   "id": "sakura",
   "name": "樱花粉",
   "name_en": "Sakura",
-  "description": "柔和的粉色系，适合温柔优雅的风格",
-  "description_en": "Soft pink scheme for gentle and elegant styles",
+  "description": "柔和的粉色点缀，适合温柔优雅的阅读风格",
+  "description_en": "Soft pink accents for gentle and elegant reading styles",
   
   "text": {
-    "primary": "#831843",
-    "secondary": "#9d174d",
-    "muted": "#be185d"
+    "primary": "#2f2430",
+    "secondary": "#5b4a55",
+    "muted": "#86727d"
   },
   
   "accent": {
-    "link": "#db2777",
-    "linkHover": "#be185d"
+    "link": "#c02664",
+    "linkHover": "#9f1d52"
   },
   
   "background": {
-    "page": "#fff7fb",
-    "surface": "#ffeaf3",
-    "code": "#fdf2f8",
-    "blockquote": "#fde4ef"
+    "page": "#fff9fb",
+    "surface": "#fceff5",
+    "code": "#fbf3f7",
+    "blockquote": "#f9edf3"
   },
   
   "blockquote": {
-    "border": "#f9a8d4"
+    "border": "#e9a8c7"
   },
   
   "table": {
-    "border": "#f9a8d4",
-    "headerBackground": "#fce7f3",
-    "headerText": "#831843",
-    "zebraEven": "#fdf2f8",
-    "zebraOdd": "#fffbfc"
+    "border": "#ead0dc",
+    "headerBackground": "#f8e6ef",
+    "headerText": "#4a2335",
+    "zebraEven": "#fcf3f7",
+    "zebraOdd": "#ffffff"
   }
 }

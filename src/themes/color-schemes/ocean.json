@@ -2,36 +2,36 @@
   "id": "ocean",
   "name": "海洋清新",
   "name_en": "Ocean",
-  "description": "蓝绿色系，清爽自然的海洋风格",
-  "description_en": "Blue-green scheme for fresh and natural ocean styles",
+  "description": "清爽的蓝绿色点缀，适合自然主题和长时间屏幕阅读",
+  "description_en": "Fresh blue-green accents for nature themes and long screen reading",
   
   "text": {
-    "primary": "#164e63",
-    "secondary": "#155e75",
-    "muted": "#0e7490"
+    "primary": "#15343b",
+    "secondary": "#365860",
+    "muted": "#66828a"
   },
   
   "accent": {
-    "link": "#0e7490",
-    "linkHover": "#155e75"
+    "link": "#0f7c8c",
+    "linkHover": "#0d6371"
   },
   
   "background": {
-    "page": "#f0fbfc",
-    "surface": "#dcf3f4",
-    "code": "#ecfeff",
-    "blockquote": "#cffafe"
+    "page": "#f4fbfb",
+    "surface": "#e5f2f2",
+    "code": "#edf7f7",
+    "blockquote": "#e0f3f4"
   },
   
   "blockquote": {
-    "border": "#22d3ee"
+    "border": "#72c7d0"
   },
   
   "table": {
-    "border": "#22d3ee",
-    "headerBackground": "#a5f3fc",
-    "headerText": "#164e63",
-    "zebraEven": "#ecfeff",
-    "zebraOdd": "#f0fdfa"
+    "border": "#b8d9dd",
+    "headerBackground": "#d4ecef",
+    "headerText": "#1c4650",
+    "zebraEven": "#eef8f8",
+    "zebraOdd": "#ffffff"
   }
 }

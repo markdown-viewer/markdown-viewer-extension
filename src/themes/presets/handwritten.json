@@ -2,8 +2,8 @@
   "id": "handwritten",
   "name": "手写风格",
   "name_en": "Handwritten",
-  "description": "手写体标题，个人化感觉，适合日记和随笔",
-  "description_en": "Handwriting style titles for personal notes and journals",
+  "description": "手写感字体，轻柔配色，适合日记、随笔和个人札记",
+  "description_en": "Handwritten-feel type with gentle colors for diaries, essays, and personal notes",
   "author": "docu.md Markdown Viewer",
   "version": "2.0.0",
   "fontScheme": {
@@ -15,8 +15,8 @@
       "fontFamily": "Consolas"
     }
   },
-  "layoutScheme": "book",
-  "colorScheme": "warm",
+  "layoutScheme": "regular",
+  "colorScheme": "sakura",
   "tableStyle": "borderless",
   "codeTheme": "warm-book",
   "diagramStyle": "handDrawn"
