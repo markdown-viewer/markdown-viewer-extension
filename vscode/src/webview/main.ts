@@ -758,6 +758,7 @@ function initializeUI(): void {
     frontmatterDisplay: (window.VSCODE_CONFIG?.frontmatterDisplay as FrontmatterDisplay) || 'hide',
     tableMergeEmpty: window.VSCODE_CONFIG?.tableMergeEmpty !== false,
     tableLayout: (window.VSCODE_CONFIG?.tableLayout as 'left' | 'center' | 'center-full-width') || 'center',
+    firstLineIndent: (typeof window.VSCODE_CONFIG?.firstLineIndent === 'number' ? window.VSCODE_CONFIG.firstLineIndent : 2) as number,
     onThemeChange: async (themeId) => {
       // handleSetTheme saves via themeManager.saveSelectedTheme (same as Chrome)
       await handleSetTheme({ themeId });
@@ -800,6 +801,13 @@ function initializeUI(): void {
     onFrontmatterDisplayChange: async (display) => {
       vscodeBridge.postMessage('SAVE_SETTING', { key: 'frontmatterDisplay', value: display });
       // Re-render to apply new frontmatter display setting
+      await rerenderCurrentDocumentPreservingScroll();
+    },
+    onFirstLineIndentChange: async (indent) => {
+      vscodeBridge.postMessage('SAVE_SETTING', { key: 'firstLineIndent', value: indent });
+      // firstLineIndent is baked into theme CSS via loadAndApplyTheme, so we must
+      // re-apply the theme to regenerate text-indent before re-rendering content.
+      await loadAndApplyTheme(currentThemeId);
       await rerenderCurrentDocumentPreservingScroll();
     },
     onClearCache: async () => {

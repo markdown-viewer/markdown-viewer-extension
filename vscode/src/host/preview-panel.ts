@@ -754,6 +754,8 @@ export class MarkdownPreviewPanel {
                   next.docxEmojiStyle = value;
                 } else if (key === 'frontmatterDisplay') {
                   next.frontmatterDisplay = value;
+                } else if (key === 'firstLineIndent') {
+                  next.firstLineIndent = value;
                 } else {
                   (next as Record<string, unknown>)[key] = value;
                 }
@@ -1147,6 +1149,7 @@ export class MarkdownPreviewPanel {
     const docxEmojiStyle: EmojiStyle = (storedEmojiStyle === 'apple' || storedEmojiStyle === 'windows' || storedEmojiStyle === 'system') ? storedEmojiStyle : 'system';
     const storedFrontmatterDisplay = settings.frontmatterDisplay;
     const frontmatterDisplay = (storedFrontmatterDisplay === 'hide' || storedFrontmatterDisplay === 'table' || storedFrontmatterDisplay === 'raw') ? storedFrontmatterDisplay : 'hide';
+    const firstLineIndent = (typeof settings.firstLineIndent === 'number' && settings.firstLineIndent >= 0 && settings.firstLineIndent <= 4) ? settings.firstLineIndent : 2;
     
     return {
       theme,
@@ -1156,6 +1159,7 @@ export class MarkdownPreviewPanel {
       tableLayout,
       docxEmojiStyle,
       frontmatterDisplay,
+      firstLineIndent,
       fontSize: config.get('fontSize', 16),
       fontFamily: config.get('fontFamily', ''),
       lineNumbers: config.get('lineNumbers', true),

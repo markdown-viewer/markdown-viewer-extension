@@ -29,6 +29,8 @@ export interface SettingsPanelOptions {
   tableMergeEmpty?: boolean;
   /** Table layout setting */
   tableLayout?: TableLayout;
+  /** First-line indent (0 = off, 1-4 = characters) */
+  firstLineIndent?: number;
   /** Theme changed callback */
   onThemeChange?: (themeId: string) => void;
   /** Locale changed callback */
@@ -43,6 +45,8 @@ export interface SettingsPanelOptions {
   onTableMergeEmptyChange?: (enabled: boolean) => void;
   /** Table layout changed callback */
   onTableLayoutChange?: (layout: TableLayout) => void;
+  /** First-line indent changed callback */
+  onFirstLineIndentChange?: (indent: number) => void;
   /** Cache clear callback */
   onClearCache?: () => Promise<void>;
   /** Called when panel is shown, use to refresh dynamic data */
@@ -105,6 +109,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
     frontmatterDisplay = 'hide',
     tableMergeEmpty = true,
     tableLayout = 'center',
+    firstLineIndent = 2,
     onThemeChange,
     onLocaleChange,
     onDocxHrDisplayChange,
@@ -188,6 +193,16 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
           <option value="pageBreak" ${docxHrDisplay === 'pageBreak' ? 'selected' : ''} data-i18n="settings_docx_hr_display_page_break">${Localization.translate('settings_docx_hr_display_page_break')}</option>
         </select>
       </div>
+      <div class="vscode-settings-group">
+        <label class="vscode-settings-label" data-i18n="settings_first_line_indent">${Localization.translate('settings_first_line_indent')}</label>
+        <select class="vscode-settings-select" data-setting="firstLineIndent">
+          <option value="0" ${firstLineIndent === 0 ? 'selected' : ''} data-i18n="settings_first_line_indent_off">${Localization.translate('settings_first_line_indent_off')}</option>
+          <option value="1" ${firstLineIndent === 1 ? 'selected' : ''} data-i18n="settings_first_line_indent_1">${Localization.translate('settings_first_line_indent_1')}</option>
+          <option value="2" ${firstLineIndent === 2 ? 'selected' : ''} data-i18n="settings_first_line_indent_2">${Localization.translate('settings_first_line_indent_2')}</option>
+          <option value="3" ${firstLineIndent === 3 ? 'selected' : ''} data-i18n="settings_first_line_indent_3">${Localization.translate('settings_first_line_indent_3')}</option>
+          <option value="4" ${firstLineIndent === 4 ? 'selected' : ''} data-i18n="settings_first_line_indent_4">${Localization.translate('settings_first_line_indent_4')}</option>
+        </select>
+      </div>
       <div class="vscode-settings-divider"></div>
       <div class="vscode-settings-group">
         <div class="vscode-cache-stats">
@@ -215,6 +230,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
   const tableLayoutSelect = panel.querySelector('[data-setting="tableLayout"]') as HTMLSelectElement;
   const emojiStyleSelect = panel.querySelector('[data-setting="emojiStyle"]') as HTMLSelectElement;
   const frontmatterDisplaySelect = panel.querySelector('[data-setting="frontmatterDisplay"]') as HTMLSelectElement;
+  const firstLineIndentSelect = panel.querySelector('[data-setting="firstLineIndent"]') as HTMLSelectElement;
   const clearCacheBtn = panel.querySelector('.vscode-cache-clear-btn') as HTMLButtonElement;
   const cacheItemsValue = panel.querySelector('[data-cache-stat="items"]') as HTMLElement;
   const cacheSizeValue = panel.querySelector('[data-cache-stat="size"]') as HTMLElement;
@@ -229,6 +245,7 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
   if (tableLayoutSelect) tableLayoutSelect.value = tableLayout;
   if (emojiStyleSelect) emojiStyleSelect.value = docxEmojiStyle;
   if (frontmatterDisplaySelect) frontmatterDisplaySelect.value = frontmatterDisplay;
+  if (firstLineIndentSelect) firstLineIndentSelect.value = String(firstLineIndent);
 
   // Bind events
   closeBtn?.addEventListener('click', () => {
@@ -272,6 +289,10 @@ export function createSettingsPanel(options: SettingsPanelOptions): SettingsPane
 
   frontmatterDisplaySelect?.addEventListener('change', () => {
     options.onFrontmatterDisplayChange?.(frontmatterDisplaySelect.value as FrontmatterDisplay);
+  });
+
+  firstLineIndentSelect?.addEventListener('change', () => {
+    options.onFirstLineIndentChange?.(parseInt(firstLineIndentSelect.value, 10));
   });
 
   // Handle clear cache button - no confirm dialog in sandboxed webview

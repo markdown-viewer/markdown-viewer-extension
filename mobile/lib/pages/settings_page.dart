@@ -142,6 +142,13 @@ class _SettingsPageState extends State<SettingsPage> {
               _applyFontSize(size);
             },
           ),
+          ListTile(
+            leading: const LeadingIcon(AntIcons.align_left),
+            title: Text(localization.t('settings_first_line_indent')),
+            subtitle: Text(_getFirstLineIndentName()),
+            trailing: const Icon(AntIcons.right_outline, size: 16),
+            onTap: _pickFirstLineIndent,
+          ),
           const Divider(),
           ListTile(
             leading: const LeadingIcon(AntIcons.delete_outline),
@@ -329,6 +336,8 @@ class _SettingsPageState extends State<SettingsPage> {
     switch (layout) {
       case 'center':
         return localization.t('settings_table_layout_center');
+      case 'center-full-width':
+        return localization.t('settings_table_layout_full_width');
       case 'left':
         return localization.t('settings_table_layout_left');
       default:
@@ -348,6 +357,62 @@ class _SettingsPageState extends State<SettingsPage> {
       default:
         return localization.t('settings_docx_hr_display_hide');
     }
+  }
+
+  String _getFirstLineIndentName() {
+    final indent = settingsService.firstLineIndent;
+    switch (indent) {
+      case 0:
+        return localization.t('settings_first_line_indent_off');
+      case 1:
+        return localization.t('settings_first_line_indent_1');
+      case 2:
+        return localization.t('settings_first_line_indent_2');
+      case 3:
+        return localization.t('settings_first_line_indent_3');
+      case 4:
+        return localization.t('settings_first_line_indent_4');
+      default:
+        return localization.t('settings_first_line_indent_2');
+    }
+  }
+
+  Future<void> _pickFirstLineIndent() async {
+    final selected = await showSingleChoiceSheet<int>(
+      context: context,
+      title: localization.t('settings_first_line_indent'),
+      icon: AntIcons.align_left,
+      selected: settingsService.firstLineIndent,
+      options: [
+        ChoiceOption(
+            value: 0,
+            label: localization.t('settings_first_line_indent_off')),
+        ChoiceOption(
+            value: 1,
+            label: localization.t('settings_first_line_indent_1')),
+        ChoiceOption(
+            value: 2,
+            label: localization.t('settings_first_line_indent_2')),
+        ChoiceOption(
+            value: 3,
+            label: localization.t('settings_first_line_indent_3')),
+        ChoiceOption(
+            value: 4,
+            label: localization.t('settings_first_line_indent_4')),
+      ],
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      settingsService.firstLineIndent = selected;
+    });
+    // firstLineIndent is baked into theme CSS, so reload theme + re-render
+    final controller = widget.webViewController;
+    if (controller != null) {
+      controller.runJavaScript(
+        "if(window.reloadThemeAndRerender){window.reloadThemeAndRerender();}",
+      );
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _pickHrDisplay() async {
@@ -372,6 +437,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       settingsService.hrDisplay = selected;
     });
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _pickTableLayout() async {
@@ -387,6 +453,9 @@ class _SettingsPageState extends State<SettingsPage> {
         ChoiceOption(
             value: 'center',
             label: localization.t('settings_table_layout_center')),
+        ChoiceOption(
+            value: 'center-full-width',
+            label: localization.t('settings_table_layout_full_width')),
       ],
     );
     if (selected == null || !mounted) return;
@@ -394,6 +463,7 @@ class _SettingsPageState extends State<SettingsPage> {
       settingsService.tableLayout = selected;
     });
     _notifySettingChanged();
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _pickEmojiStyle() async {
@@ -418,6 +488,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       settingsService.emojiStyle = selected;
     });
+    if (mounted) Navigator.pop(context);
   }
 
   String _getFrontmatterDisplayName() {
@@ -461,6 +532,7 @@ class _SettingsPageState extends State<SettingsPage> {
         "if(window.rerender){window.rerender();}",
       );
     }
+    if (mounted) Navigator.pop(context);
   }
 }
 

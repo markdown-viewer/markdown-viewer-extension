@@ -85,6 +85,7 @@ let savedSettings: {
   frontmatterDisplay: string;
   tableMergeEmpty: boolean;
   tableLayout: string;
+  firstLineIndent: number;
 } = {
   locale: 'auto',
   docxHrDisplay: 'hide',
@@ -92,6 +93,7 @@ let savedSettings: {
   frontmatterDisplay: 'hide',
   tableMergeEmpty: true,
   tableLayout: 'center',
+  firstLineIndent: 2,
 };
 
 // Render queue for serializing updates
@@ -777,6 +779,7 @@ function initializeUI(): void {
     frontmatterDisplay: savedSettings.frontmatterDisplay as FrontmatterDisplay,
     tableMergeEmpty: savedSettings.tableMergeEmpty,
     tableLayout: savedSettings.tableLayout as 'left' | 'center' | 'center-full-width',
+    firstLineIndent: savedSettings.firstLineIndent,
     onThemeChange: async (themeId) => {
       await handleSetTheme(themeId);
     },
@@ -804,6 +807,13 @@ function initializeUI(): void {
     },
     onTableLayoutChange: async (layout) => {
       await platform.settings.set('tableLayout', layout);
+      await rerenderCurrentDocumentPreservingScroll();
+    },
+    onFirstLineIndentChange: async (indent) => {
+      await platform.settings.set('firstLineIndent', indent);
+      // firstLineIndent is baked into theme CSS via loadAndApplyTheme, so we must
+      // re-apply the theme to regenerate text-indent before re-rendering content.
+      await loadAndApplyTheme(currentThemeId);
       await rerenderCurrentDocumentPreservingScroll();
     },
     onClearCache: async () => {

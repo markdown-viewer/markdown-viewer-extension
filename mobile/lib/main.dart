@@ -599,6 +599,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
             'frontmatterDisplay': settingsService.frontmatterDisplay,
             'tableMergeEmpty': settingsService.tableMergeEmpty,
             'tableLayout': settingsService.tableLayout,
+            'firstLineIndent': settingsService.firstLineIndent,
           };
         }
         // Add more keys as needed
@@ -638,6 +639,9 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
             }
             if (viewerSettings.containsKey('tableLayout')) {
               settingsService.tableLayout = viewerSettings['tableLayout'] as String;
+            }
+            if (viewerSettings.containsKey('firstLineIndent')) {
+              settingsService.firstLineIndent = viewerSettings['firstLineIndent'] as int;
             }
           }
         }
@@ -1710,7 +1714,13 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
   Widget _buildContentView() {
     return SafeArea(
       bottom: false, // Allow content to extend to bottom edge on iOS
-      child: WebViewWidget(controller: _controller),
+      child: GestureDetector(
+        // Swallow long-press to suppress Android WebView's native context menu
+        // (which includes "Refresh" — refreshing the WebView loses all content)
+        onLongPress: () {},
+        excludeFromSemantics: true,
+        child: WebViewWidget(controller: _controller),
+      ),
     );
   }
 

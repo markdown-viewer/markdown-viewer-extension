@@ -16,6 +16,7 @@ class SettingsService {
   static const String _keySupportInfographic = 'supportInfographic';
   static const String _keyTableMergeEmpty = 'tableMergeEmpty';
   static const String _keyTableLayout = 'tableLayout';
+  static const String _keyFirstLineIndent = 'firstLineIndent';
   static const String _keyScrollPositions = 'scrollPositions';
   static const int _maxScrollPositions = 100; // Limit stored positions
 
@@ -74,6 +75,10 @@ class SettingsService {
   String get tableLayout => _prefs?.getString(_keyTableLayout) ?? 'center';
   set tableLayout(String value) => _prefs?.setString(_keyTableLayout, value);
 
+  // First-line indent: 0 = off, 1-4 = characters
+  int get firstLineIndent => _prefs?.getInt(_keyFirstLineIndent) ?? 2;
+  set firstLineIndent(int value) => _prefs?.setInt(_keyFirstLineIndent, value);
+
   /// Get list of allowed file extensions based on settings
   List<String> get allowedExtensions {
     final extensions = ['md', 'markdown'];
@@ -104,6 +109,7 @@ class SettingsService {
       'supportInfographic': supportInfographic,
       'tableMergeEmpty': tableMergeEmpty,
       'tableLayout': tableLayout,
+      'firstLineIndent': firstLineIndent,
     };
   }
 

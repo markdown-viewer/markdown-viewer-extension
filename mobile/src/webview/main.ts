@@ -221,6 +221,16 @@ async function initialize(): Promise<void> {
       });
     }
 
+    // Suppress the browser/WebView native context menu (which includes "Refresh"
+    // that would blank the page). The image context menu above handles img elements
+    // and calls preventDefault() itself, so we only suppress for non-img targets.
+    document.addEventListener('contextmenu', (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('img')) {
+        e.preventDefault();
+      }
+    });
+
     // Set up message handlers from host app (Flutter)
     setupMessageHandlers();
 
@@ -625,6 +635,8 @@ declare global {
     setFontSize: (size: number) => void;
     // Re-render with updated settings
     rerender: () => Promise<void>;
+    // Reload theme CSS (for settings baked into theme CSS) then re-render
+    reloadThemeAndRerender: () => Promise<void>;
     // Platform object has all services: platform.cache, platform.i18n, etc.
   }
 }
@@ -673,6 +685,16 @@ window.setFontSize = (size: number) => {
 
 window.rerender = async () => {
   // Re-render current markdown with updated settings
+  await rerenderCurrentDocumentPreservingScroll();
+};
+
+// Reload theme CSS (for settings baked into theme CSS like firstLineIndent) then re-render
+window.reloadThemeAndRerender = async () => {
+  try {
+    await loadAndApplyTheme(currentThemeId);
+  } catch (error) {
+    console.error('[Mobile] Failed to reload theme:', error);
+  }
   await rerenderCurrentDocumentPreservingScroll();
 };
 
