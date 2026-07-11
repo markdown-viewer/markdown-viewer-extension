@@ -1,0 +1,37 @@
+{
+  "id": "draft",
+  "name": "草稿灰",
+  "name_en": "Draft Gray",
+  "description": "淡灰纸面与蓝灰标注，适合研究草稿、审阅稿和工作论文",
+  "description_en": "Soft gray paper with blue-gray accents for research drafts, review copies, and working papers",
+
+  "text": {
+    "primary": "#20242a",
+    "secondary": "#4a5563",
+    "muted": "#7b8490"
+  },
+
+  "accent": {
+    "link": "#3b6478",
+    "linkHover": "#284b5c"
+  },
+
+  "background": {
+    "page": "#f7f7f4",
+    "surface": "#ecefeb",
+    "code": "#eff1ee",
+    "blockquote": "#ecefeb"
+  },
+
+  "blockquote": {
+    "border": "#8d9aa5"
+  },
+
+  "table": {
+    "border": "#b9c0c4",
+    "headerBackground": "#e5e9e7",
+    "headerText": "#232a31",
+    "zebraEven": "#f0f2ef",
+    "zebraOdd": "#fbfbf8"
+  }
+}
