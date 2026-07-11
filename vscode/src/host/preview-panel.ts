@@ -1238,6 +1238,32 @@ export class MarkdownPreviewPanel {
     
     #vscode-root {
       height: 100%;
+      --color-primary: var(--vscode-focusBorder, #007fd4);
+      --color-primary-hover: var(--vscode-textLink-activeForeground, var(--vscode-focusBorder, #007fd4));
+      --color-primary-light: var(--vscode-list-inactiveSelectionBackground, rgba(127, 127, 127, 0.18));
+      --color-primary-subtle: var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.12));
+      --color-bg-body: var(--vscode-editor-background, #1e1e1e);
+      --color-bg-surface: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
+      --color-bg-toc: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
+      --color-text-primary: var(--vscode-foreground, #cccccc);
+      --color-text-secondary: var(--vscode-descriptionForeground, #9d9d9d);
+      --color-text-tertiary: var(--vscode-disabledForeground, #808080);
+      --color-border: var(--vscode-panel-border, var(--vscode-widget-border, #454545));
+      --color-border-hover: var(--vscode-focusBorder, #007fd4);
+      --color-nav-active-bg: var(--vscode-list-activeSelectionBackground, rgba(0, 127, 212, 0.35));
+      --color-nav-active-text: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground, #ffffff));
+      --color-nav-active-border: var(--vscode-focusBorder, #007fd4);
+      --gray-50: var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.12));
+      --gray-100: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.16));
+      --gray-200: var(--vscode-panel-border, #454545);
+      --gray-300: var(--vscode-widget-border, #606060);
+      --gray-400: var(--vscode-disabledForeground, #808080);
+      --gray-500: var(--vscode-descriptionForeground, #9d9d9d);
+      --gray-600: var(--vscode-descriptionForeground, #9d9d9d);
+      --gray-700: var(--vscode-foreground, #cccccc);
+      --gray-900: var(--vscode-foreground, #cccccc);
+      --shadow-popover: 0 2px 8px rgba(0, 0, 0, 0.35);
+      --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.4);
     }
     
     #vscode-content {

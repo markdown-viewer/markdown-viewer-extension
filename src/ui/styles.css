@@ -11,10 +11,10 @@
 /* === Design System Variables === */
 :root {
   /* Primary Colors */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-light: #eff6ff;
-  --color-primary-subtle: #dbeafe;
+  --color-primary: #2f5fd0;
+  --color-primary-hover: #234aa8;
+  --color-primary-light: #eef2fb;
+  --color-primary-subtle: #d9e2f6;
   --color-theme-accent: var(--md-accent, var(--color-primary));
   --color-theme-accent-hover: var(--md-accent-hover, var(--color-primary-hover));
   --color-theme-accent-bg: var(--md-accent-bg, var(--color-primary-light));
@@ -28,26 +28,26 @@
   --color-danger-border-hover: #f1b0b7;
   
   /* Neutral Colors */
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-900: #0f172a;
+  --gray-50: #f6f3ec;
+  --gray-100: #efeadf;
+  --gray-200: #e7e1d5;
+  --gray-300: #d8d0c2;
+  --gray-400: #9c9488;
+  --gray-500: #80786e;
+  --gray-600: #6a6459;
+  --gray-700: #514b43;
+  --gray-900: #22201b;
   
   /* Semantic Colors */
-  --color-bg-body: #f5f5f5;
+  --color-bg-body: #fdfcf9;
   --color-bg-surface: #ffffff;
-  --color-bg-toc: #f8fafc;
+  --color-bg-toc: #f6f3ec;
   --color-text-primary: var(--gray-900);
   --color-text-secondary: #475569;
   --color-text-tertiary: #64748b;
   --color-text-on-primary: #ffffff;
-  --color-border: #e2e8f0;
-  --color-border-hover: #cbd5e1;
+  --color-border: #e7e1d5;
+  --color-border-hover: #d8d0c2;
   --color-nav-active-bg: var(--color-theme-accent-bg);
   --color-nav-active-text: var(--color-theme-accent);
   --color-nav-active-border: var(--color-theme-accent);
@@ -60,9 +60,9 @@
   --transition-slow: 0s;
   
   /* Shadows */
-  --shadow-toolbar: 0 2px 4px rgba(0, 0, 0, 0.06);
-  --shadow-popover: 0 2px 8px rgba(0, 0, 0, 0.12);
-  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-toolbar: 0 2px 4px rgba(55, 45, 30, 0.06);
+  --shadow-popover: 0 2px 8px rgba(55, 45, 30, 0.12);
+  --shadow-floating: 0 4px 16px rgba(55, 45, 30, 0.15);
 }
 
 /* Dark frame palette — activated when a dark theme is selected.

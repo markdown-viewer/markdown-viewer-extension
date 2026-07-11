@@ -14,11 +14,11 @@
       <div class="header-content">
         <img src="../../icons/icon48.png" alt="Logo" class="logo">
         <div class="header-text">
-          <h1 data-i18n="popup_title" id="extension-title" class="clickable-title">Markdown Viewer</h1>
+          <h1 data-i18n="popup_title" id="extension-title" class="clickable-title">docu.md</h1>
           <div class="version-row">
             <span class="version"><span data-i18n="popup_version_label" id="version-text">Version</span> · <a href="https://docu.md" target="_blank" class="author">docu.md</a></span>
             <a href="#" id="review-link" class="review-link" title="Rate & Review">
-              <span class="star-icon">⭐</span>
+              <span class="star-icon">★</span>
               <span data-i18n="popup_review_link">Rate</span>
             </a>
             <button id="language-selector" class="language-btn" title="Language">en</button>
@@ -38,7 +38,7 @@
         <!-- Open Project button -->
         <div class="info-section" style="padding-bottom: 0;">
           <button class="btn btn-project" id="open-project-btn">
-            <span>📂</span> <span data-i18n="workspace_open">Open Workspace</span>
+            <span class="btn-icon" aria-hidden="true">↗</span> <span data-i18n="workspace_open">Open Workspace</span>
           </button>
         </div>
 
@@ -58,7 +58,7 @@
           
           <div class="cache-items" id="history-items" data-empty="true">
             <div class="cache-item cache-item--empty">
-              <div class="empty-state-icon">🕒</div>
+              <div class="empty-state-icon" aria-hidden="true">↺</div>
               <div data-i18n="history_items_empty"></div>
             </div>
           </div>
@@ -211,10 +211,10 @@
           <div style="margin: 10px 0;">
             <label for="remark-default-color" data-i18n="remark_cfg_default_color">Default color</label>
             <select id="remark-default-color">
-              <option value="yellow">🟡 Suggestion</option>
-              <option value="green">🟢 Keep</option>
-              <option value="blue">🔵 Question</option>
-              <option value="pink">🩷 Concern</option>
+              <option value="yellow">Suggestion</option>
+              <option value="green">Keep</option>
+              <option value="blue">Question</option>
+              <option value="pink">Concern</option>
             </select>
           </div>
           <div style="margin: 10px 0;">

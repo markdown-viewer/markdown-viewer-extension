@@ -1,29 +1,30 @@
 import 'package:flutter/material.dart';
 
-/// GitHub-inspired color palette for Markdown Viewer
+/// docu.md workbench color palette for Markdown Viewer
 class AppColors {
   AppColors._();
 
-  // Primary - GitHub Blue
-  static const Color primary = Color(0xFF0969DA);
-  static const Color primaryMuted = Color(0xFF54AEFF);  // For backgrounds
-  static const Color primarySubtle = Color(0xFFDDF4FF); // Light background
+  // Primary - docu.md brand blue
+  static const Color primary = Color(0xFF2F5FD0);
+  static const Color primaryMuted = Color(0xFF6D8DE0);  // For backgrounds
+  static const Color primarySubtle = Color(0xFFEEF2FB); // Light background
 
-  // Secondary - GitHub Orange (for featured/star)
-  static const Color secondary = Color(0xFFBF8700);
-  static const Color secondarySubtle = Color(0xFFFFF8C5);
+  // Secondary - warm document accent
+  static const Color secondary = Color(0xFFC9821B);
+  static const Color secondarySubtle = Color(0xFFFFF7E8);
 
-  // GitHub Gray scale
-  static const Color gray50 = Color(0xFFF6F8FA);
-  static const Color gray100 = Color(0xFFEAEEF2);
-  static const Color gray200 = Color(0xFFD0D7DE);
-  static const Color gray300 = Color(0xFFAFB8C1);
-  static const Color gray400 = Color(0xFF8C959F);
-  static const Color gray500 = Color(0xFF6E7781);
-  static const Color gray600 = Color(0xFF57606A);
-  static const Color gray700 = Color(0xFF424A53);
-  static const Color gray800 = Color(0xFF32383F);
-  static const Color gray900 = Color(0xFF24292F);
+  // Warm paper gray scale
+  static const Color paper = Color(0xFFFDFCF9);
+  static const Color gray50 = Color(0xFFF6F3EC);
+  static const Color gray100 = Color(0xFFEFEADF);
+  static const Color gray200 = Color(0xFFE7E1D5);
+  static const Color gray300 = Color(0xFFD8D0C2);
+  static const Color gray400 = Color(0xFF9C9488);
+  static const Color gray500 = Color(0xFF80786E);
+  static const Color gray600 = Color(0xFF6A6459);
+  static const Color gray700 = Color(0xFF514B43);
+  static const Color gray800 = Color(0xFF332F29);
+  static const Color gray900 = Color(0xFF22201B);
 
   // Semantic colors (GitHub style)
   static const Color success = Color(0xFF1A7F37);
@@ -32,15 +33,15 @@ class AppColors {
   static const Color errorSubtle = Color(0xFFFFEBE9);
 }
 
-/// App theme for Markdown Viewer (GitHub-inspired)
+/// App theme for Markdown Viewer (docu.md workbench)
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
   colorScheme: const ColorScheme.light(
     primary: AppColors.primary,
     onPrimary: Colors.white,
-    primaryContainer: AppColors.gray100,        // Neutral gray for icon backgrounds
-    onPrimaryContainer: AppColors.gray600,      // Gray icon color
+    primaryContainer: AppColors.primarySubtle,
+    onPrimaryContainer: AppColors.primary,
     secondary: AppColors.secondary,
     onSecondary: Colors.white,
     secondaryContainer: AppColors.secondarySubtle,
@@ -55,9 +56,9 @@ final ThemeData appTheme = ThemeData(
     outline: AppColors.gray300,
     outlineVariant: AppColors.gray200,
   ),
-  scaffoldBackgroundColor: Colors.white,
+  scaffoldBackgroundColor: AppColors.paper,
   appBarTheme: const AppBarTheme(
-    backgroundColor: Colors.white,
+    backgroundColor: AppColors.paper,
     foregroundColor: AppColors.gray900,
     elevation: 0,
     scrolledUnderElevation: 0.5,

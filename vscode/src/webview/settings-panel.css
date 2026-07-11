@@ -236,6 +236,12 @@
   transition: background 0.1s;
 }
 
+.vscode-settings-panel select,
+.vscode-settings-panel button,
+.vscode-settings-panel input {
+  font-family: inherit;
+}
+
 .vscode-cache-clear-btn:hover:not(:disabled) {
   background: var(--vscode-button-hoverBackground, #005a9e);
 }
