@@ -439,18 +439,6 @@
     "message": "Прапанова",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Скапіявана!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Скапіяваць заўвагі",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Не ўдалося скапіяваць",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Скапіяваць усе заўвагі ў буфер абмену",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Выдалена",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Спампаваць заўвагі ў файл",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Вылучыце тэкст, каб дадаць заўвагі",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Заўвага",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Імпартаваць і аб'яднаць заўвагі з файла",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Рэжым заўваг",

@@ -439,18 +439,6 @@
     "message": "Ehdotus",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Kopioitu!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Kopioi huomautukset",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Kopiointi epäonnistui",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Kopioi kaikki huomautukset leikepöydälle",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Poistettu",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Lataa huomautukset tiedostona",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Valitse teksti lisätäksesi huomautuksia",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Huomautus",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Tuo ja yhdistä huomautukset tiedostosta",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Huomautustila",

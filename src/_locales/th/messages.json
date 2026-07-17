@@ -439,18 +439,6 @@
     "message": "ข้อเสนอแนะ",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "คัดลอกแล้ว!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "คัดลอกหมายเหตุ",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "คัดลอกไม่สำเร็จ",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "คัดลอกหมายเหตุทั้งหมดไปยังคลิปบอร์ด",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "ลบแล้ว",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "ดาวน์โหลดหมายเหตุเป็นไฟล์",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "เลือกข้อความเพื่อเพิ่มหมายเหตุ",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "หมายเหตุ",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "นำเข้าและรวมหมายเหตุจากไฟล์",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "โหมดหมายเหตุ",

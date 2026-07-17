@@ -23,10 +23,131 @@ import {
   findSentenceBounds,
   locateOffsetInNodes,
   locateSubstringInNodes,
+  serializeAnnotations,
+  parseRemarksFile,
+  mergeAnnotations,
+  REMARKS_FILE_TYPE,
+  REMARKS_FILE_VERSION,
   BG_COLORS,
   LINE_COLORS,
   SENTENCE_END_RE,
 } from '../src/ui/remark-utils.ts';
+import type { RemarkAnnotation } from '../src/ui/remark-utils.ts';
+
+// ─── serializeAnnotations / parseRemarksFile / mergeAnnotations ───────────────
+
+describe('serializeAnnotations', () => {
+  it('wraps annotations with type, version and metadata', () => {
+    const file = serializeAnnotations([makeAnn()], 'doc.md');
+    assert.strictEqual(file.type, REMARKS_FILE_TYPE);
+    assert.strictEqual(file.version, REMARKS_FILE_VERSION);
+    assert.strictEqual(file.source, 'doc.md');
+    assert.strictEqual(typeof file.exportedAt, 'string');
+    assert.strictEqual(file.annotations.length, 1);
+    assert.strictEqual(file.annotations[0].selectedText, 'hello world');
+  });
+
+  it('omits blockId when absent', () => {
+    const file = serializeAnnotations([makeAnn()]);
+    assert.strictEqual('blockId' in file.annotations[0], false);
+  });
+
+  it('keeps blockId when present', () => {
+    const file = serializeAnnotations([makeAnn({ blockId: 'b7' })]);
+    assert.strictEqual(file.annotations[0].blockId, 'b7');
+  });
+});
+
+describe('parseRemarksFile', () => {
+  it('parses a wrapped file object', () => {
+    const json = JSON.stringify(serializeAnnotations([makeAnn()], 'doc.md'));
+    const result = parseRemarksFile(json);
+    assert.ok(!('error' in result));
+    if (!('error' in result)) {
+      assert.strictEqual(result.annotations.length, 1);
+      assert.strictEqual(result.source, 'doc.md');
+    }
+  });
+
+  it('parses a bare annotation array', () => {
+    const json = JSON.stringify([makeAnn()]);
+    const result = parseRemarksFile(json);
+    assert.ok(!('error' in result));
+    if (!('error' in result)) assert.strictEqual(result.annotations.length, 1);
+  });
+
+  it('rejects invalid JSON', () => {
+    assert.deepStrictEqual(parseRemarksFile('{not json'), { error: 'invalid-json' });
+  });
+
+  it('rejects a wrong file type', () => {
+    const json = JSON.stringify({ type: 'something-else', annotations: [makeAnn()] });
+    assert.deepStrictEqual(parseRemarksFile(json), { error: 'wrong-type' });
+  });
+
+  it('rejects when there are no valid annotations', () => {
+    const json = JSON.stringify({ type: REMARKS_FILE_TYPE, annotations: [{ selectedText: '   ' }] });
+    assert.deepStrictEqual(parseRemarksFile(json), { error: 'no-annotations' });
+  });
+
+  it('drops malformed entries but keeps valid ones', () => {
+    const json = JSON.stringify([makeAnn(), { foo: 'bar' }, makeAnn({ selectedText: 'world' })]);
+    const result = parseRemarksFile(json);
+    assert.ok(!('error' in result));
+    if (!('error' in result)) assert.strictEqual(result.annotations.length, 2);
+  });
+
+  it('defaults an invalid color to yellow', () => {
+    const json = JSON.stringify([makeAnn({ color: 'orange' as unknown as RemarkAnnotation['color'] })]);
+    const result = parseRemarksFile(json);
+    assert.ok(!('error' in result));
+    if (!('error' in result)) assert.strictEqual(result.annotations[0].color, 'yellow');
+  });
+});
+
+describe('mergeAnnotations', () => {
+  let counter = 0;
+  const makeId = (): string => `new-${++counter}`;
+
+  it('adds non-duplicate annotations', () => {
+    counter = 0;
+    const existing = [makeAnn({ id: 'x1', selectedText: 'hello', startLine: 1, endLine: 1 })];
+    const incoming = [makeAnn({ id: 'y1', selectedText: 'world', startLine: 2, endLine: 2 })];
+    const { merged, added, skipped } = mergeAnnotations(existing, incoming, makeId);
+    assert.strictEqual(merged.length, 2);
+    assert.strictEqual(added, 1);
+    assert.strictEqual(skipped, 0);
+  });
+
+  it('skips duplicates by text + line range', () => {
+    counter = 0;
+    const existing = [makeAnn({ id: 'x1', selectedText: 'hello', startLine: 1, endLine: 1 })];
+    const incoming = [makeAnn({ id: 'y1', selectedText: 'hello', startLine: 1, endLine: 1, note: 'ignored' })];
+    const { merged, added, skipped } = mergeAnnotations(existing, incoming, makeId);
+    assert.strictEqual(merged.length, 1);
+    assert.strictEqual(added, 0);
+    assert.strictEqual(skipped, 1);
+    assert.strictEqual(merged[0].id, 'x1');
+  });
+
+  it('assigns a fresh id when incoming id collides', () => {
+    counter = 0;
+    const existing = [makeAnn({ id: 'dup', selectedText: 'hello', startLine: 1, endLine: 1 })];
+    const incoming = [makeAnn({ id: 'dup', selectedText: 'world', startLine: 2, endLine: 2 })];
+    const { merged, added } = mergeAnnotations(existing, incoming, makeId);
+    assert.strictEqual(added, 1);
+    const world = merged.find(a => a.selectedText === 'world')!;
+    assert.notStrictEqual(world.id, 'dup');
+    assert.strictEqual(world.id, 'new-1');
+  });
+
+  it('does not mutate the existing array', () => {
+    counter = 0;
+    const existing = [makeAnn({ id: 'x1' })];
+    mergeAnnotations(existing, [makeAnn({ id: 'y1', selectedText: 'other' })], makeId);
+    assert.strictEqual(existing.length, 1);
+  });
+});
 
 // ─── truncate ────────────────────────────────────────────────────────────────
 

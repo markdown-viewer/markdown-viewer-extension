@@ -439,18 +439,6 @@
     "message": "建议",
     "description": "Label for the yellow annotation color"
   },
-  "remark_copied": {
-    "message": "已复制！",
-    "description": "Feedback shown after remarks are successfully copied"
-  },
-  "remark_copy_btn": {
-    "message": "复制批注",
-    "description": "Button label to copy all remarks to clipboard and exit Remark Mode"
-  },
-  "remark_copy_failed": {
-    "message": "复制失败",
-    "description": "Feedback shown when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "复制所有批注到剪贴板",
     "description": "Tooltip for the Copy remarks button"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "已删除",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "将标注下载为文件",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "选择文本以添加批注",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "备注",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "从文件导入并合并标注",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "批注模式",

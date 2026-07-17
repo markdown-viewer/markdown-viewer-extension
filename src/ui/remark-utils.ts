@@ -374,3 +374,143 @@ export function locateSubstringInNodes(
   if (!startPos || !endPos) return null;
   return { start: startPos, end: endPos };
 }
+
+// ─── Portable Remarks File (download / import-merge) ─────────────────────────
+
+/** Discriminator written into exported remark files for validation on import. */
+export const REMARKS_FILE_TYPE = 'markdown-viewer-remarks';
+/** Schema version of the exported remark file. */
+export const REMARKS_FILE_VERSION = 1;
+
+export interface RemarksFile {
+  type: typeof REMARKS_FILE_TYPE;
+  version: number;
+  /** Best-effort source document path/URL the remarks belong to. */
+  source?: string;
+  /** ISO timestamp of when the file was exported. */
+  exportedAt?: string;
+  annotations: RemarkAnnotation[];
+}
+
+const VALID_COLORS: ReadonlySet<string> = new Set<RemarkColor>(['yellow', 'green', 'blue', 'pink']);
+
+/** Build a portable file object from the given annotations. */
+export function serializeAnnotations(
+  annotations: readonly RemarkAnnotation[],
+  source?: string,
+): RemarksFile {
+  return {
+    type: REMARKS_FILE_TYPE,
+    version: REMARKS_FILE_VERSION,
+    source,
+    exportedAt: new Date().toISOString(),
+    annotations: annotations.map(a => ({
+      id: a.id,
+      startLine: a.startLine,
+      endLine: a.endLine,
+      selectedText: a.selectedText,
+      note: a.note,
+      color: a.color,
+      timestamp: a.timestamp,
+      ...(a.blockId ? { blockId: a.blockId } : {}),
+    })),
+  };
+}
+
+/** Coerce an unknown value into a valid RemarkAnnotation, or return null. */
+function coerceAnnotation(raw: unknown): RemarkAnnotation | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const selectedText = typeof o.selectedText === 'string' ? o.selectedText : '';
+  if (!selectedText.trim()) return null;
+  const startLine = Number(o.startLine);
+  if (!Number.isFinite(startLine)) return null;
+  const endLine = Number.isFinite(Number(o.endLine)) ? Number(o.endLine) : startLine;
+  const color = (typeof o.color === 'string' && VALID_COLORS.has(o.color)) ? o.color as RemarkColor : 'yellow';
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : '',
+    startLine,
+    endLine,
+    selectedText,
+    note: typeof o.note === 'string' ? o.note : '',
+    color,
+    timestamp: Number.isFinite(Number(o.timestamp)) ? Number(o.timestamp) : Date.now(),
+    ...(typeof o.blockId === 'string' && o.blockId ? { blockId: o.blockId } : {}),
+  };
+}
+
+/**
+ * Parse the text content of an imported remarks file.
+ * Accepts either the wrapped `{ type, version, annotations }` object or a bare
+ * array of annotations. Returns validated annotations plus optional metadata.
+ */
+export function parseRemarksFile(text: string): { annotations: RemarkAnnotation[]; source?: string } | { error: string } {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return { error: 'invalid-json' };
+  }
+
+  let rawList: unknown;
+  let source: string | undefined;
+
+  if (Array.isArray(data)) {
+    rawList = data;
+  } else if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (obj.type !== undefined && obj.type !== REMARKS_FILE_TYPE) {
+      return { error: 'wrong-type' };
+    }
+    if (typeof obj.source === 'string') source = obj.source;
+    rawList = obj.annotations;
+  }
+
+  if (!Array.isArray(rawList)) return { error: 'no-annotations' };
+
+  const annotations: RemarkAnnotation[] = [];
+  for (const raw of rawList) {
+    const ann = coerceAnnotation(raw);
+    if (ann) annotations.push(ann);
+  }
+
+  if (annotations.length === 0) return { error: 'no-annotations' };
+  return { annotations, source };
+}
+
+/**
+ * Merge incoming annotations into an existing set.
+ * Deduplicates by (selectedText + startLine + endLine): a duplicate is skipped,
+ * keeping the existing annotation. New annotations receive a fresh id (via
+ * `makeId`) when their id is empty or collides with an existing id, so imported
+ * files never clobber current annotations.
+ */
+export function mergeAnnotations(
+  existing: readonly RemarkAnnotation[],
+  incoming: readonly RemarkAnnotation[],
+  makeId: () => string,
+): { merged: RemarkAnnotation[]; added: number; skipped: number } {
+  const merged = [...existing];
+  const usedIds = new Set(existing.map(a => a.id));
+  const dedupKey = (a: RemarkAnnotation): string => `${a.startLine}|${a.endLine}|${a.selectedText}`;
+  const seen = new Set(existing.map(dedupKey));
+
+  let added = 0;
+  let skipped = 0;
+
+  for (const ann of incoming) {
+    if (seen.has(dedupKey(ann))) {
+      skipped++;
+      continue;
+    }
+    let id = ann.id;
+    if (!id || usedIds.has(id)) id = makeId();
+    const copy: RemarkAnnotation = { ...ann, id };
+    merged.push(copy);
+    usedIds.add(id);
+    seen.add(dedupKey(copy));
+    added++;
+  }
+
+  return { merged, added, skipped };
+}

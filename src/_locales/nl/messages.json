@@ -439,18 +439,6 @@
     "message": "Suggestie",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Gekopieerd!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Opmerkingen kopiëren",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Kopiëren mislukt",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Alle opmerkingen naar het klembord kopiëren",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Verwijderd",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Opmerkingen als bestand downloaden",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Selecteer tekst om opmerkingen toe te voegen",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Notitie",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Opmerkingen uit bestand importeren en samenvoegen",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Opmerkingsmodus",

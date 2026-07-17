@@ -439,18 +439,6 @@
     "message": "Siūlymas",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Nukopijuota!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Nukopijuoti pastabas",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Nukopijuoti nepavyko",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Nukopijuoti visas pastabas į iškarpinę",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Ištrinta",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Atsisiųsti pastabas kaip failą",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Pasirinkite tekstą pastaboms pridėti",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Pastaba",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Importuoti ir sujungti pastabas iš failo",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Pastabų režimas",

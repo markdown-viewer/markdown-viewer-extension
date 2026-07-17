@@ -439,18 +439,6 @@
     "message": "Пропозиція",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Скопійовано!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Скопіювати примітки",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Не вдалося скопіювати",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Скопіювати всі примітки до буфера обміну",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Видалено",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Завантажити примітки у файл",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Виділіть текст, щоб додати примітки",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Примітка",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Імпортувати та об'єднати примітки з файла",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Режим приміток",

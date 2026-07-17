@@ -439,18 +439,6 @@
     "message": "सुझाव",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "कॉपी हो गया!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "टिप्पणियाँ कॉपी करें",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "कॉपी विफल",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "सभी टिप्पणियों को क्लिपबोर्ड पर कॉपी करें",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "हटाया गया",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "टिप्पणियों को फ़ाइल के रूप में डाउनलोड करें",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "टिप्पणी जोड़ने के लिए पाठ चुनें",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "टिप्पणी",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "फ़ाइल से टिप्पणियाँ आयात करें और मर्ज करें",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "टिप्पणी मोड",

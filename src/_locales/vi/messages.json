@@ -439,18 +439,6 @@
     "message": "Gợi ý",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Đã sao chép!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Sao chép ghi chú",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Sao chép thất bại",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Sao chép tất cả ghi chú vào bảng tạm",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Đã xóa",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Tải chú thích xuống dưới dạng tệp",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Chọn văn bản để thêm ghi chú",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Ghi chú",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Nhập và hợp nhất chú thích từ tệp",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Chế độ ghi chú",

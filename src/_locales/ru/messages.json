@@ -439,18 +439,6 @@
     "message": "Предложение",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Скопировано!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Скопировать заметки",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Не удалось скопировать",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Скопировать все заметки в буфер обмена",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Удалено",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Скачать замечания в файл",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Выделите текст, чтобы добавить заметки",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Примечание",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Импортировать и объединить замечания из файла",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Режим заметок",

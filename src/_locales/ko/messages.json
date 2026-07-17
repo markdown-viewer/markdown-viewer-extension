@@ -439,18 +439,6 @@
     "message": "제안",
     "description": "Label for the yellow annotation color"
   },
-  "remark_copied": {
-    "message": "복사됨!",
-    "description": "Feedback shown after remarks are successfully copied"
-  },
-  "remark_copy_btn": {
-    "message": "주석 복사",
-    "description": "Button label to copy all remarks to clipboard and exit Remark Mode"
-  },
-  "remark_copy_failed": {
-    "message": "복사 실패",
-    "description": "Feedback shown when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "모든 주석을 클립보드에 복사",
     "description": "Tooltip for the Copy remarks button"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "삭제됨",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "주석을 파일로 다운로드",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "텍스트를 선택해 주석 추가",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "메모",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "파일에서 주석 가져와 병합",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "주석 모드",

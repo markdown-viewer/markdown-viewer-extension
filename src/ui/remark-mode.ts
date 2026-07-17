@@ -7,6 +7,7 @@ import {
   findTrLineInBlock, findLiLineInBlock, findCodeLineInBlock, narrowLineInBlock,
   generateHighlightCSS, findSentenceBounds, SENTENCE_END_RE,
   COLOR_MAP, COLOR_LABELS, SKIP_ANNOTATION_TAGS,
+  serializeAnnotations, parseRemarksFile, mergeAnnotations,
   type RemarkColor, type RemarkAnnotation, type HighlightStyle,
 } from './remark-utils';
 
@@ -27,6 +28,20 @@ import {
 
 export type { RemarkColor, RemarkAnnotation } from './remark-utils';
 
+// ─── Inline SVG icons (Lucide, stroke-based, follow currentColor) ────────────
+// Matches the top toolbar's icon style (see chrome/src/webview/ui/toolbar.ts).
+const ICON_ATTR = 'xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const REMARK_ICONS = {
+  copy: `<svg ${ICON_ATTR}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
+  download: `<svg ${ICON_ATTR}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+  import: `<svg ${ICON_ATTR}><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/><polyline points="8 12 12 8 16 12"/><line x1="12" x2="12" y1="21" y2="8"/></svg>`,
+  trash: `<svg ${ICON_ATTR}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+  undo: `<svg ${ICON_ATTR}><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg>`,
+  check: `<svg ${ICON_ATTR}><path d="M20 6 9 17l-5-5"/></svg>`,
+  alert: `<svg ${ICON_ATTR}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+  close: `<svg ${ICON_ATTR}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+};
+
 export interface RemarkModeController {
   isActive(): boolean;
   enter(): void;
@@ -35,6 +50,8 @@ export interface RemarkModeController {
   removeAnnotation(id: string): void;
   updateAnnotationNote(id: string, note: string): void;
   exportToClipboard(): Promise<{ ok: boolean; reason?: string }>;
+  downloadAnnotations(): { ok: boolean; reason?: string };
+  importAnnotations(): Promise<{ ok: boolean; added?: number; skipped?: number; reason?: string }>;
   loadAnnotations(): Promise<void>;
   dispose(): void;
 }
@@ -933,7 +950,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     const label = count > 1
       ? `${t('remark_deleted', 'Deleted')} ${count}`
       : t('remark_deleted', 'Deleted');
-    toast.innerHTML = `<span>${label}</span><button class="remark-undo-btn">↩ ${t('remark_undo', 'Undo')}</button>`;
+    toast.innerHTML = `<span>${label}</span><button class="remark-undo-btn">${REMARK_ICONS.undo}<span class="remark-btn-label">${t('remark_undo', 'Undo')}</span></button>`;
     toast.style.display = 'flex';
 
     toast.querySelector('.remark-undo-btn')?.addEventListener('click', () => {
@@ -1048,8 +1065,10 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       <div class="remark-sidebar-header">
         <span class="remark-sidebar-title">${t('remark_sidebar_title', 'Remarks')} <span class="remark-sidebar-count"></span></span>
         <div class="remark-sidebar-actions">
-          <button class="remark-sidebar-export" title="${t('remark_copy_tooltip', 'Copy all remarks to clipboard')}">📋 ${t('remark_copy_btn', 'Copy')}</button>
-          <button class="remark-sidebar-clear" title="${t('remark_clear_all', 'Clear all remarks')}">🗑️</button>
+          <button class="remark-sidebar-export" title="${t('remark_copy_tooltip', 'Copy all remarks to clipboard')}" aria-label="${t('remark_copy_tooltip', 'Copy all remarks to clipboard')}">${REMARK_ICONS.copy}</button>
+          <button class="remark-sidebar-download" title="${t('remark_download_tooltip', 'Download remarks as a file')}" aria-label="${t('remark_download_tooltip', 'Download remarks as a file')}">${REMARK_ICONS.download}</button>
+          <button class="remark-sidebar-import" title="${t('remark_import_tooltip', 'Import & merge remarks from a file')}" aria-label="${t('remark_import_tooltip', 'Import & merge remarks from a file')}">${REMARK_ICONS.import}</button>
+          <button class="remark-sidebar-clear" title="${t('remark_clear_all', 'Clear all remarks')}" aria-label="${t('remark_clear_all', 'Clear all remarks')}">${REMARK_ICONS.trash}</button>
         </div>
       </div>
       <div class="remark-sidebar-list"></div>
@@ -1065,33 +1084,57 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
       if (exportBtn) {
         if (result.ok) {
           if (config.closeAfterCopy) {
-            exportBtn.textContent = `✅ ${t('remark_copied', 'Copied!')}`;
+            exportBtn.innerHTML = REMARK_ICONS.check;
             exportBtn.disabled = true;
             let countdown = 3;
             const tick = (): void => {
               if (countdown <= 0) { window.close(); return; }
-              exportBtn.textContent = `🔄 closing ${countdown}`;
+              exportBtn.innerHTML = `${REMARK_ICONS.check}<span class="remark-btn-label">${countdown}</span>`;
               countdown--;
               setTimeout(tick, 1000);
             };
-            setTimeout(tick, 1000); // 1s showing "Copied!" then start countdown
+            setTimeout(tick, 1000); // 1s showing check then start countdown
             return;
           }
-          exportBtn.textContent = `✅ ${t('remark_copied', 'Copied!')}`;
+          exportBtn.innerHTML = REMARK_ICONS.check;
           exportBtn.disabled = true;
           setTimeout(() => {
-            exportBtn.textContent = `📋 ${t('remark_copy_btn', 'Copy')}`;
+            exportBtn.innerHTML = REMARK_ICONS.copy;
             exportBtn.disabled = false;
           }, 2000);
         } else {
-          exportBtn.textContent = `⚠️ ${t('remark_copy_failed', 'Failed')}`;
-          setTimeout(() => { exportBtn.textContent = `📋 ${t('remark_copy_btn', 'Copy')}`; exportBtn.disabled = false; }, 2000);
+          exportBtn.innerHTML = REMARK_ICONS.alert;
+          setTimeout(() => { exportBtn.innerHTML = REMARK_ICONS.copy; exportBtn.disabled = false; }, 2000);
         }
       }
     });
 
     // Set initial copy button disabled state
     updateExportBtnState();
+
+    // Wire download button — save remarks as a portable JSON file
+    const downloadBtn = el.querySelector<HTMLButtonElement>('.remark-sidebar-download');
+    downloadBtn?.addEventListener('click', () => {
+      const result = downloadAnnotations();
+      if (!downloadBtn) return;
+      downloadBtn.innerHTML = result.ok ? REMARK_ICONS.check : REMARK_ICONS.alert;
+      setTimeout(() => { downloadBtn.innerHTML = REMARK_ICONS.download; }, 1500);
+    });
+
+    // Wire import button — merge remarks from a chosen JSON file
+    const importBtn = el.querySelector<HTMLButtonElement>('.remark-sidebar-import');
+    importBtn?.addEventListener('click', async () => {
+      const result = await importAnnotations();
+      if (!importBtn) return;
+      if (result.ok) {
+        importBtn.innerHTML = REMARK_ICONS.check;
+      } else if (result.reason && result.reason !== 'cancelled' && result.reason !== 'no-file') {
+        importBtn.innerHTML = REMARK_ICONS.alert;
+      } else {
+        return; // silent on cancel
+      }
+      setTimeout(() => { importBtn.innerHTML = REMARK_ICONS.import; }, 1800);
+    });
 
     // Wire clear-all button — uses unified undo toast system
     const clearBtn = el.querySelector<HTMLButtonElement>('.remark-sidebar-clear');
@@ -1179,7 +1222,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
               <span class="remark-lineref-pill">${orphaned ? '⚠️ ' : ''}${lineRef}</span>
               <span class="remark-ann-seq">#${idx + 1}</span>
             </span>
-            <button class="remark-sidebar-delete" data-ann-id="${ann.id}" title="${t('remark_delete', 'Delete')}">✕</button>
+            <button class="remark-sidebar-delete" data-ann-id="${ann.id}" title="${t('remark_delete', 'Delete')}" aria-label="${t('remark_delete', 'Delete')}">${REMARK_ICONS.close}</button>
           </div>
           <div class="remark-color-picker" style="display:none">${colorOptions}</div>
           <div class="remark-sidebar-quote">"${quote}"</div>
@@ -1459,6 +1502,103 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     }
   }
 
+  // ─── Download / Import (portable .remarks.json) ─────────────────────────────
+
+  /** Best-effort source identifier + base filename for the current document. */
+  function currentDocumentInfo(): { source: string; baseName: string } {
+    const activeUrl = getCurrentDocumentUrl();
+    const viewerFilePath = document.documentElement.dataset.viewerFilePath;
+    let source = activeUrl;
+    let baseName = document.title || 'document';
+    try {
+      const url = new URL(activeUrl);
+      source = viewerFilePath || url.href;
+      const path = viewerFilePath || decodeURIComponent(url.pathname);
+      const last = path.split(/[\\/]/).pop() || baseName;
+      baseName = last.replace(/\.[^.]+$/, '') || baseName;
+    } catch {
+      baseName = (viewerFilePath || document.title || 'document').split(/[\\/]/).pop() || baseName;
+    }
+    // Strip characters that are unsafe in filenames
+    baseName = baseName.replace(/[^\w.\-\u4e00-\u9fff]+/g, '_').replace(/^_+|_+$/g, '') || 'document';
+    return { source, baseName };
+  }
+
+  /** Download the current (non-deleted) annotations as a portable JSON file. */
+  function downloadAnnotations(): { ok: boolean; reason?: string } {
+    const visible = annotations.filter(a => !softDeletedIds.has(a.id));
+    if (visible.length === 0) return { ok: false, reason: 'No annotations to download' };
+
+    const { source, baseName } = currentDocumentInfo();
+    const payload = serializeAnnotations(visible, source);
+    const json = JSON.stringify(payload, null, 2);
+
+    try {
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${baseName}.remarks.json`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: (e as Error).message };
+    }
+  }
+
+  /** Parse + merge imported remark file text into the current annotation set. */
+  function importAnnotationsFromText(text: string): { ok: boolean; added?: number; skipped?: number; reason?: string } {
+    const parsed = parseRemarksFile(text);
+    if ('error' in parsed) return { ok: false, reason: parsed.error };
+
+    const { merged, added, skipped } = mergeAnnotations(annotations, parsed.annotations, generateId);
+    annotations = merged;
+
+    if (added > 0) {
+      renderHighlights();
+      renderSidebarContent();
+      notifyCount();
+      updateExportBtnState();
+      void saveAnnotations();
+    }
+    return { ok: true, added, skipped };
+  }
+
+  /** Open a file picker and merge the chosen remarks file. Returns the outcome. */
+  function importAnnotations(): Promise<{ ok: boolean; added?: number; skipped?: number; reason?: string }> {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.style.display = 'none';
+      let settled = false;
+      const finish = (result: { ok: boolean; added?: number; skipped?: number; reason?: string }): void => {
+        if (settled) return;
+        settled = true;
+        input.remove();
+        resolve(result);
+      };
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file) { finish({ ok: false, reason: 'no-file' }); return; }
+        const reader = new FileReader();
+        reader.onload = () => finish(importAnnotationsFromText(String(reader.result || '')));
+        reader.onerror = () => finish({ ok: false, reason: 'read-error' });
+        reader.readAsText(file);
+      });
+      // If the picker is dismissed without a selection, resolve quietly.
+      window.addEventListener('focus', () => {
+        setTimeout(() => { if (!input.files?.length) finish({ ok: false, reason: 'cancelled' }); }, 500);
+      }, { once: true });
+      document.body.appendChild(input);
+      input.click();
+    });
+  }
+
   function dispose(): void {
     exit();
     annotations = [];
@@ -1563,33 +1703,33 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         font-weight: 600;
         font-size: 14px;
       }
-      .remark-sidebar-export {
-        border: 1px solid var(--color-border, #e2e8f0);
-        border-radius: 6px;
-        background: var(--gray-50, #f9fafb);
-        padding: 4px 10px;
-        cursor: pointer;
-        font-size: 12px;
-        color: inherit;
-        transition: background 0.15s;
-      }
-      .remark-sidebar-export:hover {
-        background: var(--gray-200, #e5e7eb);
-      }
       .remark-sidebar-actions {
         display: flex;
-        gap: 4px;
+        gap: 2px;
         align-items: center;
       }
-      .remark-sidebar-clear {
+      /* Header action buttons share one consistent ghost-icon style */
+      .remark-sidebar-actions button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         border: 1px solid transparent;
         border-radius: 6px;
         background: none;
-        padding: 4px 6px;
+        padding: 5px 6px;
         cursor: pointer;
-        font-size: 14px;
-        color: var(--gray-400, #9ca3af);
+        color: var(--gray-500, #6b7280);
         transition: color 0.15s, background 0.15s;
+      }
+      .remark-sidebar-actions button svg {
+        display: block;
+        flex-shrink: 0;
+      }
+      .remark-sidebar-export:hover,
+      .remark-sidebar-download:hover,
+      .remark-sidebar-import:hover {
+        color: var(--color-theme-accent, var(--color-primary, #2563eb));
+        background: var(--gray-100, #f3f4f6);
       }
       .remark-sidebar-clear:hover {
         color: var(--color-danger, #ef4444);
@@ -1635,15 +1775,18 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         margin-bottom: 4px;
       }
       .remark-sidebar-delete {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         border: none;
         background: none;
         cursor: pointer;
         color: var(--gray-400, #9ca3af);
-        font-size: 14px;
-        padding: 2px 6px;
+        padding: 2px 4px;
         border-radius: 4px;
         transition: color 0.15s, background 0.15s;
       }
+      .remark-sidebar-delete svg { display: block; width: 14px; height: 14px; }
       .remark-sidebar-delete:hover {
         color: var(--color-danger, #ef4444);
         background: var(--color-danger-bg, rgba(239, 68, 68, 0.1));
@@ -1661,6 +1804,9 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         flex-shrink: 0;
       }
       .remark-undo-toast .remark-undo-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         border: 1px solid var(--color-border, #e2e8f0);
         border-radius: 4px;
         background: var(--color-bg-surface, #fff);
@@ -1670,6 +1816,7 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         color: var(--color-theme-accent, var(--color-primary, #2563eb));
         transition: background 0.1s;
       }
+      .remark-undo-toast .remark-undo-btn svg { display: block; width: 13px; height: 13px; }
       .remark-undo-toast .remark-undo-btn:hover { background: var(--gray-50, #f9fafb); }
       .remark-sidebar-quote {
         font-style: italic;
@@ -1837,6 +1984,8 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
     removeAnnotation,
     updateAnnotationNote,
     exportToClipboard,
+    downloadAnnotations,
+    importAnnotations,
     loadAnnotations: loadAnnotationsAndNotify,
     dispose,
   };

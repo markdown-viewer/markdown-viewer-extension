@@ -439,18 +439,6 @@
     "message": "Soovitus",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Kopeeritud!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Kopeeri märkmed",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Kopeerimine ebaõnnestus",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Kopeeri kõik märkmed lõikelauale",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Kustutatud",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Laadi märkused failina alla",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Vali tekst märkmete lisamiseks",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Märkus",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Impordi ja liida märkused failist",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Märkmete režiim",

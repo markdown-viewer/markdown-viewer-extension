@@ -439,18 +439,6 @@
     "message": "Suggerimento",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Copiato!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Copia annotazioni",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Copia non riuscita",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Copia tutte le annotazioni negli appunti",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Eliminato",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Scarica le annotazioni come file",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Seleziona il testo per aggiungere annotazioni",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Nota",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Importa e unisci le annotazioni da un file",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Modalità annotazioni",

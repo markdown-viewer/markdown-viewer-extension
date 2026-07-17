@@ -439,18 +439,6 @@
     "message": "Öneri",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Kopyalandı!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Notları kopyala",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Kopyalama başarısız",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Tüm notları panoya kopyala",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Silindi",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Notları dosya olarak indir",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Not eklemek için metin seç",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Not",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Notları dosyadan içe aktar ve birleştir",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Not modu",

@@ -439,18 +439,6 @@
     "message": "Sugerencia",
     "description": "Label for the yellow annotation color"
   },
-  "remark_copied": {
-    "message": "¡Copiado!",
-    "description": "Feedback shown after remarks are successfully copied"
-  },
-  "remark_copy_btn": {
-    "message": "Copiar observaciones",
-    "description": "Button label to copy all remarks to clipboard and exit Remark Mode"
-  },
-  "remark_copy_failed": {
-    "message": "Error al copiar",
-    "description": "Feedback shown when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Copiar todas las observaciones al portapapeles",
     "description": "Tooltip for the Copy remarks button"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Eliminado",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Descargar comentarios como archivo",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Selecciona texto para añadir observaciones",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Nota",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Importar y combinar comentarios desde un archivo",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Modo de observaciones",

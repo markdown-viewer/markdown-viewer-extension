@@ -439,18 +439,6 @@
     "message": "Saran",
     "description": "Label for the yellow remark category"
   },
-  "remark_copied": {
-    "message": "Tersalin!",
-    "description": "Temporary success state after copying remarks"
-  },
-  "remark_copy_btn": {
-    "message": "Salin catatan",
-    "description": "Button text for copying all remarks"
-  },
-  "remark_copy_failed": {
-    "message": "Gagal menyalin",
-    "description": "Temporary error state when copying remarks fails"
-  },
   "remark_copy_tooltip": {
     "message": "Salin semua catatan ke clipboard",
     "description": "Tooltip for copying all remarks"
@@ -462,6 +450,10 @@
   "remark_deleted": {
     "message": "Dihapus",
     "description": "Status label shown after a remark is deleted"
+  },
+  "remark_download_tooltip": {
+    "message": "Unduh catatan sebagai berkas",
+    "description": "Tooltip for the button that downloads all remarks as a portable file"
   },
   "remark_empty_hint": {
     "message": "Pilih teks untuk menambahkan catatan",
@@ -478,6 +470,10 @@
   "remark_export_note": {
     "message": "Catatan",
     "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_import_tooltip": {
+    "message": "Impor & gabungkan catatan dari berkas",
+    "description": "Tooltip for the button that imports remarks from a file and merges them"
   },
   "remark_mode": {
     "message": "Mode catatan",
