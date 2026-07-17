@@ -271,6 +271,10 @@
     "message": "链接已复制，请粘贴到地址栏打开",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "链接到此章节",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "清空历史",
     "description": "清空历史按钮"

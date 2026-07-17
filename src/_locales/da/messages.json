@@ -271,6 +271,10 @@
     "message": "URL kopieret. Indsæt i adresselinjen for at åbne.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Link til dette afsnit",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Ryd historik",
     "description": "Clear history button"

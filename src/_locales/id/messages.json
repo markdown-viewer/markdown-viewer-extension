@@ -271,6 +271,10 @@
     "message": "URL disalin. Tempel di bilah alamat untuk membuka.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Tautan ke bagian ini",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Hapus riwayat",
     "description": "Clear history button"

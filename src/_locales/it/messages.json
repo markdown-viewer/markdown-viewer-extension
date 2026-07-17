@@ -271,6 +271,10 @@
     "message": "URL copiato. Incolla nella barra degli indirizzi per aprire.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Link a questa sezione",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Cancella cronologia",
     "description": "Clear history button"

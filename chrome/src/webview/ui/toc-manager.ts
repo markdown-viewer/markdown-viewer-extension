@@ -15,10 +15,18 @@ interface TocManager {
   updateActiveTocItem(): void;
   scrollTocToActiveItem(activeLink: Element, tocDiv: Element): void;
   setupResponsiveToc(): Promise<void>;
+  navigateToHeading(id: string): void;
 }
 
 interface TocManagerOptions {
   getDesiredVisibility?: () => boolean | undefined;
+  /**
+   * When true, clicking a TOC item updates the page URL hash (e.g. `#heading`)
+   * so the reading position can be bookmarked or shared. Only enabled for the
+   * full-page browser viewer; disabled for embedded elements so the host page
+   * URL is never mutated.
+   */
+  updateLocationHash?: boolean;
 }
 
 const TOC_NAVIGATION_SCROLL_BEHAVIOR: ScrollBehavior = 'auto';
@@ -36,7 +44,7 @@ export function createTocManager(
   options: TocManagerOptions = {}
 ): TocManager {
   let tocGenerationToken = 0;
-  const { getDesiredVisibility } = options;
+  const { getDesiredVisibility, updateLocationHash = false } = options;
 
   function getScrollContainer(): HTMLElement | null {
     return document.getElementById('markdown-wrapper') as HTMLElement | null;
@@ -57,6 +65,37 @@ export function createTocManager(
       top: Math.max(0, targetTop),
       behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR
     });
+  }
+
+  /**
+   * Scroll to a heading by id and (optionally) reflect it in the URL hash so the
+   * reading position can be bookmarked or shared. Shared by the TOC list and by
+   * the in-content heading anchor links.
+   */
+  function navigateToHeading(id: string): void {
+    if (!id) {
+      return;
+    }
+
+    const target = document.getElementById(id);
+    if (!target) {
+      return;
+    }
+
+    scrollTargetIntoView(target as HTMLElement);
+
+    // Use history.pushState instead of assigning location.hash to avoid firing
+    // the `hashchange` handler (which would trigger a redundant second scroll).
+    if (updateLocationHash) {
+      const newHash = `#${encodeURIComponent(id)}`;
+      if (window.location.hash !== newHash) {
+        try {
+          history.pushState(null, '', newHash);
+        } catch {
+          // Some restricted contexts disallow pushState with a hash; ignore.
+        }
+      }
+    }
   }
 
   /**
@@ -131,12 +170,7 @@ export function createTocManager(
           return;
         }
 
-        const target = document.getElementById(decodeURIComponent(href.slice(1)));
-        if (!target) {
-          return;
-        }
-
-        scrollTargetIntoView(target as HTMLElement);
+        navigateToHeading(decodeURIComponent(href.slice(1)));
       });
     });
     
@@ -344,6 +378,7 @@ export function createTocManager(
     setupTocToggle,
     updateActiveTocItem,
     scrollTocToActiveItem,
-    setupResponsiveToc
+    setupResponsiveToc,
+    navigateToHeading
   };
 }

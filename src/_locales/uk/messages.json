@@ -271,6 +271,10 @@
     "message": "URL скопійовано. Вставте в адресний рядок для відкриття.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Посилання на цей розділ",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Очистити історію",
     "description": "Clear history button"

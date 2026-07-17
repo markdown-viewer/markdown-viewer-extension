@@ -271,6 +271,10 @@
     "message": "URL이 복사되었습니다. 주소창에 붙여넣어 열어주세요.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "이 섹션으로 연결되는 링크",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "기록 지우기",
     "description": "기록 지우기 버튼"

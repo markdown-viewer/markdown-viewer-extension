@@ -271,6 +271,10 @@
     "message": "URL kopierad. Klistra in i adressfältet för att öppna.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Länk till det här avsnittet",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Rensa historik",
     "description": "Clear history button"

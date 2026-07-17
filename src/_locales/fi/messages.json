@@ -271,6 +271,10 @@
     "message": "URL kopioitu. Liitä osoiteriville avataksesi.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Linkki tähän osioon",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Tyhjennä historia",
     "description": "Clear history button"

@@ -21,6 +21,7 @@ import { getCurrentDocumentUrl, saveToHistory } from '../../../src/core/document
 import type { FileState } from '../../../src/types/core';
 import { showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator';
 import { createTocManager } from './ui/toc-manager';
+import { setupHeadingAnchors, type HeadingAnchorsController } from './ui/heading-anchors';
 import { createGitbookPanel } from './ui/gitbook-panel';
 import { createToolbarManager, generateToolbarHTML, layoutIcons } from './ui/toolbar';
 
@@ -483,7 +484,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           }
           void generateTOC();
         },
-        afterRender: updateActiveTocItem,
+        afterRender: () => {
+          updateActiveTocItem();
+          refreshHeadingAnchors();
+        },
         onScrollLineChange: (line) => {
           lastScrollLine = line;
           saveFileState({ scrollLine: line });
@@ -524,8 +528,20 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // Initialize TOC manager
   const tocManager = createTocManager(saveFileState, getFileState, isMobile, {
     getDesiredVisibility: () => getViewerSnapshot()?.tocVisible,
+    updateLocationHash: true,
   });
   const { generateTOC, setupTocToggle, updateActiveTocItem, setupResponsiveToc } = tocManager;
+
+  // In-content heading anchor links (hover-revealed "#"). Created lazily once the
+  // content container exists; re-injected after every render since incremental
+  // block updates replace heading DOM.
+  let headingAnchors: HeadingAnchorsController | null = null;
+  const refreshHeadingAnchors = (): void => {
+    if (!headingAnchors && document.getElementById('markdown-content')) {
+      headingAnchors = setupHeadingAnchors((id) => tocManager.navigateToHeading(id));
+    }
+    headingAnchors?.refresh();
+  };
 
   // Create navigation callback for GitBook panel (will be set after renderMarkdown is defined)
   let onGitbookNavigate: ((url: string, content: string) => Promise<void>) | undefined;
@@ -991,6 +1007,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         await generateTOC();
       }
       updateActiveTocItem();
+      refreshHeadingAnchors();
       restorePreviewScrollAfterRender(effect.targetLine);
     },
     applyTheme: async (themeId) => {

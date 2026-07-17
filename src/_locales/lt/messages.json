@@ -271,6 +271,10 @@
     "message": "URL nukopijuotas. Įklijuokite adreso juostoje, kad atidarytumėte.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
+  "heading_anchor_title": {
+    "message": "Nuoroda į šį skyrių",
+    "description": "Tooltip for the hover anchor icon shown next to a heading"
+  },
   "history_clear": {
     "message": "Išvalyti istoriją",
     "description": "Clear history button"

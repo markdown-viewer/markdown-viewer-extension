@@ -701,6 +701,41 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
 #markdown-content h5,
 #markdown-content h6 {
   scroll-margin-top: 12px;
+  position: relative;
+}
+
+/* Hover-revealed "#" anchor link next to each heading (Laravel-docs style). */
+#markdown-content .heading-anchor {
+  position: absolute;
+  left: -0.85em;
+  top: 0;
+  width: 0.85em;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  user-select: none;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+#markdown-content .heading-anchor::before {
+  content: "#";
+}
+
+#markdown-content h1:hover > .heading-anchor,
+#markdown-content h2:hover > .heading-anchor,
+#markdown-content h3:hover > .heading-anchor,
+#markdown-content h4:hover > .heading-anchor,
+#markdown-content h5:hover > .heading-anchor,
+#markdown-content h6:hover > .heading-anchor,
+#markdown-content .heading-anchor:focus {
+  opacity: 1;
+}
+
+#markdown-content .heading-anchor:hover {
+  color: var(--color-primary);
+  text-decoration: none;
 }
 
 #markdown-content p {
