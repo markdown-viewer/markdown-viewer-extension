@@ -40,8 +40,17 @@
   
   /* Semantic Colors */
   --color-bg-body: #fdfcf9;
+  /* Elevated / floating surfaces (popovers, menus, tooltips, drawers).
+     Pure white to match the popup's card style — elevation + shadow keep it
+     from clashing with the warm chrome beneath. */
   --color-bg-surface: #ffffff;
-  --color-bg-toc: #f6f3ec;
+  /* Frame chrome — the warm tone shared by all side panels (TOC, remark,
+     GitBook), matching the popup's cream content surface (--color-bg-tertiary). */
+  --color-bg-chrome: #f6f3ec;
+  --color-bg-toc: var(--color-bg-chrome);
+  /* Top toolbar gradient — mirrors the popup header (white → cream) so the
+     bar lifts at the top and settles into the cream panels below. */
+  --gradient-header: linear-gradient(180deg, #ffffff 0%, #f6f3ec 100%);
   --color-text-primary: var(--gray-900);
   --color-text-secondary: #475569;
   --color-text-tertiary: #64748b;
@@ -73,7 +82,9 @@
 :root.dark {
   --color-bg-body: #1a1d21;
   --color-bg-surface: #24272c;
-  --color-bg-toc: #1f2227;
+  --color-bg-chrome: #1f2227;
+  --color-bg-toc: var(--color-bg-chrome);
+  --gradient-header: linear-gradient(180deg, #24272c 0%, #1f2227 100%);
   --color-text-primary: #e6e6e6;
   --color-text-secondary: #b4b9c2;
   --color-text-tertiary: #8b919b;
@@ -163,7 +174,7 @@ body {
   display: flex;
   height: 50px;
   flex-shrink: 0;
-  background: var(--color-bg-surface);
+  background: var(--gradient-header);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-toolbar);
   z-index: 1001;
@@ -294,7 +305,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 6px;
-  background: var(--color-surface, #ffffff);
+  background: var(--color-bg-surface, #ffffff);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: var(--shadow-toolbar);
@@ -459,7 +470,7 @@ body.toc-position-right #table-of-contents.hidden {
   align-items: center;
   padding: 0 12px;
   border-left: 1px solid var(--color-border);
-  background: var(--color-bg-surface);
+  background: transparent;
   order: 2;
 }
 
@@ -479,7 +490,7 @@ body.toc-position-right #table-of-contents.hidden {
   width: 280px;
   min-width: 160px;
   max-width: 560px;
-  background: var(--color-bg-surface);
+  background: var(--color-bg-chrome);
   border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
