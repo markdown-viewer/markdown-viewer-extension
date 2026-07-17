@@ -214,12 +214,65 @@ function parsePtValue(value: string | undefined, fallbackPt = 0): number {
   return Number.isFinite(parsed) ? parsed : fallbackPt;
 }
 
-function toCompensatedSpacing(beforePt: number, afterPt: number, lineSpacing: number): DOCXParagraphSpacing {
-  const lineSpacingExtra = lineSpacing - 240;
+/**
+ * Compensate paragraph spacing for DOCX line-height asymmetry.
+ *
+ * Word's `auto` line rule (multiple line spacing) adds the extra leading
+ * (line - 240) BELOW the last line of every paragraph, while the top of the
+ * first line gets NO extra space. This makes paragraphs look "top-tight,
+ * bottom-loose".
+ *
+ * Most themes only declare `spacingAfter` (spacingBefore defaults to 0), so
+ * without compensation every paragraph has:
+ *   - visual top gap    = before (often 0)
+ *   - visual bottom gap = after + extra
+ * which is exactly the reported "small above, large below" symptom.
+ *
+ * Strategy — balance the paragraph's top and bottom visual gaps without
+ * inflating the theme's intended total spacing. Given the declared budget
+ * `total = before + after` and the unavoidable bottom leading `extra`:
+ *   - before = (total + extra) / 2
+ *   - after  = (total - extra) / 2
+ * so that visual top = before and visual bottom = after + extra are equal,
+ * while before + (after + extra) still equals total + extra.
+ *
+ * Call this for EVERY paragraph style (Normal, Headings, TableText,
+ * BlockquoteText, CodeBlock, ListParagraph, etc.) to ensure consistent
+ * visual alignment across all block types.
+ *
+ * Container-level margins (table cell margins, blockquote cell padding)
+ * should NOT add extra line-height compensation — the paragraph spacing
+ * already handles it.
+ *
+ * @param beforePt - Spacing before paragraph (pt)
+ * @param afterPt  - Spacing after paragraph (pt)
+ * @param lineSpacing - DOCX line spacing value (240 = single, 360 = 1.5, 480 = double)
+ * @returns Compensated spacing object with twips values
+ */
+export function compensateParagraphSpacing(
+  beforePt: number,
+  afterPt: number,
+  lineSpacing: number
+): DOCXParagraphSpacing {
+  const lineSpacingExtra = Math.max(0, lineSpacing - 240);
+  const beforeTwips = themeManager.ptToTwips(`${beforePt}pt`);
+  const afterTwips = themeManager.ptToTwips(`${afterPt}pt`);
+  // Total declared spacing budget for this paragraph (top + bottom).
+  const totalBudget = beforeTwips + afterTwips;
+  // Word already adds `extra` leading below the last line, so the effective
+  // bottom space is `after + extra`. To keep the top/bottom visually balanced
+  // WITHOUT inflating the overall spacing, split the total budget so that:
+  //   before        = (totalBudget + extra) / 2
+  //   after + extra = (totalBudget + extra) / 2   → after = (totalBudget - extra) / 2
+  // This keeps before + (after + extra) === totalBudget + extra, i.e. the same
+  // total footprint the theme intended plus the unavoidable line leading, but
+  // now distributed evenly above and below the text.
+  const balancedBefore = Math.round((totalBudget + lineSpacingExtra) / 2);
+  const balancedAfter = Math.round((totalBudget - lineSpacingExtra) / 2);
   return {
     line: lineSpacing,
-    before: Math.max(0, themeManager.ptToTwips(`${beforePt}pt`) + Math.round(lineSpacingExtra / 2)),
-    after: Math.max(0, themeManager.ptToTwips(`${afterPt}pt`) - Math.round(lineSpacingExtra / 2)),
+    before: Math.max(0, balancedBefore),
+    after: Math.max(0, balancedAfter),
   };
 }
 
@@ -233,19 +286,19 @@ function generateBlockSpacing(layoutScheme: LayoutScheme): DOCXBlockSpacing {
   const tableBlock = layoutScheme.blocks.table;
   const horizontalRuleBlock = layoutScheme.blocks.horizontalRule;
 
-  const blockquoteSpacing = toCompensatedSpacing(
+  const blockquoteSpacing = compensateParagraphSpacing(
     parsePtValue(blockquoteBlock.spacingBefore),
     parsePtValue(blockquoteBlock.spacingAfter),
     bodyLineSpacing
   );
 
   return {
-    list: toCompensatedSpacing(
+    list: compensateParagraphSpacing(
       parsePtValue(listBlock.spacingBefore),
       parsePtValue(listBlock.spacingAfter),
       bodyLineSpacing
     ),
-    listItem: toCompensatedSpacing(
+    listItem: compensateParagraphSpacing(
       parsePtValue(listItemBlock.spacingBefore),
       parsePtValue(listItemBlock.spacingAfter),
       bodyLineSpacing
@@ -255,12 +308,12 @@ function generateBlockSpacing(layoutScheme: LayoutScheme): DOCXBlockSpacing {
       paddingVertical: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingVertical, 4)}pt`),
       paddingHorizontal: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingHorizontal, 10)}pt`),
     },
-    codeBlock: toCompensatedSpacing(
+    codeBlock: compensateParagraphSpacing(
       parsePtValue(codeBlock.spacingBefore, parsePtValue(codeBlock.spacingAfter)),
       parsePtValue(codeBlock.spacingAfter),
-      276
+      240
     ),
-    table: toCompensatedSpacing(
+    table: compensateParagraphSpacing(
       parsePtValue(tableBlock.spacingBefore, parsePtValue(tableBlock.spacingAfter)),
       parsePtValue(tableBlock.spacingAfter),
       240
@@ -293,17 +346,13 @@ function generateDefaultStyle(
   // Line spacing in DOCX: 240 = single spacing, 360 = 1.5 spacing, 480 = double spacing
   const lineSpacing = Math.round(layoutScheme.body.lineHeight * 240);
   
-  // Calculate the extra space added by line spacing (beyond 100%)
-  const lineSpacingExtra = lineSpacing - 240;
-  
   // Get paragraph spacing from layout scheme (absolute pt values)
   const paragraphBlock = layoutScheme.blocks.paragraph;
   const spacingBeforePt = parseFloat(paragraphBlock.spacingBefore || '0pt');
   const spacingAfterPt = parseFloat(paragraphBlock.spacingAfter || '0pt');
   
-  // Convert to twips and compensate for line spacing
-  const beforeSpacing = themeManager.ptToTwips(spacingBeforePt + 'pt') + Math.round(lineSpacingExtra / 2);
-  const afterSpacing = Math.max(0, themeManager.ptToTwips(spacingAfterPt + 'pt') - Math.round(lineSpacingExtra / 2));
+  // Use the global compensation function for consistent visual alignment
+  const compensatedSpacing = compensateParagraphSpacing(spacingBeforePt, spacingAfterPt, lineSpacing);
   
   // For DOCX: get font configuration from font-config.json
   const docxFont = themeManager.getDocxFont(bodyFont);
@@ -314,11 +363,7 @@ function generateDefaultStyle(
       size: fontSize
     },
     paragraph: {
-      spacing: {
-        line: lineSpacing,
-        before: beforeSpacing,
-        after: afterSpacing
-      }
+      spacing: compensatedSpacing
     }
   };
 }
@@ -360,7 +405,7 @@ function generateParagraphStyles(
 
     // Heading color: from colorScheme.headings if specified, otherwise use text.primary
     const headingColor = colorScheme.headings?.[level] || colorScheme.text.primary;
-    const headingSpacing = toCompensatedSpacing(
+    const headingSpacing = compensateParagraphSpacing(
       parsePtValue(layoutHeading.spacingBefore),
       parsePtValue(layoutHeading.spacingAfter),
       360
@@ -416,19 +461,35 @@ function generateParagraphStyles(
     },
   };
 
+  // Blockquote inner paragraphs use body-paragraph spacing (NOT block-level
+  // blockquote spacing). This keeps multi-paragraph blockquotes on the same
+  // vertical rhythm as normal text, and — combined with the global
+  // compensateParagraphSpacing — makes each paragraph self-balanced so the
+  // container's top/bottom gaps stay symmetric. The block-level blockquote
+  // spacing (blockSpacing.blockquote) is reserved for the gap OUTSIDE the
+  // blockquote container.
+  const bqParagraphBlock = layoutScheme.blocks.paragraph;
+  const blockquoteInnerSpacing = compensateParagraphSpacing(
+    parsePtValue(bqParagraphBlock.spacingBefore),
+    parsePtValue(bqParagraphBlock.spacingAfter),
+    bodyLineSpacing
+  );
+
   styles.BlockquoteText = {
     id: 'BlockquoteText',
     name: 'Blockquote Text',
     basedOn: 'Normal',
     next: 'Normal',
     paragraph: {
-      spacing: {
-        line: blockSpacing.blockquote?.line ?? bodyLineSpacing,
-        before: blockSpacing.blockquote?.before ?? 120,
-        after: 0,
-      },
+      spacing: blockquoteInnerSpacing,
     },
   };
+
+  // TableText uses fixed 240 line spacing (single) to avoid line-height
+  // asymmetry inside cells. The cell margins provide the visual padding.
+  // Using compensateParagraphSpacing ensures consistency even though
+  // line=240 produces no compensation (extra=0).
+  const tableTextSpacing = compensateParagraphSpacing(3, 3, 240);
 
   styles.TableText = {
     id: 'TableText',
@@ -439,11 +500,7 @@ function generateParagraphStyles(
       size: 20,
     },
     paragraph: {
-      spacing: {
-        before: 60,
-        after: 60,
-        line: 240,
-      },
+      spacing: tableTextSpacing,
       alignment: 'left',
     },
   };
@@ -475,16 +532,16 @@ function generateParagraphStyles(
     },
   };
 
+  // MathBlock uses the same body line-height for visual consistency.
+  // Spacing values are fixed defaults since math blocks don't have
+  // per-theme spacing configuration yet.
   styles.MathBlock = {
     id: 'MathBlock',
     name: 'Math Block',
     basedOn: 'Normal',
     next: 'Normal',
     paragraph: {
-      spacing: {
-        before: blockSpacing.math?.before ?? 120,
-        after: blockSpacing.math?.after ?? 120,
-      },
+      spacing: compensateParagraphSpacing(6, 6, bodyLineSpacing),
       alignment: 'center',
     },
   };

@@ -760,7 +760,7 @@ class DocxExporter {
       case 'blockquote':
         return await this.blockquoteConverter!.convertBlockquote(node as unknown as DOCXBlockquoteNode, listLevel);
       case 'table':
-        return await this.tableConverter!.convertTable(node as unknown as DOCXTableNode, listLevel);
+        return await this.tableConverter!.convertTable(node as unknown as DOCXTableNode, listLevel, blockquoteNestLevel);
       case 'thematicBreak':
         return this.convertThematicBreak();
       case 'html':

@@ -93,19 +93,17 @@ function blendAlertBackground(alertColor: string, pageBg: string): string {
  * @returns Blockquote converter
  */
 export function createBlockquoteConverter({ themeStyles, convertInlineNodes, convertChildNode: initialConvertChildNode }: BlockquoteConverterOptions): BlockquoteConverter {
-  const defaultSpacing = themeStyles.default?.paragraph?.spacing || { before: 0, line: 276 };
-  const defaultLineSpacing = defaultSpacing.line ?? 276;
   const blockquoteSpacing = themeStyles.blockSpacing?.blockquote;
   
-  // Calculate cell padding to compensate for line height bottom spacing
-  // Word's line height adds extra space BELOW text (not evenly distributed)
-  // So we need to add equivalent top padding to balance the visual appearance
-  const lineSpacingExtra = defaultLineSpacing - 240; // Extra spacing from line height (240 = single line)
+  // Cell padding for the blockquote container.
+  // BlockquoteText paragraph spacing is now globally compensated via
+  // compensateParagraphSpacing(), so cell padding can be symmetric
+  // without adding extra line-height offset.
   const basePadding = blockquoteSpacing?.paddingVertical ?? 80;
   const horizontalPadding = blockquoteSpacing?.paddingHorizontal ?? 200;
   const cellPadding = {
-    top: basePadding + lineSpacingExtra, // Compensate for full bottom spacing from line height
-    bottom: 0,
+    top: basePadding,
+    bottom: basePadding,
     left: horizontalPadding,
     right: Math.round(horizontalPadding / 2),
   };
@@ -129,10 +127,13 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
     const inlineColor = (alertColor && isTitle) ? alertColor : undefined;
     const children = await convertInlineNodes(child.children as InlineNode[], inlineColor ? { color: inlineColor } : undefined);
     
+    // Use the BlockquoteText style spacing as-is. It is globally compensated
+    // (before/after balanced around the line leading), so each paragraph is
+    // self-balanced and the container's symmetric cell padding keeps the
+    // top/bottom gaps equal — no per-paragraph spacing override needed.
     const paragraphConfig: IParagraphOptions = {
       children: children as ParagraphChild[],
       style: 'BlockquoteText',
-      spacing: isFirst ? { before: 0 } : undefined,
     };
     
     return new Paragraph(paragraphConfig);
