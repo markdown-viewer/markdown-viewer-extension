@@ -1907,10 +1907,15 @@ export function createRemarkMode(options: RemarkModeOptions): RemarkModeControll
         background: var(--gray-200, #e5e7eb);
       }
 
-      /* Toolbar button active state */
+      /* Toolbar button active state — uses the toolbar's neutral palette so it
+         harmonizes with the other toolbar buttons instead of the blue nav-active accent. */
       .toolbar-btn.remark-active {
-        background: var(--color-nav-active-bg, var(--color-theme-accent-bg, var(--color-primary-light, #eff6ff)));
-        color: var(--color-nav-active-text, var(--color-theme-accent, var(--color-primary, #2563eb)));
+        background: var(--gray-200);
+        border-color: var(--color-border-hover);
+        color: var(--color-text-primary);
+      }
+      .toolbar-btn.remark-active:hover {
+        background: var(--gray-300);
       }
 
       /* Count badge on toolbar button */
