@@ -67,20 +67,7 @@ type MessageType = 'success' | 'error' | 'info';
  */
 export function showMessage(text: string, type: MessageType = 'info'): void {
   const message = document.createElement('div');
-  message.style.cssText = `
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: ${type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db'};
-    color: white;
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 12px;
-    z-index: 1000;
-    opacity: 0;
-    transition: opacity 0.3s;
-  `;
+  message.className = `mv-toast mv-toast--${type}`;
   message.textContent = text;
 
   document.body.appendChild(message);
@@ -148,7 +135,7 @@ export async function checkFileAccess(): Promise<void> {
         const suffixText = translate('file_access_disabled_suffix') ||
           '并启用「允许访问文件网址」选项';
 
-        descEl.innerHTML = `${baseText} <a href="${extensionUrl}" style="color: #d97706; text-decoration: underline; cursor: pointer;">${linkText}</a> ${suffixText}`;
+        descEl.innerHTML = `${baseText} <a href="${extensionUrl}" style="color: var(--color-warning); text-decoration: underline; cursor: pointer;">${linkText}</a> ${suffixText}`;
 
         // Add click handler
         const link = descEl.querySelector('a');

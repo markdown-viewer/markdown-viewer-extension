@@ -14,13 +14,17 @@
   --color-danger-border: #fecaca;
   --color-danger-border-hover: #f1b0b7;
   
-  /* Success (Green) */
-  --color-success: #10b981;
-  --color-success-bg: #ecfdf5;
-  --color-success-border: #a7f3d0;
-  
+  /* Success (Green) - 苔藓绿，专为暖米白背景调校
+     参考 GitHub Primer Light (#1a7f37) / Adobe Spectrum Warm / Notion warm theme
+     避免鲜亮翠绿在暖背景上显得跳脱割裂 */
+  --color-success: #1a7f37;
+  --color-success-hover: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+
   /* Warning (Amber) */
-  --color-warning: #c9821b;
+  --color-warning: #d97706;
+  --color-warning-hover: #b45309;
   --color-warning-bg: #fff7e8;
   --color-warning-border: #efd4a8;
   --color-warning-text: #7a4d16;
@@ -679,7 +683,7 @@ select:focus, input[type="number"]:focus {
   font-size: var(--font-size-md);
   font-weight: 600;
   margin-bottom: 2px;
-  color: #d97706;
+  color: var(--color-warning);
 }
 
 .warning-desc {
@@ -689,13 +693,13 @@ select:focus, input[type="number"]:focus {
 }
 
 .warning-desc a {
-  color: #d97706;
+  color: var(--color-warning);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .warning-desc a:hover {
-  color: #b45309;
+  color: var(--color-warning-hover);
 }
 
 /* Cache Message */
@@ -894,4 +898,34 @@ select:focus, input[type="number"]:focus {
 
 .format-checkboxes .checkbox-label {
   margin: 0;
+}
+
+/* Toast 提示 - 纯中性白卡片 + 阴影分层，与 popup 整体设计语言一致
+   参考 Adobe Spectrum / Thumbprint Design 的中性 toast 范式：
+   在暖米白背景上不用任何带饱和度的色块或色条，仅靠阴影区分层次。 */
+.mv-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+  box-shadow: var(--shadow-md);
+  max-width: calc(100% - 32px);
+  text-align: center;
+  /* 中性卡片：与 popup 暖米白背景 #fdfcf9 协调，靠阴影区分层次 */
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
+}
+
+.mv-toast--success,
+.mv-toast--error,
+.mv-toast--info {
+  /* 三种状态共用同款中性卡片，不引入额外语义色，避免在暖背景上割裂 */
 }
