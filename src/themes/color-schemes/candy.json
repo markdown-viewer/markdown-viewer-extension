@@ -8,12 +8,12 @@
   "text": {
     "primary": "#3b2630",
     "secondary": "#5f4a52",
-    "muted": "#8a7179"
+    "muted": "#6a525a"
   },
   
   "accent": {
-    "link": "#d43f5f",
-    "linkHover": "#b8324e"
+    "link": "#b91c4a",
+    "linkHover": "#8e113a"
   },
   
   "background": {

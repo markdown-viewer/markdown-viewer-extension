@@ -4,7 +4,7 @@
   "description": "温暖的书籍风格配色，适合长文阅读",
   "description_en": "Warm book-style colors for long reading",
   
-  "foreground": "#657b83",
+  "foreground": "#4a5a5e",
   "colors": {
     "keyword": "#859900",
     "built_in": "#b58900",
@@ -15,7 +15,7 @@
     "attr": "#b58900",
     "comment": "#93a1a1",
     "meta": "#859900",
-    "params": "#657b83",
+    "params": "#4a5a5e",
     "symbol": "#cb4b16",
     "type": "#b58900",
     "addition": "#859900",
