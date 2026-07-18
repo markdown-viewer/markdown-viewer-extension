@@ -55,7 +55,14 @@ export interface TableConverter {
  */
 export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmptyCells = false, tableLayout = 'center' }: TableConverterOptions): TableConverter {
   // Default table styles
-  const defaultMargins = { top: 80, bottom: 80, left: 100, right: 100 };
+  const textSpacing = themeStyles.tableTextSpacing;
+  const lineExtra = Math.max(0, (textSpacing?.line ?? 240) - 240);
+  const defaultMargins = {
+    top: Math.max(0, 80 - (textSpacing?.before ?? 0)),
+    bottom: Math.max(0, 80 - (textSpacing?.after ?? 0) - lineExtra),
+    left: 100,
+    right: 100,
+  };
   
   // Get table styles with defaults
   const tableStyles = themeStyles.tableStyles || {};

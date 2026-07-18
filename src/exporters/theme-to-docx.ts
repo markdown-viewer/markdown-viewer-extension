@@ -186,6 +186,11 @@ export function themeToDOCXStyles(
 ): DOCXThemeStyles {
   const blockSpacing = generateBlockSpacing(layoutScheme);
 
+  // TableText paragraph spacing used to compensate cell margins so the
+  // total visual gap (margin + paragraph before/after) stays symmetric.
+  const bodyLineSpacing = Math.round(layoutScheme.body.lineHeight * 240);
+  const tableTextSpacing = compensateParagraphSpacing(3, 3, bodyLineSpacing);
+
   const pageBackground = colorScheme.background.page
     ? colorScheme.background.page.replace('#', '')
     : undefined;
@@ -195,15 +200,16 @@ export function themeToDOCXStyles(
 
   return {
     default: generateDefaultStyle(theme.fontScheme, layoutScheme),
-    paragraphStyles: generateParagraphStyles(theme.fontScheme, layoutScheme, colorScheme, blockSpacing),
+    paragraphStyles: generateParagraphStyles(theme.fontScheme, layoutScheme, colorScheme, blockSpacing, tableTextSpacing),
     characterStyles: generateCharacterStyles(theme.fontScheme, layoutScheme, colorScheme),
-    tableStyles: generateTableStyles(tableStyle, colorScheme),
+    tableStyles: generateTableStyles(tableStyle, colorScheme, tableTextSpacing),
     codeColors: generateCodeColors(codeTheme, colorScheme),
     linkColor: colorScheme.accent.link.replace('#', ''),
     blockquoteColor: colorScheme.blockquote.border.replace('#', ''),
     pageBackground,
     blockquoteBackground,
     blockSpacing,
+    tableTextSpacing,
     firstLineIndentEnabled: layoutScheme.blocks.paragraph.firstLineIndent === true,
   };
 }
@@ -380,7 +386,8 @@ function generateParagraphStyles(
   fontScheme: FontScheme,
   layoutScheme: LayoutScheme,
   colorScheme: ColorScheme,
-  blockSpacing: DOCXBlockSpacing
+  blockSpacing: DOCXBlockSpacing,
+  tableTextSpacing: DOCXParagraphSpacing
 ): Record<string, DOCXNamedParagraphStyle> {
   const styles: Record<string, DOCXNamedParagraphStyle> = {};
 
@@ -485,11 +492,9 @@ function generateParagraphStyles(
     },
   };
 
-  // TableText uses fixed 240 line spacing (single) to avoid line-height
-  // asymmetry inside cells. The cell margins provide the visual padding.
-  // Using compensateParagraphSpacing ensures consistency even though
-  // line=240 produces no compensation (extra=0).
-  const tableTextSpacing = compensateParagraphSpacing(3, 3, 240);
+  // TableText uses the same body line-height as BlockquoteText and Normal.
+  // compensateParagraphSpacing already handles line-height asymmetry by
+  // redistributing before/after spacing, so cell margins remain symmetric.
 
   styles.TableText = {
     id: 'TableText',
@@ -581,7 +586,7 @@ function generateCharacterStyles(
  * @param colorScheme - Color scheme configuration (colors)
  * @returns Table style configuration
  */
-function generateTableStyles(tableStyle: TableStyleConfig, colorScheme: ColorScheme): DOCXTableStyle {
+function generateTableStyles(tableStyle: TableStyleConfig, colorScheme: ColorScheme, tableTextSpacing: DOCXParagraphSpacing): DOCXTableStyle {
   const docxTableStyle: DOCXTableStyle = {
     borders: {},
     header: {},
@@ -643,11 +648,14 @@ function generateTableStyles(tableStyle: TableStyleConfig, colorScheme: ColorSch
     docxTableStyle.header.bold = tableStyle.header.fontWeight === 'bold';
   }
 
-  // Cell padding
+  // Cell padding, compensated by TableText paragraph spacing and the
+  // line-height extra leading Word adds below the last line, so the total
+  // visual gap inside cells stays symmetric top-to-bottom.
   const paddingTwips = themeManager.ptToTwips(tableStyle.cell.padding);
+  const lineExtra = Math.max(0, (tableTextSpacing.line ?? 240) - 240);
   docxTableStyle.cell.margins = {
-    top: paddingTwips,
-    bottom: paddingTwips,
+    top: Math.max(0, paddingTwips - (tableTextSpacing.before ?? 0)),
+    bottom: Math.max(0, paddingTwips - (tableTextSpacing.after ?? 0) - lineExtra),
     left: paddingTwips,
     right: paddingTwips
   };
