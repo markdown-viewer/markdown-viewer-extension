@@ -128,6 +128,17 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
       "drawio"
     ],
     "isDiagram": true
+  },
+  {
+    "fileType": "echarts",
+    "extensions": [
+      "echarts"
+    ],
+    "languageId": "echarts",
+    "codeBlockLanguages": [
+      "echarts"
+    ],
+    "isDiagram": true
   }
 ];
 

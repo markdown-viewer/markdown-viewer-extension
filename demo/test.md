@@ -28,16 +28,17 @@ tags: [markdown, test, demo]
 6. **数学公式** - KaTeX 行内和块级公式
 7. **Mermaid 图表** - [完整演示](./mermaid-demo.md)，[锚点](./mermaid-demo.md#业务流程图)
 8. **Vega-Lite 图表** - [完整演示](./vega-demo.md)
-9. **DOT 图表** - [完整演示](./dot-demo.md)
-10. **Infographic 图表** - [完整演示](./infographic-demo.md)
-11. **Canvas 画布** - [完整演示](./canvas-demo.md)
-12. **PlantUML 图表** - [完整演示](./plantuml-demo.md)
-13. **drawio 画布** - drawio XML 原生图表
-14. **HTML 混合** - [完整演示](./html-demo.md)
-15. **Emoji 短代码** - [完整演示](./emoji-demo.md)
-16. **脚注** - 脚注引用和定义语法
-17. **边界测试** - 错误处理、极端情况
-18. **Inline HTML 详测** - [完整演示](./inline-html-test.md)
+9. **ECharts 图表** - [完整演示](./echarts-demo.md)
+10. **DOT 图表** - [完整演示](./dot-demo.md)
+11. **Infographic 图表** - [完整演示](./infographic-demo.md)
+12. **Canvas 画布** - [完整演示](./canvas-demo.md)
+13. **PlantUML 图表** - [完整演示](./plantuml-demo.md)
+14. **drawio 画布** - drawio XML 原生图表
+15. **HTML 混合** - [完整演示](./html-demo.md)
+16. **Emoji 短代码** - [完整演示](./emoji-demo.md)
+17. **脚注** - 脚注引用和定义语法
+18. **边界测试** - 错误处理、极端情况
+19. **Inline HTML 详测** - [完整演示](./inline-html-test.md)
 
 ---
 
@@ -126,6 +127,7 @@ Markdown Viewer 是一个强大的浏览器扩展[^mve]。
     - KaTeX 数学公式
     - PlantUML 图表
     - Vega-Lite 数据可视化
+    - ECharts 交互式图表
     - 以及更多...
 
 **脚注中的格式化文本：**
@@ -634,11 +636,52 @@ pie title 功能使用分布
 
 ---
 
-## 9. DOT 图表 (Graphviz)
+## 9. ECharts 图表
+
+> 📖 完整演示请查看 [ECharts 图表完整演示](./echarts-demo.md)
+
+### 9.1 柱状图
+
+```echarts
+{
+  "width": 500,
+  "height": 300,
+  "title": { "text": "产品销量", "left": "center" },
+  "tooltip": { "trigger": "axis" },
+  "xAxis": { "type": "category", "data": ["A", "B", "C", "D", "E"] },
+  "yAxis": { "type": "value" },
+  "series": [{ "type": "bar", "data": [28, 55, 43, 91, 81] }]
+}
+```
+
+### 9.2 饼图
+
+```echarts
+{
+  "width": 400,
+  "height": 300,
+  "title": { "text": "访问来源", "left": "center" },
+  "tooltip": { "trigger": "item" },
+  "series": [{
+    "type": "pie",
+    "radius": "60%",
+    "data": [
+      { "value": 1048, "name": "直接访问" },
+      { "value": 735, "name": "搜索引擎" },
+      { "value": 580, "name": "联盟广告" },
+      { "value": 484, "name": "视频广告" }
+    ]
+  }]
+}
+```
+
+---
+
+## 10. DOT 图表 (Graphviz)
 
 > 📖 完整演示请查看 [DOT 图表完整演示](./dot-demo.md)
 
-### 9.1 简单有向图
+### 10.1 简单有向图
 
 ```dot
 digraph G {
@@ -648,7 +691,7 @@ digraph G {
 }
 ```
 
-### 9.2 带样式的有向图
+### 10.2 带样式的有向图
 
 ```dot
 digraph G {
@@ -664,17 +707,17 @@ digraph G {
 
 ---
 
-## 10. HTML 混合内容
+## 11. HTML 混合内容
 
 > 📖 完整演示请查看 [HTML 混合内容完整演示](./html-demo.md)
 
-### 10.1 提示框
+### 11.1 提示框
 
 <div style="padding: 15px; background: #f0f9ff; border-left: 4px solid #0284c7; margin: 10px 0;">
   <strong>💡 提示：</strong>这是一个使用 HTML 编写的提示框。
 </div>
 
-### 10.2 状态卡片
+### 11.2 状态卡片
 
 <div style="display: flex; gap: 10px; margin: 20px 0;">
   <div style="flex: 1; padding: 15px; background: #dcfce7; border-radius: 8px;">
@@ -687,7 +730,7 @@ digraph G {
   </div>
 </div>
 
-### 10.3 Inline HTML 详测
+### 11.3 Inline HTML 详测
 
 > 📖 完整演示请查看 [Inline HTML 全面测试](./inline-html-test.md)
 
@@ -696,13 +739,13 @@ digraph G {
 - 常见样式标签（移除标签保留内容）：<mark>highlight</mark> <small>small</small>
 - 键盘按键：Press <kbd>Ctrl</kbd>+<kbd>C</kbd>
 
-### 10.4 本地图片
+### 11.4 本地图片
 
 <div>
   <img src="../icons/icon128.png">
 </div>
 
-### 10.5 远程图片
+### 11.5 远程图片
 
 <div>
   <img src="https://picsum.photos/400/300">
@@ -710,11 +753,11 @@ digraph G {
 
 ---
 
-## 11. Infographic 图表
+## 12. Infographic 图表
 
 > 📖 完整演示请查看 [Infographic 图表完整演示](./infographic-demo.md)
 
-### 11.1 流程箭头
+### 12.1 流程箭头
 
 ```infographic
 infographic list-row-simple-horizontal-arrow
@@ -729,7 +772,7 @@ data
       desc 收尾总结
 ```
 
-### 11.2 金字塔图
+### 12.2 金字塔图
 
 ```infographic
 infographic sequence-pyramid-simple
@@ -746,7 +789,7 @@ data
       desc 云和系统基础
 ```
 
-### 11.3 漏斗图
+### 12.3 漏斗图
 
 ```infographic
 infographic sequence-filter-mesh-simple
@@ -764,7 +807,7 @@ data
       desc 125 付费客户
 ```
 
-### 11.4 思维导图
+### 12.4 思维导图
 
 ```infographic
 infographic hierarchy-mindmap-branch-gradient-compact-card
@@ -789,11 +832,11 @@ data
 
 ---
 
-## 12. Canvas 画布
+## 13. Canvas 画布
 
 > 📖 完整演示请查看 [Canvas 画布完整演示](./canvas-demo.md)
 
-### 12.1 简单流程
+### 13.1 简单流程
 
 ```canvas
 {
@@ -811,7 +854,7 @@ data
 }
 ```
 
-### 12.2 带分组的画布
+### 13.2 带分组的画布
 
 ```canvas
 {
@@ -832,11 +875,11 @@ data
 
 ---
 
-## 13. PlantUML 图表
+## 14. PlantUML 图表
 
 > 📖 完整演示请查看 [PlantUML 图表完整演示](./plantuml-demo.md)
 
-### 13.1 类图
+### 14.1 类图
 
 ```plantuml
 @startuml
@@ -864,7 +907,7 @@ Order "*" -- "*" Product : contains
 @enduml
 ```
 
-### 13.2 序列图
+### 14.2 序列图
 
 ```puml
 @startuml
@@ -882,7 +925,7 @@ App --> User : 显示页面
 @enduml
 ```
 
-### 13.3 活动图
+### 14.3 活动图
 
 ```plantuml
 @startuml
@@ -902,7 +945,7 @@ stop
 
 ---
 
-## 14. drawio 画布
+## 15. drawio 画布
 
 # 网络架构图
 
@@ -1056,19 +1099,19 @@ stop
 </mxfile>
 ```
 
-## 15. 图片处理
+## 16. 图片处理
 
-### 14.1 SVG 文件测试
+### 16.1 SVG 文件测试
 
 **本地 SVG 文件：**
 ![Basic SVG](./test.svg)
 
-### 14.2 Data URL SVG 测试
+### 16.2 Data URL SVG 测试
 
 **Base64 编码格式：**
 ![Simple Shapes](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB4PSIxMCIgeT0iMTAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI0MCIgZmlsbD0iIzMzNzNkYyIgcng9IjUiLz4KICA8Y2lyY2xlIGN4PSIxNTAiIGN5PSIzMCIgcj0iMjAiIGZpbGw9IiNlZjQ0NDQiLz4KICA8dGV4dCB4PSIxMCIgeT0iODAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzM3NDE1MSI+RGF0YSBVUkwgU1ZHPC90ZXh0Pgo8L3N2Zz4=)
 
-### 14.3 svg in code block
+### 16.3 svg in code block
 
 ```svg
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1080,28 +1123,28 @@ stop
 
 ---
 
-## 16. 边界测试
+## 17. 边界测试
 
-### 15.1 错误的 Mermaid 语法
+### 17.1 错误的 Mermaid 语法
 
 ```mermaid
 invalid syntax here
 this should show an error message
 ```
 
-### 15.2 错误的数学公式
+### 17.2 错误的数学公式
 
 $$
 \invalid{command}
 \undefined{function}
 $$
 
-### 15.3 空代码块
+### 17.3 空代码块
 
 ```javascript
 ```
 
-### 15.4 极端情况
+### 17.4 极端情况
 
 **超长文本行：**
 这是一个非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常长的文本行，用于测试文本的自动换行和布局处理能力。
@@ -1115,13 +1158,13 @@ $$
 
 ---
 
-## 17. 页内锚点测试
+## 18. 页内锚点测试
 
-### 17.1 标题锚点
+### 18.1 标题锚点
 
 跳转到锚点测试标题：[点击这里](#17-%E9%A1%B5%E5%86%85%E9%94%9A%E7%82%B9%E6%B5%8B%E8%AF%95)
 
-### 17.2 子标题锚点
+### 18.2 子标题锚点
 
 跳转到三级子标题 Sub A：[Sub A](#sub-a)
 跳转到三级子标题 Sub B：[Sub B](#sub-b)
@@ -1139,7 +1182,7 @@ $$
 
 这是 Sub C 的内容。
 
-### 17.3 中文锚点
+### 18.3 中文锚点
 
 跳转到中文标题测试：[中文标题测试](#中文标题测试)
 
@@ -1147,7 +1190,7 @@ $$
 
 这个标题的锚点应该能正常跳转。
 
-### 17.4 特殊字符锚点
+### 18.4 特殊字符锚点
 
 跳转到特殊字符标题：[特殊 @#$ 字符](#特殊-字符)
 
@@ -1155,7 +1198,7 @@ $$
 
 此标题包含特殊字符，锚点需要正确 slugify。
 
-### 17.5 不存在的锚点（fallback）
+### 18.5 不存在的锚点（fallback）
 
 跳转到不存在的锚点：[不存在的标题](#nonexistent-heading) — 应该 fallback 到浏览器原生行为。
 

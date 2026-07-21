@@ -8,6 +8,7 @@
     { "fileType": "dot", "extensions": ["gv", "dot"], "languageId": "graphviz", "codeBlockLanguages": ["dot", "graphviz"] },
     { "fileType": "infographic", "extensions": ["infographic"], "codeBlockLanguages": ["infographic"] },
     { "fileType": "canvas", "extensions": ["canvas"], "codeBlockLanguages": ["canvas"] },
-    { "fileType": "drawio", "extensions": ["drawio"], "codeBlockLanguages": ["drawio"] }
+    { "fileType": "drawio", "extensions": ["drawio"], "codeBlockLanguages": ["drawio"] },
+    { "fileType": "echarts", "extensions": ["echarts"], "codeBlockLanguages": ["echarts"] }
   ]
 }

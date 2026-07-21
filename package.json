@@ -75,6 +75,7 @@
     "buffer": "^6.0.3",
     "d3-array": "^3.2.4",
     "docx": "^9.5.1",
+    "echarts": "^6.1.0",
     "esbuild": "^0.25.12",
     "eventemitter3": "^5.0.1",
     "file-type": "^20.5.0",
@@ -156,6 +157,7 @@
     "onLanguage:infographic",
     "onLanguage:canvas",
     "onLanguage:drawio",
+    "onLanguage:echarts",
     "onLanguage:xml"
   ],
   "contributes": {
@@ -245,6 +247,16 @@
         ],
         "extensions": [
           ".drawio"
+        ]
+      },
+      {
+        "id": "echarts",
+        "aliases": [
+          "Echarts",
+          "echarts"
+        ],
+        "extensions": [
+          ".echarts"
         ]
       }
     ],

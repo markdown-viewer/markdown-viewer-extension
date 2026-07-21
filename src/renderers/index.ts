@@ -13,6 +13,7 @@ import { InfographicRenderer } from './infographic-renderer';
 import { JsonCanvasRenderer } from './canvas-renderer';
 import { DrawioRenderer } from './drawio-renderer';
 import { PlantumlRenderer } from './plantuml-renderer';
+import { EchartsRenderer } from './echarts-renderer';
 import type { BaseRenderer } from './base-renderer';
 
 // Export renderer instances array
@@ -26,5 +27,6 @@ export const renderers: BaseRenderer[] = [
   new InfographicRenderer(),
   new JsonCanvasRenderer(),
   new DrawioRenderer(),
-  new PlantumlRenderer()
+  new PlantumlRenderer(),
+  new EchartsRenderer()
 ];

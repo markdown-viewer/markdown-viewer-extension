@@ -14,10 +14,11 @@
 6. **数学公式** - KaTeX 行内和块级公式
 7. **Mermaid 图表** - 流程图、序列图、甘特图、类图
 8. **Vega-Lite 图表** - 柱状图、散点图、折线图、饼图
-9. **DOT 图表** - Graphviz 有向图、无向图、子图
-10. **图片处理** - SVG 转换、Data URL、内联图片
-11. **HTML 混合** - 复杂布局和组件
-12. **边界测试** - 错误处理、极端情况
+9. **ECharts 图表** - 柱状图、饼图、折线图
+10. **DOT 图表** - Graphviz 有向图、无向图、子图
+11. **图片处理** - SVG 转换、Data URL、内联图片
+12. **HTML 混合** - 复杂布局和组件
+13. **边界测试** - 错误处理、极端情况
 
 ---
 
@@ -1272,9 +1273,66 @@ flowchart TD
 
 ---
 
-## 9. DOT 图表 (Graphviz)
+## 9. ECharts 图表
 
-### 9.1 简单有向图
+### 9.1 柱状图
+
+```echarts
+{
+  "width": 500,
+  "height": 300,
+  "title": { "text": "产品销量", "left": "center" },
+  "tooltip": { "trigger": "axis" },
+  "xAxis": { "type": "category", "data": ["A", "B", "C", "D", "E"] },
+  "yAxis": { "type": "value" },
+  "series": [{ "type": "bar", "data": [28, 55, 43, 91, 81] }]
+}
+```
+
+### 9.2 饼图
+
+```echarts
+{
+  "width": 400,
+  "height": 300,
+  "title": { "text": "访问来源", "left": "center" },
+  "tooltip": { "trigger": "item" },
+  "series": [{
+    "type": "pie",
+    "radius": "60%",
+    "data": [
+      { "value": 1048, "name": "直接访问" },
+      { "value": 735, "name": "搜索引擎" },
+      { "value": 580, "name": "联盟广告" },
+      { "value": 484, "name": "视频广告" }
+    ]
+  }]
+}
+```
+
+### 9.3 折线图
+
+```echarts
+{
+  "width": 500,
+  "height": 300,
+  "title": { "text": "月度趋势", "left": "center" },
+  "tooltip": { "trigger": "axis" },
+  "xAxis": { "type": "category", "data": ["1月", "2月", "3月", "4月", "5月", "6月"] },
+  "yAxis": { "type": "value" },
+  "series": [{
+    "type": "line",
+    "smooth": true,
+    "data": [100, 150, 120, 180, 200, 170]
+  }]
+}
+```
+
+---
+
+## 10. DOT 图表 (Graphviz)
+
+### 10.1 简单有向图
 
 ```dot
 digraph G {
@@ -1284,7 +1342,7 @@ digraph G {
 }
 ```
 
-### 9.2 带样式的有向图
+### 10.2 带样式的有向图
 
 ```dot
 digraph G {
@@ -1299,7 +1357,7 @@ digraph G {
 }
 ```
 
-### 9.3 无向图
+### 10.3 无向图
 
 ```dot
 graph Network {
@@ -1312,7 +1370,7 @@ graph Network {
 }
 ```
 
-### 9.4 子图和集群
+### 10.4 子图和集群
 
 ```dot
 digraph G {
@@ -1338,7 +1396,7 @@ digraph G {
 }
 ```
 
-### 9.5 状态机图
+### 10.5 状态机图
 
 ```dot
 digraph StateMachine {
@@ -1358,7 +1416,7 @@ digraph StateMachine {
 }
 ```
 
-### 9.6 记录节点（表格样式）
+### 10.6 记录节点（表格样式）
 
 ```dot
 digraph structs {
@@ -1375,7 +1433,7 @@ digraph structs {
 
 ---
 
-## 10. 图片处理
+## 11. 图片处理
 
 ### 9.1 SVG 文件测试
 
@@ -1411,7 +1469,7 @@ digraph structs {
 
 ---
 
-## 11. HTML 混合内容
+## 12. HTML 混合内容
 
 ### 10.1 简单 HTML 元素
 
@@ -1863,7 +1921,7 @@ digraph structs {
 
 ---
 
-## 12. 边界测试
+## 13. 边界测试
 
 ### 11.1 错误的 Mermaid 语法
 

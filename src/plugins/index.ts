@@ -19,6 +19,7 @@ import { InfographicPlugin } from './infographic-plugin';
 import { JsonCanvasPlugin } from './canvas-plugin';
 import { DrawioPlugin } from './drawio-plugin';
 import { PlantumlPlugin } from './plantuml-plugin';
+import { EchartsPlugin } from './echarts-plugin';
 import { replacePlaceholderWithImage } from './plugin-html-utils';
 import { createErrorHTML } from './plugin-content-utils';
 import { convertPluginResultToDOCX } from '../exporters/docx-exporter';
@@ -77,7 +78,8 @@ export const plugins: BasePlugin[] = [
   new InfographicPlugin(),
   new JsonCanvasPlugin(),
   new DrawioPlugin(),
-  new PlantumlPlugin()
+  new PlantumlPlugin(),
+  new EchartsPlugin()
 ];
 
 // ============================================================================
