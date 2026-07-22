@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { build } from 'esbuild';
 import { fileURLToPath } from 'url';
+import { dagreShimPlugin } from '../scripts/dagre-shim-plugin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -130,7 +131,8 @@ async function buildMainBundle() {
     },
     minify: true,
     sourcemap: false,
-    external: []
+    external: [],
+    plugins: [dagreShimPlugin]
   });
 
   console.log('✅ Main bundle built');
@@ -167,7 +169,8 @@ async function buildIframeRenderWorkerBundle() {
     },
     minify: true,
     sourcemap: false,
-    external: ['web-worker']
+    external: ['web-worker'],
+    plugins: [dagreShimPlugin]
   });
 
   console.log('✅ Iframe-render-worker built');

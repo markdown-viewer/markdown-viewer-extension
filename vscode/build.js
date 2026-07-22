@@ -13,6 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'node:child_process';
+import { dagreShimPlugin } from '../scripts/dagre-shim-plugin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -161,7 +162,8 @@ async function buildWebview() {
       '.ttf': 'empty',
       '.eot': 'empty'
     },
-    assetNames: '[name]'
+    assetNames: '[name]',
+    plugins: [dagreShimPlugin]
   });
 
   // Build iframe-render-worker bundle (heavy renderers: mermaid, vega, etc.)
@@ -190,7 +192,8 @@ async function buildWebview() {
       '.ttf': 'dataurl'
     },
     // Mermaid is loaded separately to keep bundle size manageable
-    external: ['mermaid', 'web-worker']
+    external: ['mermaid', 'web-worker'],
+    plugins: [dagreShimPlugin]
   });
 
   // Build CSS bundle separately

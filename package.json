@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "@antv/infographic": "^0.2.19",
-    "@markdown-viewer/draw-uml": "^1.4.0",
+    "@markdown-viewer/draw-uml": "^1.4.1",
     "@markdown-viewer/drawio2svg": "^1.5.2",
     "@mozilla/readability": "^0.6.0",
     "@slidev/client": "52.0.0",

@@ -17,6 +17,7 @@ import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { dagreShimPlugin } from '../scripts/dagre-shim-plugin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -141,7 +142,7 @@ async function buildHost(embeddedAssetsModuleSource) {
       'global': 'globalThis',
     },
     inject: [path.join(projectRoot, 'scripts', 'buffer-shim.js')],
-    plugins: [createEmbeddedAssetsPlugin(embeddedAssetsModuleSource)],
+    plugins: [dagreShimPlugin, createEmbeddedAssetsPlugin(embeddedAssetsModuleSource)],
     loader: {
       '.css': 'empty',
       '.woff2': 'empty',
@@ -183,6 +184,7 @@ async function buildIframeRenderWorker() {
       '.ttf': 'dataurl',
     },
     external: ['mermaid', 'web-worker'],
+    plugins: [dagreShimPlugin],
   });
   console.log('✅ iframe-render-worker built');
 }
