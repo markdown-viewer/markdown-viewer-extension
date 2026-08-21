@@ -64,6 +64,25 @@ export interface TableAnalysisResult {
 }
 
 /**
+ * Options for table structure analysis
+ */
+export interface TableAnalysisOptions {
+  /**
+   * Treat cells that repeat the value of the cell directly above as empty.
+   * 
+   * Enables recognition of tree tables exported in "merged-cell style"
+   * (e.g. from Excel/WPS), where merged cells are filled by repeating the
+   * value instead of leaving blanks.
+   * 
+   * Structural analysis (row validity, tree score, column segments) then runs
+   * on the repeat-normalized matrix, while comparison-table detection and
+   * group-header detection keep working against the original values so that
+   * data rows with repeated trailing values are not mistaken for headers.
+   */
+  treatRepeatsAsEmpty?: boolean;
+}
+
+/**
  * Internal row analysis result
  */
 interface RowAnalysis {
@@ -117,6 +136,52 @@ function isMarkerSymbol(value: string | null | undefined): boolean {
   if (value == null) return false;
   const trimmed = value.trim();
   return /^[✓✗×○●√\-+*·•◦▪▫☐☑☒✔✕✖⬤◯]{1,3}$/.test(trimmed);
+}
+
+/**
+ * Normalize "merged-cell style" tables.
+ * 
+ * When a table is exported from Excel/WPS, merged cells are often expanded by
+ * repeating the merged value in every covered cell instead of leaving them
+ * blank. For tree-structure detection such repeated cells are equivalent to
+ * blank cells (they represent the same logical merge).
+ * 
+ * A cell is replaced with an empty string when it equals (ignoring surrounding
+ * whitespace) the cell directly above it. Comparison always uses the ORIGINAL
+ * row above (not the already-normalized one), so that chains of repeated
+ * values collapse into a single segment.
+ * 
+ * @param rows - 2D array of cell strings
+ * @returns A new matrix with repeated cells replaced by ''
+ * 
+ * @example
+ * ```typescript
+ * const rows = [
+ *   ['研发部', '前端组', '张三'],
+ *   ['研发部', '前端组', '李四'],   // repeats row above
+ *   ['研发部', '后端组', '王五'],
+ * ];
+ * normalizeRepeatedCells(rows);
+ * // [
+ * //   ['研发部', '前端组', '张三'],
+ * //   ['',       '',       '李四'],
+ * //   ['',       '后端组', '王五'],
+ * // ]
+ * ```
+ */
+export function normalizeRepeatedCells(rows: string[][]): string[][] {
+  return rows.map((row, rowIndex) => {
+    if (rowIndex === 0) return [...row];
+    const aboveRow = rows[rowIndex - 1];
+    return row.map((cell, colIndex) => {
+      if (isEmpty(cell)) return cell;
+      const aboveCell = aboveRow?.[colIndex];
+      if (!isEmpty(aboveCell) && cell.trim() === aboveCell.trim()) {
+        return '';
+      }
+      return cell;
+    });
+  });
 }
 
 // ============================================================================
@@ -401,7 +466,7 @@ function isSparseTable(rowAnalyses: RowAnalysis[]): boolean {
  * // result2.groupHeaders.hasGroupHeaders = true
  * ```
  */
-export function analyzeTableStructure(rows: string[][]): TableAnalysisResult {
+export function analyzeTableStructure(rows: string[][], options?: TableAnalysisOptions): TableAnalysisResult {
   const totalRows = rows.length;
   const totalCols = rows[0]?.length || 0;
   
@@ -422,18 +487,48 @@ export function analyzeTableStructure(rows: string[][]): TableAnalysisResult {
     return createNormalResult(baseStats);
   }
   
-  // Check for comparison table first
+  // Check for comparison table first.
+  // This must run on the ORIGINAL matrix: repeat normalization would collapse
+  // vertically repeated marker cells (e.g. '✓') and drop the marker ratio
+  // below the detection threshold.
   if (isComparisonTable(rows)) {
     return createComparisonResult(baseStats);
   }
   
-  // Analyze all rows
-  const rowAnalyses = rows.map((row, idx) => analyzeRow(row, idx, totalCols));
+  // Normalize "merged-cell style" (cell repeats value above → blank) before
+  // structural analysis, when requested.
+  const treatRepeatsAsEmpty = options?.treatRepeatsAsEmpty === true;
+  const effectiveRows = treatRepeatsAsEmpty ? normalizeRepeatedCells(rows) : rows;
   
-  // Detect group headers
-  const groupHeaderRows = rowAnalyses
-    .filter(r => r.isGroupHeader)
-    .map(r => r.rowIndex);
+  // Analyze all rows
+  const rowAnalyses = effectiveRows.map((row, idx) => analyzeRow(row, idx, totalCols));
+  
+  // Detect group headers.
+  // Repeat normalization can collapse a DATA row whose trailing columns
+  // happen to repeat the row above into a header-like shape
+  // (e.g. ['研发', '李四', '经理'] → ['', '李四', '']). Such rows are only
+  // accepted as headers when the first cell is non-empty - real section
+  // titles always start at column 0, while continuation rows have an empty
+  // first cell. Detection against the ORIGINAL rows is preserved unchanged,
+  // so tables without repeated cells behave exactly as before.
+  const groupHeaderRows: number[] = [];
+  if (treatRepeatsAsEmpty) {
+    for (let i = 0; i < rowAnalyses.length; i++) {
+      const firstCellFilled = !isEmpty(effectiveRows[i]?.[0]);
+      if (rowAnalyses[i].isGroupHeader && firstCellFilled) {
+        groupHeaderRows.push(i);
+      } else {
+        const originalAnalysis = analyzeRow(rows[i] ?? [], i, totalCols);
+        if (originalAnalysis.isGroupHeader) {
+          groupHeaderRows.push(i);
+        }
+      }
+    }
+  } else {
+    for (const r of rowAnalyses) {
+      if (r.isGroupHeader) groupHeaderRows.push(r.rowIndex);
+    }
+  }
   const groupHeaderSet = new Set(groupHeaderRows);
   const hasGroupHeaders = groupHeaderRows.length > 0;
   
@@ -456,7 +551,7 @@ export function analyzeTableStructure(rows: string[][]): TableAnalysisResult {
   const treeColumns: number[] = [];
   if (isTreeTable) {
     for (let col = 0; col < totalCols; col++) {
-      const colAnalysis = analyzeColumn(rows, col, groupHeaderSet);
+      const colAnalysis = analyzeColumn(effectiveRows, col, groupHeaderSet);
       if (colAnalysis.isTreeColumn) {
         treeColumns.push(col);
       }

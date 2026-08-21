@@ -8,7 +8,6 @@ import remarkCjkFriendly from 'remark-cjk-friendly';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkGemoji from 'remark-gemoji';
-import remarkSuperSub from '../plugins/remark-super-sub';
 import remarkGithubAlerts from '../plugins/remark-github-alerts';
 import remarkTocFilter from '../plugins/remark-toc-filter';
 import remarkRehype from 'remark-rehype';
@@ -722,7 +721,6 @@ export function createMarkdownProcessor(
     .use(remarkGfm, { singleTilde: false })
     .use(remarkMath)
     .use(remarkGemoji)
-    .use(remarkSuperSub)
     .use(remarkGithubAlerts)  // GitHub-style alert syntax (> [!NOTE] / [!TIP] / …)
     .use(remarkTocFilter);  // Filter out [toc] markers in rendered HTML
 

@@ -72,27 +72,27 @@
 
 ### 1.4 上标和下标
 
-**上标语法** 使用 `^text^` 包围：
-- 数学表达：x^2^ + y^2^ = z^2^
-- 化学式：Ca^2+^, Fe^3+^
-- 序数词：1^st^, 2^nd^, 3^rd^, 4^th^
-- 指数：2^10^ = 1024, e^x^
+**上标语法** 使用 `<sup>` 标签：
+- 数学表达：x<sup>2</sup> + y<sup>2</sup> = z<sup>2</sup>
+- 化学式：Ca<sup>2+</sup>, Fe<sup>3+</sup>
+- 序数词：1<sup>st</sup>, 2<sup>nd</sup>, 3<sup>rd</sup>, 4<sup>th</sup>
+- 指数：2<sup>10</sup> = 1024, e<sup>x</sup>
 
-**下标语法** 使用 `~text~` 包围：
-- 化学式：H~2~O, CO~2~, H~2~SO~4~
-- 数学下标：a~1~, a~2~, ..., a~n~
-- 变量索引：x~i~, y~j~, z~k~
+**下标语法** 使用 `<sub>` 标签：
+- 化学式：H<sub>2</sub>O, CO<sub>2</sub>, H<sub>2</sub>SO<sub>4</sub>
+- 数学下标：a<sub>1</sub>, a<sub>2</sub>, ..., a<sub>n</sub>
+- 变量索引：x<sub>i</sub>, y<sub>j</sub>, z<sub>k</sub>
 
 **混合使用：**
-- 水的化学式：H~2~O
-- 二氧化碳：CO~2~
-- 平方和公式：a~1~^2^ + a~2~^2^ + ... + a~n~^2^
-- 指数与下标：x~i~^2^ + x~j~^2^
+- 水的化学式：H<sub>2</sub>O
+- 二氧化碳：CO<sub>2</sub>
+- 平方和公式：a<sub>1</sub><sup>2</sup> + a<sub>2</sub><sup>2</sup> + ... + a<sub>n</sub><sup>2</sup>
+- 指数与下标：x<sub>i</sub><sup>2</sup> + x<sub>j</sub><sup>2</sup>
 
 **与其他格式混合：**
-- **粗体上标**：**x^2^**
-- *斜体下标*：*H~2~O*
-- ~~删除线上标~~：~~2^10^~~
+- **粗体上标**：**x<sup>2</sup>**
+- *斜体下标*：*H<sub>2</sub>O*
+- ~~删除线上标~~：~~2<sup>10</sup>~~
 
 ### 1.5 特殊字符和转义
 

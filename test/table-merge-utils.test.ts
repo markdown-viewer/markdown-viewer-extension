@@ -92,6 +92,180 @@ describe('Table Structure Analyzer', () => {
       
     });
     
+    describe('Merged-Cell Style (Repeated Values)', () => {
+      
+      it('should detect 2-level tree with repeated first column', () => {
+        // Merged-cell export style: blanks filled with the value above
+        const rows = [
+          ['水果', '苹果'],
+          ['水果', '香蕉'],
+          ['水果', '葡萄'],
+          ['蔬菜', '番茄'],
+          ['蔬菜', '黄瓜'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        assert.strictEqual(result.tableType, 'tree');
+        assert.strictEqual(result.shouldMerge, true);
+        assert.strictEqual(result.tree.isTree, true);
+        assert.strictEqual(result.tree.columnCount, 1);
+        assert.deepStrictEqual(result.tree.columns, [0]);
+      });
+      
+      it('should detect deep tree with all columns repeated', () => {
+        const rows = [
+          ['研发部', '前端组', '张三'],
+          ['研发部', '前端组', '李四'],
+          ['研发部', '后端组', '王五'],
+          ['产品部', '产品组', '赵六'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        assert.strictEqual(result.tableType, 'tree');
+        assert.strictEqual(result.tree.isTree, true);
+        assert.strictEqual(result.tree.columnCount, 2);
+        assert.deepStrictEqual(result.tree.columns, [0, 1]);
+      });
+      
+      it('should collapse chains of repeated values into one segment', () => {
+        const rows = [
+          ['A', 'x'],
+          ['A', 'y'],   // chain: col0 repeats two rows down
+          ['A', 'z'],
+          ['C', 'w'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        // Col 0 collapses into one 3-row segment
+        assert.strictEqual(result.tableType, 'tree');
+        assert.strictEqual(result.tree.columnCount, 1);
+        assert.deepStrictEqual(result.tree.columns, [0]);
+      });
+      
+      it('should NOT treat repeated values as empty by default', () => {
+        const rows = [
+          ['水果', '苹果'],
+          ['水果', '香蕉'],
+          ['水果', '葡萄'],
+          ['蔬菜', '番茄'],
+          ['蔬菜', '黄瓜'],
+        ];
+        
+        // Without the option, repeats are real content → no tree detected
+        const result = analyzeTableStructure(rows);
+        
+        assert.strictEqual(result.tree.isTree, false);
+        assert.strictEqual(result.shouldMerge, false);
+      });
+      
+      it('should ignore whitespace differences when comparing repeats', () => {
+        const rows = [
+          ['水果', '苹果'],
+          [' 水果 ', '香蕉'],   // padded repeat
+          ['水果', '葡萄'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        assert.strictEqual(result.tableType, 'tree');
+        assert.strictEqual(result.tree.columnCount, 1);
+      });
+      
+      it('should keep comparison table as comparison with repeated markers', () => {
+        const rows = [
+          ['功能A', '✓', '✓'],
+          ['功能B', '✓', '✓'],
+          ['功能C', '✓', '✓'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        // Marker detection runs on original values before normalization
+        assert.strictEqual(result.tableType, 'comparison');
+        assert.strictEqual(result.shouldMerge, false);
+      });
+      
+      it('should not treat repeated remark column as tree (first column distinct)', () => {
+        const rows = [
+          ['苹果', '5元', '热销'],
+          ['香蕉', '3元', '热销'],
+          ['葡萄', '8元', '热销'],
+          ['橙子', '4元', '热销'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        // Only the remark column repeats; tree columns must start from col 0
+        assert.strictEqual(result.tableType !== 'tree', true);
+        assert.strictEqual(result.shouldMerge, false);
+      });
+      
+      it('should treat fully-repeated first row as data row (no false header)', () => {
+        // Section title merged across the row - but row 0 has no row above,
+        // so its repeats cannot be collapsed. It stays a data row (tree
+        // anchor) instead of becoming a header.
+        const rows = [
+          ['电子产品', '电子产品', '电子产品'],
+          ['手机',    '10',      '3000'],
+          ['电脑',    '5',       '5000'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        assert.deepStrictEqual(result.groupHeaders.rows, []);
+      });
+      
+      it('should detect repeat-collapsed section row when first cell is new', () => {
+        // Row 2 repeats only the last column → collapses to ['市场','王五','']
+        // which is a header shape with a non-empty first cell (blank-style
+        // equivalent is exactly that header row)
+        const rows = [
+          ['研发', '张三', '经理'],
+          ['研发', '李四', '经理'],
+          ['市场', '王五', '经理'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        assert.deepStrictEqual(result.groupHeaders.rows, [2]);
+      });
+      
+      it('should NOT treat data row with repeated trailing values as group header', () => {
+        // Last column repeats, but this is a data row, not a section title
+        const rows = [
+          ['研发', '张三', '经理'],
+          ['研发', '李四', '经理'],
+          ['研发', '王五', '经理'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        // Without the fix, rows 1-2 collapse to ['','李四',''] which looks
+        // like a group header shape - they must stay data rows
+        assert.deepStrictEqual(result.groupHeaders.rows, []);
+        assert.strictEqual(result.tree.isTree, true);
+        assert.strictEqual(result.tree.columnCount, 1);
+      });
+      
+      it('should handle mixed blank-style and repeat-style rows', () => {
+        const rows = [
+          ['研发部', '前端组', '张三'],
+          ['',       '',       '李四'],    // blank style
+          ['研发部', '后端组', '王五'],    // repeat style
+          ['',       '',       '赵六'],
+        ];
+        
+        const result = analyzeTableStructure(rows, { treatRepeatsAsEmpty: true });
+        
+        assert.strictEqual(result.tableType, 'tree');
+        assert.strictEqual(result.tree.columnCount, 2);
+      });
+      
+    });
+    
     describe('Group Header Detection', () => {
       
       it('should detect group headers in grouped table', () => {
@@ -1587,6 +1761,203 @@ describe('Table Merge Utils', () => {
     });
   });
 
+  describe('merged-cell style (repeated values)', () => {
+
+    it('should merge repeated first column values (rowspan)', () => {
+      // Merged-cell export style: no blanks at all, values repeat
+      const rows = [
+        ['水果', '苹果'],
+        ['水果', '香蕉'],
+        ['水果', '葡萄'],
+        ['蔬菜', '番茄'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      assert.ok(analysis?.shouldMerge);
+      assert.ok(analysis?.tree.isTree);
+      
+      // Col 0: '水果' spans 3 rows
+      assert.strictEqual(mergeInfo[0][0].rowspan, 3);
+      assert.strictEqual(mergeInfo[0][0].shouldRender, true);
+      assert.strictEqual(mergeInfo[1][0].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][0].shouldRender, false);
+      
+      // '蔬菜' starts a new segment
+      assert.strictEqual(mergeInfo[3][0].rowspan, 1);
+      assert.strictEqual(mergeInfo[3][0].shouldRender, true);
+      
+      // Col 1: distinct values, no merge
+      assert.strictEqual(mergeInfo[0][1].rowspan, 1);
+      assert.strictEqual(mergeInfo[1][1].rowspan, 1);
+    });
+    
+    it('should merge fully repeated tree table (all columns repeated)', () => {
+      const rows = [
+        ['研发部', '前端组', '张三'],
+        ['研发部', '前端组', '李四'],
+        ['研发部', '后端组', '王五'],
+        ['产品部', '产品组', '赵六'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      assert.ok(analysis?.shouldMerge);
+      assert.strictEqual(analysis?.tree.columnCount, 2);
+      
+      // Col 0: '研发部' spans rows 0-2
+      assert.strictEqual(mergeInfo[0][0].rowspan, 3);
+      assert.strictEqual(mergeInfo[1][0].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][0].shouldRender, false);
+      
+      // Col 1: '前端组' spans rows 0-1, '后端组' row 2
+      assert.strictEqual(mergeInfo[0][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][1].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][1].shouldRender, true);
+      
+      // Col 2: leaf values, no merge
+      assert.strictEqual(mergeInfo[0][2].rowspan, 1);
+      assert.strictEqual(mergeInfo[1][2].rowspan, 1);
+      assert.strictEqual(mergeInfo[2][2].rowspan, 1);
+    });
+    
+    it('should not merge table with only a repeated last column', () => {
+      const rows = [
+        ['苹果', '5元', '热销'],
+        ['香蕉', '3元', '热销'],
+        ['葡萄', '8元', '热销'],
+        ['橙子', '4元', '热销'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      // Repeated remark column alone is not a tree structure
+      assert.strictEqual(analysis?.shouldMerge, false);
+      for (const row of mergeInfo) {
+        for (const cell of row) {
+          assert.strictEqual(cell.rowspan, 1);
+          assert.strictEqual(cell.shouldRender, true);
+        }
+      }
+    });
+    
+    it('should respect parent boundary with repeated cells', () => {
+      // Repeated-style variant of the subtotal pattern
+      const rows = [
+        ['L0-A', 'L1-a', 'L2-x', '3.0'],
+        ['L0-A', 'L1-a', 'L2-x', '2.5'],   // fully repeated row
+        ['L0-A', 'L1-b', 'L2-y', '1.5'],
+        ['L0-A', 'Sub',  '',     '8.5'],   // col0 repeats, col1 boundary
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      assert.ok(analysis?.shouldMerge);
+      
+      // Sub row: col2 must NOT merge upward (col1 'Sub' is a boundary)
+      assert.strictEqual(mergeInfo[3][2].shouldRender, true);
+      assert.strictEqual(mergeInfo[3][2].rowspan, 1);
+      
+      // Col 1: 'L1-a' spans rows 0-1
+      assert.strictEqual(mergeInfo[0][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][1].shouldRender, false);
+      
+      // Col 2: 'L2-x' spans rows 0-1
+      assert.strictEqual(mergeInfo[0][2].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][2].shouldRender, false);
+    });
+    
+    it('should treat repeat-collapsed section row as header (colspan) and merge tree', () => {
+      // Row 3 repeats only the last column → collapses to ['市场部','销售组','']
+      // which is a group header (colspan), while rows above stay a tree
+      const rows = [
+        ['研发部', '前端组', '张三'],
+        ['研发部', '前端组', '李四'],
+        ['研发部', '后端组', '王五'],
+        ['市场部', '销售组', '王五'],   // trailing col repeats above
+        ['市场部', '销售组', '赵六'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      // Row 3 detected as group header → colspan on the second cell
+      assert.ok(analysis?.groupHeaders.rows.includes(3));
+      assert.strictEqual(mergeInfo[3][0].colspan, 1);
+      assert.strictEqual(mergeInfo[3][1].colspan, 2);
+      assert.strictEqual(mergeInfo[3][2].shouldRender, false);
+      
+      // Tree above the header merges normally
+      assert.strictEqual(mergeInfo[0][0].rowspan, 3);
+      assert.strictEqual(mergeInfo[1][0].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][0].shouldRender, false);
+      assert.strictEqual(mergeInfo[0][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][1].shouldRender, false);
+      
+      // After the header boundary, row 4 starts a new segment (no anchor above)
+      assert.strictEqual(mergeInfo[4][0].shouldRender, true);
+      assert.strictEqual(mergeInfo[4][0].rowspan, 1);
+    });
+    
+    it('should handle mixed blank-style and repeat-style rows', () => {
+      const rows = [
+        ['研发部', '前端组', '张三'],
+        ['',       '',       '李四'],    // blank style
+        ['研发部', '后端组', '王五'],    // repeat style (new anchor)
+        ['',       '',       '赵六'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      assert.ok(analysis?.shouldMerge);
+      
+      // Col 0: '研发部' rows 0-1, then rows 2-3
+      assert.strictEqual(mergeInfo[0][0].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][0].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][0].rowspan, 2);
+      assert.strictEqual(mergeInfo[3][0].shouldRender, false);
+      
+      // Col 1: '前端组' rows 0-1, '后端组' rows 2-3
+      assert.strictEqual(mergeInfo[0][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[2][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[3][1].shouldRender, false);
+    });
+    
+    it('should handle repeated values with surrounding whitespace', () => {
+      const rows = [
+        ['水果', '苹果'],
+        [' 水果 ', '香蕉'],
+        ['水果', '葡萄'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      assert.ok(analysis?.shouldMerge);
+      assert.strictEqual(mergeInfo[0][0].rowspan, 3);
+      assert.strictEqual(mergeInfo[1][0].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][0].shouldRender, false);
+    });
+    
+    it('should not merge comparison table with repeated markers', () => {
+      const rows = [
+        ['功能A', '✓', '✓'],
+        ['功能B', '✓', '✓'],
+        ['功能C', '✓', '✓'],
+      ];
+      
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+      
+      assert.strictEqual(analysis?.tableType, 'comparison');
+      assert.strictEqual(analysis?.shouldMerge, false);
+      for (const row of mergeInfo) {
+        for (const cell of row) {
+          assert.strictEqual(cell.rowspan, 1);
+          assert.strictEqual(cell.shouldRender, true);
+        }
+      }
+    });
+    
+  });
+  
   describe('edge cases', () => {
     
     it('should handle leading empty cells with later non-empty anchor', () => {

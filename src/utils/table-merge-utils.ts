@@ -11,6 +11,7 @@
 import { 
   analyzeTableStructure, 
   mightNeedAnalysis,
+  normalizeRepeatedCells,
   type TableAnalysisResult 
 } from './table-structure-analyzer';
 
@@ -97,13 +98,19 @@ export function calculateMergeInfo(rows: CellContent[][]): CellMergeInfo[][] {
   // Convert to string matrix for analysis
   const stringMatrix = rows.map(row => row.map(cell => cell.text || ''));
   
-  // Quick check: if no empty cells, no merge needed
-  if (!mightNeedAnalysis(stringMatrix)) {
+  // Normalize "merged-cell style" tables: cells that repeat the value of the
+  // cell directly above represent the same logical merged cell (common when
+  // tables are exported from Excel/WPS with merges expanded), so they are
+  // treated as empty for both structure analysis and merging.
+  const normalizedMatrix = normalizeRepeatedCells(stringMatrix);
+  
+  // Quick check: if no empty cells (after normalization), no merge needed
+  if (!mightNeedAnalysis(normalizedMatrix)) {
     return mergeInfo;
   }
 
-  // Analyze table structure
-  const analysis = analyzeTableStructure(stringMatrix);
+  // Analyze table structure (repeat-of-above treated as blank)
+  const analysis = analyzeTableStructure(stringMatrix, { treatRepeatsAsEmpty: true });
   
   // If table shouldn't be merged, return default (no merge)
   if (!analysis.shouldMerge) {
@@ -129,17 +136,19 @@ export function calculateMergeInfo(rows: CellContent[][]): CellMergeInfo[][] {
       }
 
       // Child column merge must not exceed any preceding column boundary
+      // (uses the normalized matrix, so repeated parent values do not reset
+      // the anchor)
       for (let prevCol = 0; prevCol < col; prevCol++) {
-        const prevCell = rows[row]?.[prevCol];
-        if (prevCell && !isCellEmpty(prevCell)) {
+        const prevCell = normalizedMatrix[row]?.[prevCol];
+        if (!isTextEmpty(prevCell)) {
           anchorRow = -1;
           break;
         }
       }
       
-      const cell = rows[row]?.[col];
+      const cellText = normalizedMatrix[row]?.[col];
       
-      if (!cell || isCellEmpty(cell)) {
+      if (isTextEmpty(cellText)) {
         // Empty cell: merge into anchor (if anchor exists)
         if (anchorRow >= 0 && row > anchorRow) {
           mergeInfo[row][col].shouldRender = false;
@@ -181,13 +190,19 @@ export function calculateMergeInfoWithAnalysis(rows: CellContent[][]): {
   // Convert to string matrix for analysis
   const stringMatrix = rows.map(row => row.map(cell => cell.text || ''));
   
-  // Quick check: if no empty cells, no merge needed
-  if (!mightNeedAnalysis(stringMatrix)) {
+  // Normalize "merged-cell style" tables: cells that repeat the value of the
+  // cell directly above represent the same logical merged cell (common when
+  // tables are exported from Excel/WPS with merges expanded), so they are
+  // treated as empty for both structure analysis and merging.
+  const normalizedMatrix = normalizeRepeatedCells(stringMatrix);
+  
+  // Quick check: if no empty cells (after normalization), no merge needed
+  if (!mightNeedAnalysis(normalizedMatrix)) {
     return { mergeInfo, analysis: null };
   }
 
-  // Analyze table structure
-  const analysis = analyzeTableStructure(stringMatrix);
+  // Analyze table structure (repeat-of-above treated as blank)
+  const analysis = analyzeTableStructure(stringMatrix, { treatRepeatsAsEmpty: true });
   
   // If table shouldn't be merged, return default (no merge)
   if (!analysis.shouldMerge) {
@@ -203,12 +218,14 @@ export function calculateMergeInfoWithAnalysis(rows: CellContent[][]): {
     if (row >= rowCount) continue;
     
     // Find the first non-empty cell and merge all trailing empty cells
+    // (uses the normalized matrix, so repeated values in a merged-cell-style
+    // header row are treated as the same merged cell)
     let anchorCol = -1;
     for (let col = 0; col < colCount; col++) {
-      const cell = rows[row]?.[col];
-      const isEmpty = !cell || isCellEmpty(cell);
+      const cellText = normalizedMatrix[row]?.[col];
+      const cellIsEmpty = isTextEmpty(cellText);
       
-      if (!isEmpty) {
+      if (!cellIsEmpty) {
         // If we had a previous anchor, finish its colspan
         if (anchorCol >= 0 && col > anchorCol + 1) {
           mergeInfo[row][anchorCol].colspan = col - anchorCol;
@@ -224,8 +241,8 @@ export function calculateMergeInfoWithAnalysis(rows: CellContent[][]): {
       // Check if all remaining cells are empty
       let allEmpty = true;
       for (let col = anchorCol + 1; col < colCount; col++) {
-        const cell = rows[row]?.[col];
-        if (cell && !isCellEmpty(cell)) {
+        const cellText = normalizedMatrix[row]?.[col];
+        if (!isTextEmpty(cellText)) {
           allEmpty = false;
           break;
         }
@@ -249,17 +266,19 @@ export function calculateMergeInfoWithAnalysis(rows: CellContent[][]): {
       }
 
       // Child column merge must not exceed any preceding column boundary
+      // (uses the normalized matrix, so repeated parent values do not reset
+      // the anchor)
       for (let prevCol = 0; prevCol < col; prevCol++) {
-        const prevCell = rows[row]?.[prevCol];
-        if (prevCell && !isCellEmpty(prevCell)) {
+        const prevCell = normalizedMatrix[row]?.[prevCol];
+        if (!isTextEmpty(prevCell)) {
           anchorRow = -1;
           break;
         }
       }
       
-      const cell = rows[row]?.[col];
+      const cellText = normalizedMatrix[row]?.[col];
       
-      if (!cell || isCellEmpty(cell)) {
+      if (isTextEmpty(cellText)) {
         if (anchorRow >= 0 && row > anchorRow) {
           mergeInfo[row][col].shouldRender = false;
           mergeInfo[anchorRow][col].rowspan = row - anchorRow + 1;

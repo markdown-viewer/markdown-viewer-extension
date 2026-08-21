@@ -425,8 +425,9 @@ describe('Baseline: fixed theme "default"', () => {
         ['section.footnotes', 'sup'],
         { ...FIXED_PARAMS, ...CENTER },
       );
-      // NOTE (baseline observation): footnote references currently render as
-      // plain <sup> via remark-super-sub instead of sup.footnote-ref links.
+      // NOTE (baseline observation): footnote references render as
+      // sup.footnote-ref elements produced by the footnote postprocessor
+      // (src/core/footnote-postprocessor.ts), not by the remark pipeline.
       // firstOf() already asserts both selectors match; asserting the section
       // typography here keeps the baseline stable across pipeline changes.
       const section = firstOf(m, 'section.footnotes');
