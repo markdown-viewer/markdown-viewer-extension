@@ -223,3 +223,101 @@ describe('whole-book EPUB contract (real pipeline)', () => {
     assert.match(documentXml, /Reference[\s\S]*Chapter Two/, 'DOCX must include the second summary group heading before its chapter');
   });
 });
+
+/**
+ * Whole-book EPUB image embedding (nested chapter directories).
+ *
+ * Chapters live in subdirectories (`chapters/reference/...`) and reference
+ * images with `../../assets/...` relative paths. Every image must be embedded
+ * into the EPUB (data: URL or packaged `images/` file) — leaving absolute
+ * `file://` or `../` references produces an EPUB whose images cannot display
+ * in any reader. Regression guard for the CLI book export path where page
+ * hrefs were resolved without a base URL and the EPUB export never received a
+ * document service, so chapter images stayed as external references.
+ */
+describe('whole-book EPUB image embedding (nested chapters)', () => {
+  const NESTED_DIR = path.resolve('test/fixtures/book-nested');
+  const NESTED_PAGES = [
+    { href: 'chapters/reference/06-identity.md', title: '06 证书' },
+  ] as const;
+
+  let harness: BrowserRenderHarness;
+
+  before(async () => {
+    harness = await createBrowserRenderHarness({ inputPath: path.join(NESTED_DIR, 'SUMMARY.md') });
+  });
+
+  after(async () => {
+    await harness.dispose();
+  });
+
+  it('embeds every chapter image (no file:// or ../ references survive)', async () => {
+    const { base64 } = await harness.renderBookEpub([...NESTED_PAGES], {
+      ...FIXED_PARAMS,
+      inputPath: path.join(NESTED_DIR, 'SUMMARY.md'),
+    });
+    const zip = await JSZip.loadAsync(Buffer.from(base64, 'base64'));
+    const files = Object.keys(zip.files);
+    const chapterNames = files
+      .filter((n) => /^OEBPS\/\d+-.*\.xhtml$/.test(n))
+      .sort();
+    assert.ok(chapterNames.length >= 1, 'whole-book EPUB must contain the nested chapter');
+
+    const packagedImages = files.filter((n) => /^OEBPS\/images\//.test(n));
+    let imageRefCount = 0;
+    let externalRefs = 0;
+    let packagedRefs = 0;
+
+    for (const name of chapterNames) {
+      const chapter = await zip.files[name].async('string');
+      const srcs = Array.from(chapter.matchAll(/<img\b[^>]*\bsrc=(["'])(.*?)\1/g)).map((m) => m[2]);
+      for (const src of srcs) {
+        imageRefCount += 1;
+        if (src.startsWith('data:') || src.startsWith('images/')) {
+          packagedRefs += 1;
+        } else {
+          externalRefs += 1;
+        }
+      }
+    }
+
+    assert.equal(
+      externalRefs,
+      0,
+      `chapter images must not reference external file:// or relative paths (${externalRefs} leaked: check src attributes)`,
+    );
+    assert.equal(
+      packagedRefs,
+      imageRefCount,
+      'every chapter image must be embedded as a packaged/data reference',
+    );
+    assert.ok(
+      packagedImages.length >= 2,
+      `EPUB must package the referenced images (got ${packagedImages.length}: ${packagedImages.join(', ')})`,
+    );
+  });
+
+  it('embeds images whose filenames contain non-ASCII characters', async () => {
+    const { base64 } = await harness.renderBookEpub([...NESTED_PAGES], {
+      ...FIXED_PARAMS,
+      inputPath: path.join(NESTED_DIR, 'SUMMARY.md'),
+    });
+    const zip = await JSZip.loadAsync(Buffer.from(base64, 'base64'));
+    const files = Object.keys(zip.files);
+    const chapterNames = files.filter((n) => /^OEBPS\/\d+-.*\.xhtml$/.test(n));
+
+    const chapter = await zip.files[chapterNames[0]].async('string');
+    const srcs = Array.from(chapter.matchAll(/<img\b[^>]*\bsrc=(["'])(.*?)\1/g)).map((m) => m[2]);
+    assert.ok(srcs.length >= 2, 'nested chapter must reference its two images');
+    for (const src of srcs) {
+      assert.ok(
+        src.startsWith('data:') || src.startsWith('images/'),
+        `non-ASCII image must be embedded (got "${src.slice(0, 80)}")`,
+      );
+    }
+    assert.ok(
+      files.some((n) => /^OEBPS\/images\//.test(n)),
+      'EPUB must contain packaged image files',
+    );
+  });
+});

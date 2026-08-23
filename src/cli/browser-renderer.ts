@@ -140,6 +140,29 @@ function mapCliBookTocEntries(entries: CliBookTocEntryInput[] | undefined) {
   });
 }
 
+/**
+ * Resolve every book page href to an absolute URL against the harness
+ * document base URL. Relative SUMMARY.md targets (e.g. `chapters/a.md`) must
+ * become absolute before `preprocessPage` absolutizes the page's own relative
+ * image/link URLs — with a relative page href `new URL(img, pageHref)` throws
+ * and every image stays relative, so whole-book EPUB exports end up with
+ * external (broken) image references.
+ */
+function resolveBookPageHrefs(
+  request: CliBrowserRenderRequest,
+): Array<{ href: string; title: string; depth?: number }> {
+  const baseUrl = `${request.documentBaseUrl || 'http://127.0.0.1/'}/`;
+  return (request.pages || []).map((page) => {
+    let href = page.href;
+    try {
+      href = new URL(page.href, baseUrl).href;
+    } catch {
+      // Keep the raw href when it cannot be parsed (fetchPage will surface the error).
+    }
+    return { href, title: page.title, depth: page.depth };
+  });
+}
+
 function createDocumentService(request: CliBrowserRenderRequest): DocumentService {
   const readResponse = async (url: string, binary = false): Promise<string> => {
     const response = await fetch(url);
@@ -435,7 +458,7 @@ async function renderBookDom(
   const { renderBookForPrint } = await import('../exporters/book-renderer');
   const platform = globalThis.platform as PlatformAPI;
   const rendered = await renderBookForPrint({
-    pages: request.pages.map((p) => ({ href: p.href, title: p.title, depth: p.depth })),
+    pages: resolveBookPageHrefs(request),
     fetchPage: async (href) => {
       const content = await platform.document.readRelativeFile(href);
       return content;
@@ -483,7 +506,8 @@ async function renderBookEpub(
   let exportError: string | null = null;
 
   const result = await exportBookToEpub({
-    pages: request.pages.map((p) => ({ href: p.href, title: p.title, depth: p.depth })),
+    pages: resolveBookPageHrefs(request),
+    documentService: platform.document,
     navEntries: mapCliBookTocEntries(request.tocEntries),
     bookTitle: request.bookTitle || request.title,
     filename: request.filename,
@@ -601,7 +625,7 @@ async function renderBookDocx(
   const { exportBookToDocx } = await import('../exporters/book-exporter');
   const platform = globalThis.platform as PlatformAPI;
   const result = await exportBookToDocx({
-    pages: request.pages.map((p) => ({ href: p.href, title: p.title, depth: p.depth })),
+    pages: resolveBookPageHrefs(request),
     navEntries: mapCliBookTocEntries(request.tocEntries),
     bookTitle: request.bookTitle || request.title,
     filename: request.filename,
@@ -662,7 +686,7 @@ async function renderBookPdf(
   const { buildPrintCss, BOOK_PRINT_CSS } = await import('../ui/print-utils');
   const platform = globalThis.platform as PlatformAPI;
   await renderBookForPrint({
-    pages: request.pages.map((p) => ({ href: p.href, title: p.title, depth: p.depth })),
+    pages: resolveBookPageHrefs(request),
     fetchPage: async (href) => platform.document.readRelativeFile(href),
     renderer: platform.renderer,
     translate: (key) => key,

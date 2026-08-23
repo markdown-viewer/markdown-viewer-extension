@@ -215,8 +215,9 @@ describe('Baseline: fixed theme "default"', () => {
       const paragraph = firstOf(m, '#markdown-content p');
       // Default theme drives paragraph spacing through line-height (margin 0);
       // a refactor that silently changes either dimension fails here.
-      assert.equal(paragraph.fontSize, '16px');
-      assert.equal(paragraph.lineHeight, '24px');
+      // 14pt body (db81b3c): 14pt = 18.6667px, line-height 1.5 = 28px.
+      assert.equal(paragraph.fontSize, '18.6667px');
+      assert.equal(paragraph.lineHeight, '28px');
       assert.equal(paragraph.marginTop, '0px');
       assert.equal(paragraph.marginBottom, '0px');
       assert.notEqual(paragraph.color, 'rgba(0, 0, 0, 0)', 'Body text color should be set');
@@ -232,8 +233,9 @@ describe('Baseline: fixed theme "default"', () => {
       const h2 = firstOf(m, '#markdown-content h2');
       assert.ok(px(h1.marginTop) > 0 && px(h1.marginBottom) > 0, 'h1 should keep block spacing');
       assert.ok(px(h2.marginTop) > 0 && px(h2.marginBottom) > 0, 'h2 should keep block spacing');
-      assert.equal(h1.fontSize, '24px', 'Default theme h1 should stay 24px');
-      assert.equal(h2.fontSize, '21.3333px', 'Default theme h2 should stay 21.3333px');
+      // 14pt body theme (db81b3c): h1 20pt = 26.6667px, h2 18pt = 24px.
+      assert.equal(h1.fontSize, '26.6667px', 'Default theme h1 should stay 26.6667px');
+      assert.equal(h2.fontSize, '24px', 'Default theme h2 should stay 24px');
     });
 
     it('hr keeps vertical margins and a visible rule color', async () => {
@@ -347,8 +349,9 @@ describe('Baseline: fixed theme "default"', () => {
       const ulItem = firstOf(m, 'ul li');
       const olItem = firstOf(m, 'ol li');
       assert.ok(px(ulItem.marginBottom) > 0, 'List items should keep bottom spacing');
-      assert.equal(ulItem.fontSize, '16px', 'List items should use the body font size');
-      assert.equal(olItem.fontSize, '16px');
+      // 14pt body theme (db81b3c): 14pt = 18.6667px.
+      assert.equal(ulItem.fontSize, '18.6667px', 'List items should use the body font size');
+      assert.equal(olItem.fontSize, '18.6667px');
     });
   });
 
@@ -401,7 +404,8 @@ describe('Baseline: fixed theme "default"', () => {
       );
       const paragraph = firstOf(m, '#markdown-content p');
       // Plain text-indent only: the each-line keyword is not EPUB-compatible.
-      assert.equal(paragraph.textIndent, '32px', 'First-line indent should be a plain 2em (32px) text-indent');
+      // 2em of the 14pt (18.6667px) body = 37.3333px.
+      assert.equal(paragraph.textIndent, '37.3333px', 'First-line indent should be a plain 2em (37.3333px) text-indent');
     });
 
     it('keeps no text-indent when firstLineIndent is 0', async () => {
@@ -445,7 +449,8 @@ describe('Baseline: fixed theme "default"', () => {
       assert.ok(px(display.marginTop) > 0 && px(display.marginBottom) > 0,
         'Display math should keep block margins');
       const inline = firstOf(m, '.katex');
-      assert.equal(inline.fontSize, '16px', 'KaTeX should follow the body font size');
+      // 14pt body theme (db81b3c): KaTeX follows the body font size.
+      assert.equal(inline.fontSize, '18.6667px', 'KaTeX should follow the body font size');
     });
   });
 });

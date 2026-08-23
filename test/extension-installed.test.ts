@@ -163,6 +163,24 @@ const SET_STORAGE_JS = `(settings) => chrome.storage.local.set({ markdownViewerS
 
 const POST_OPEN_DOCUMENT_JS = `(msg) => window.postMessage(msg, '*')`;
 
+/**
+ * Resolve the extension id from the background service worker. Polling is
+ * more reliable than waitForEvent('serviceworker') — on cold starts the
+ * worker registration event can be missed while the profile is being
+ * created.
+ */
+async function waitForExtensionId(context: BrowserContext): Promise<string> {
+  const deadline = Date.now() + 40000;
+  for (;;) {
+    const id = context.serviceWorkers().map((w) => w.url().split('/')[2]).find(Boolean);
+    if (id) return id;
+    if (Date.now() >= deadline) {
+      throw new Error('extension service worker not registered (timeout)');
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
 const MOCK_PICKER_JS = `(fixtures) => {
   const handles = {};
   for (const [name, content] of Object.entries(fixtures)) {
@@ -212,8 +230,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       ],
     });
 
-    const worker = await context.waitForEvent('serviceworker', { timeout: 30000 });
-    extensionId = worker.url().split('/')[2];
+    extensionId = await waitForExtensionId(context);
 
     standalonePage = await context.newPage();
     embedPage = await context.newPage();
@@ -449,8 +466,9 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       await waitForContent(mode, 'p');
       const m = await measure(mode, [`${contentSel(mode)} p`]);
       const p = firstOf(m, `${contentSel(mode)} p`);
-      assert.equal(p.fontSize, '16px', ctx('body font size should stay 16px'));
-      assert.equal(p.lineHeight, '24px', ctx('body line-height should stay 1.5 (24px)'));
+      // 14pt body theme (db81b3c): 14pt = 18.6667px, line-height 1.5 = 28px.
+      assert.equal(p.fontSize, '18.6667px', ctx('body font size should stay 18.6667px'));
+      assert.equal(p.lineHeight, '28px', ctx('body line-height should stay 1.5 (28px)'));
       assert.notEqual(p.color, 'rgba(0, 0, 0, 0)', ctx('body text color should be set'));
       assert.ok(p.fontFamily.includes('FangSong'), ctx('body font stack should keep FangSong first'));
     }
@@ -464,8 +482,9 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       const h2 = firstOf(m, `${contentSel(mode)} h2`);
       assert.ok(px(h1.marginTop) > 0 && px(h1.marginBottom) > 0, ctx('h1 should keep block spacing'));
       assert.ok(px(h2.marginTop) > 0 && px(h2.marginBottom) > 0, ctx('h2 should keep block spacing'));
-      assert.equal(h1.fontSize, '24px', ctx('h1 should stay 24px'));
-      assert.equal(h2.fontSize, '21.3333px', ctx('h2 should stay 21.3333px'));
+      // 14pt body theme (db81b3c): h1 20pt = 26.6667px, h2 18pt = 24px.
+      assert.equal(h1.fontSize, '26.6667px', ctx('h1 should stay 26.6667px'));
+      assert.equal(h2.fontSize, '24px', ctx('h2 should stay 24px'));
     }
 
     // hr
@@ -492,7 +511,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       const code = firstOf(m, `${contentSel(mode)} code`);
       assert.notEqual(code.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('inline code should have a background'));
       assert.ok(px(code.paddingLeft) > 0, ctx('inline code should keep horizontal padding'));
-      assert.ok(px(code.fontSize) < 16, ctx('inline code should be smaller than body text'));
+      assert.ok(px(code.fontSize) < 18.6667, ctx('inline code should be smaller than the 14pt body text'));
     }
 
     // lists
@@ -503,7 +522,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       assert.ok(px(firstOf(m, 'ul').paddingLeft) > 0, ctx('unordered list should keep indentation padding'));
       assert.ok(px(firstOf(m, 'ol').paddingLeft) > 0, ctx('ordered list should keep indentation padding'));
       const li = firstOf(m, 'ul li');
-      assert.equal(li.fontSize, '16px', ctx('list items should use the body font size'));
+      assert.equal(li.fontSize, '18.6667px', ctx('list items should use the body font size'));
       assert.ok(px(li.marginBottom) > 0, ctx('list items should keep bottom spacing'));
     }
 
@@ -533,7 +552,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       const m = await measure(mode, ['.katex-display', '.katex']);
       const display = firstOf(m, '.katex-display');
       assert.ok(px(display.marginTop) > 0 && px(display.marginBottom) > 0, ctx('display math should keep block margins'));
-      assert.equal(firstOf(m, '.katex').fontSize, '16px', ctx('KaTeX should follow the body font size'));
+      assert.equal(firstOf(m, '.katex').fontSize, '18.6667px', ctx('KaTeX should follow the body font size'));
     }
   };
 
@@ -616,5 +635,442 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       return Boolean(wrap && getComputedStyle(wrap).overflowY !== 'hidden');
     }`);
     assert.ok(hostClean, 'the filtered stylesheet must not leak global body rules into the host page');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Nested-directory previews (workspace mode)
+//
+// Regression guards: opening a file in a subdirectory of the workspace and
+// previewing it must resolve relative images against THAT file's directory.
+// The browser serializes non-ASCII `src` attributes percent-encoded
+// (`06-01-%E8%AF%81...png`), so the File System Access lookup must decode the
+// path before resolving — otherwise every Chinese-named image is "not found".
+// ────────────────────────────────────────────────────────────────────────────
+
+const NESTED_BOOK_DIR = path.resolve('test/fixtures/book-nested');
+
+// 1x1 red PNG (base64) so `naturalWidth` assertions are meaningful.
+const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+/**
+ * Mock picker with a NESTED directory tree plus binary-safe PNG fixtures.
+ * File content: `{ text: '...' }` for markdown, `{ base64: '...' }` for PNGs.
+ */
+const NESTED_PICKER_JS = `(fixtures) => {
+  const decodeEntry = (value) => {
+    if (typeof value === 'string') return value;
+    if (value && typeof value.base64 === 'string') {
+      return Uint8Array.from(atob(value.base64), (c) => c.charCodeAt(0));
+    }
+    if (value && typeof value.text === 'string') return value.text;
+    return String(value);
+  };
+  const makeFileHandle = (name, value) => ({
+    name,
+    kind: 'file',
+    getFile: async () => new File([decodeEntry(value)], name),
+  });
+  const makeDirHandle = (name, entries) => {
+    const children = {};
+    for (const [childName, value] of Object.entries(entries)) {
+      if (value && typeof value === 'object' && !value.base64 && !value.text && typeof value.getFileHandle !== 'function') {
+        children[childName] = makeDirHandle(childName, value);
+      } else {
+        children[childName] = makeFileHandle(childName, value);
+      }
+    }
+    return {
+      name,
+      kind: 'directory',
+      queryPermission: async () => 'granted',
+      requestPermission: async () => 'granted',
+      getFileHandle: async (childName) => {
+        const h = children[childName];
+        if (!h || h.kind !== 'file') throw new DOMException('Not found', 'NotFoundError');
+        return h;
+      },
+      getDirectoryHandle: async (childName) => {
+        const h = children[childName];
+        if (!h || h.kind !== 'directory') throw new DOMException('Not found', 'NotFoundError');
+        return h;
+      },
+      [Symbol.asyncIterator]: async function* () {
+        for (const [n, h] of Object.entries(children)) yield [n, h];
+      },
+    };
+  };
+  window.showDirectoryPicker = async () => makeDirHandle('book-nested', fixtures);
+}`;
+
+describe('installed Chrome extension — workspace preview of nested-directory files', { skip: SKIP_EXT }, () => {
+  let context: BrowserContext;
+  let extensionId = '';
+  let userDataDir = '';
+  let workspacePage: Page;
+
+  before(async () => {
+    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
+      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
+    });
+
+    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-nested-workspace-'));
+    context = await chromium.launchPersistentContext(userDataDir, {
+      channel: 'chromium',
+      headless: false,
+      args: [
+        `--disable-extensions-except=${EXT_DIR}`,
+        `--load-extension=${EXT_DIR}`,
+        '--no-first-run',
+        '--disable-default-apps',
+        '--allow-file-access-from-files',
+      ],
+    });
+
+    extensionId = await waitForExtensionId(context);
+
+    const nestedFixture = {
+      'SUMMARY.md': { text: fs.readFileSync(path.join(NESTED_BOOK_DIR, 'SUMMARY.md'), 'utf8') },
+      'README.md': { text: fs.readFileSync(path.join(NESTED_BOOK_DIR, 'README.md'), 'utf8') },
+      chapters: {
+        reference: {
+          '06-identity.md': {
+            text: fs.readFileSync(path.join(NESTED_BOOK_DIR, 'chapters/reference/06-identity.md'), 'utf8'),
+          },
+        },
+      },
+      assets: {
+        images: {
+          'logo.png': { base64: PNG_BASE64 },
+          'f06-identity': {
+            '06-01-证书管理.png': { base64: PNG_BASE64 },
+          },
+        },
+      },
+    };
+
+    workspacePage = await context.newPage();
+    await workspacePage.addInitScript(`(${NESTED_PICKER_JS})(${JSON.stringify(nestedFixture)})`);
+    await workspacePage.goto(`chrome-extension://${extensionId}/ui/workspace/workspace.html`, { waitUntil: 'load' });
+    await evalJs(workspacePage, `() => { (document.querySelector('#pick-directory')).click(); return true; }`);
+    await workspacePage.waitForSelector('.tree-item', { timeout: 30000 });
+  });
+
+  after(async () => {
+    await context?.close();
+    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+  });
+
+  const clickTreeItem = async (name: string) => {
+    await evalJs(workspacePage, `(name) => {
+      const item = Array.from(document.querySelectorAll('.tree-item')).find((el) => el.textContent.trim().startsWith(name));
+      if (item) item.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return Boolean(item);
+    }`, name);
+  };
+
+  it('previews images in a nested-directory file (incl. non-ASCII names)', async () => {
+    // Expand chapters → reference
+    await clickTreeItem('chapters');
+    await workspacePage.waitForTimeout(300);
+    await clickTreeItem('reference');
+    await workspacePage.waitForTimeout(300);
+    // Open the chapter file in the subdirectory
+    await evalJs(workspacePage, `(name) => {
+      const item = Array.from(document.querySelectorAll('.tree-item')).find((el) => el.textContent.includes(name));
+      if (item) item.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return Boolean(item);
+    }`, '06-identity.md');
+
+    const frame = await (async () => {
+      const deadline = Date.now() + 30000;
+      for (;;) {
+        const f = workspacePage.frames().find((fr) => fr.url().includes('viewer-embed'));
+        if (f) return f;
+        if (Date.now() >= deadline) throw new Error('workspace preview iframe not found (timeout)');
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    })();
+
+    await waitFor(frame, WAIT_RENDERED_JS);
+    // Wait until the image resolution round-trip replaced src with a blob URL.
+    await waitFor(frame, `() => {
+      const img = document.querySelector('#markdown-content img');
+      return Boolean(img && img.getAttribute('src') && img.getAttribute('src').startsWith('blob:'));
+    }`, 15000);
+
+    const report = await evalJs<Array<{ src: string; naturalWidth: number }>>(frame, `() => {
+      return Array.from(document.querySelectorAll('#markdown-content img')).map((img) => ({
+        src: (img.getAttribute('src') || '').slice(0, 60),
+        naturalWidth: img.naturalWidth,
+      }));
+    }`);
+    assert.ok(report.length >= 2, `nested chapter must render both images (got ${report.length})`);
+    for (const img of report) {
+      assert.ok(img.src.startsWith('blob:'), `workspace preview must resolve relative images to blob URLs (got "${img.src}")`);
+      assert.ok(img.naturalWidth > 0, `resolved image must be decodable (got naturalWidth=${img.naturalWidth})`);
+    }
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// SUMMARY (GitBook panel) preview of nested-directory chapters
+//
+// Clicking a chapter in the summary panel navigates IN PAGE (the page URL
+// stays on SUMMARY.md), so relative images inside subdirectory chapters must
+// be absolutized against the chapter's own URL before rendering — otherwise
+// `../../assets/...` resolves against the SUMMARY directory and every image
+// breaks.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('installed Chrome extension — SUMMARY panel preview of nested chapters', { skip: SKIP_EXT }, () => {
+  let context: BrowserContext;
+  let extensionId = '';
+  let userDataDir = '';
+  let summaryPage: Page;
+
+  before(async () => {
+    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
+      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
+    });
+
+    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-nested-summary-'));
+    context = await chromium.launchPersistentContext(userDataDir, {
+      channel: 'chromium',
+      headless: false,
+      args: [
+        `--disable-extensions-except=${EXT_DIR}`,
+        `--load-extension=${EXT_DIR}`,
+        '--no-first-run',
+        '--disable-default-apps',
+        '--allow-file-access-from-files',
+      ],
+    });
+
+    extensionId = await waitForExtensionId(context);
+
+    summaryPage = await context.newPage();
+    await summaryPage.goto('file://' + path.join(NESTED_BOOK_DIR, 'SUMMARY.md'), { waitUntil: 'load' });
+    // Wait for the viewer takeover AND the gitbook panel with chapter links.
+    await waitFor(summaryPage, WAIT_STANDALONE_READY_JS);
+    await waitFor(summaryPage, `() => Boolean(document.querySelector('#gitbook-panel a[data-href*="06-identity"]'))`);
+  });
+
+  after(async () => {
+    await context?.close();
+    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+  });
+
+  it('loads relative images of a subdirectory chapter clicked in the panel', async () => {
+    // Click the chapter link in the summary panel (in-page navigation).
+    await evalJs(summaryPage, `() => {
+      const link = document.querySelector('#gitbook-panel a[data-href*="06-identity"]');
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    }`);
+    await waitFor(summaryPage, `() => {
+      const img = document.querySelector('#markdown-content img');
+      return Boolean(img && img.naturalWidth > 0);
+    }`, 20000);
+
+    const report = await evalJs<Array<{ src: string; naturalWidth: number }>>(summaryPage, `() => {
+      return Array.from(document.querySelectorAll('#markdown-content img')).map((img) => ({
+        src: (img.getAttribute('src') || '').slice(0, 120),
+        naturalWidth: img.naturalWidth,
+      }));
+    }`);
+    assert.ok(report.length >= 2, `chapter must render both images (got ${report.length})`);
+    for (const img of report) {
+      assert.ok(img.naturalWidth > 0, `image must load against the chapter directory (got "${img.src}" naturalWidth=${img.naturalWidth})`);
+    }
+  });
+
+  it('keeps responding when further chapters are clicked after the first one', async () => {
+    // Regression guard: clicking a chapter must never leave the panel dead —
+    // every subsequent click has to re-render the preview. Covers both
+    // subdirectories and a second pass over an already-opened chapter.
+    const chapters = [
+      { needle: '06-identity', text: '证书' },
+      { needle: 'README.md', text: '首页' },
+      { needle: '06-identity', text: '证书' },
+    ];
+
+    for (const { needle, text } of chapters) {
+      const clicked = await evalJs<boolean>(summaryPage, `(needle) => {
+        const link = Array.from(document.querySelectorAll('#gitbook-panel a')).find(
+          (a) => (a.getAttribute('data-href') || '').includes(needle),
+        );
+        if (!link) return false;
+        link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        return true;
+      }`, needle);
+      assert.ok(clicked, `panel must contain a link for "${needle}"`);
+
+      await waitFor(summaryPage, `() => {
+        const c = document.getElementById('markdown-content');
+        return Boolean(c && c.textContent && c.textContent.includes('${text}'));
+      }`, 20000);
+    }
+  });
+
+  it('navigates markdown links INSIDE the rendered content in place (no page reload)', async () => {
+    // Regression guard: chapter-internal relative links are absolutized
+    // against the chapter URL, so clicking one natively would reload the
+    // whole page (janky). The viewer must intercept them and re-render in
+    // place — the page URL stays on SUMMARY.md.
+    const summaryUrl = 'file://' + path.join(NESTED_BOOK_DIR, 'SUMMARY.md');
+
+    // Open the chapter that contains a cross-chapter link.
+    await evalJs(summaryPage, `() => {
+      const link = Array.from(document.querySelectorAll('#gitbook-panel a')).find(
+        (a) => (a.getAttribute('data-href') || '').includes('06-identity'),
+      );
+      if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return Boolean(link);
+    }`);
+    await waitFor(summaryPage, `() => {
+      const c = document.getElementById('markdown-content');
+      return Boolean(c && c.textContent && c.textContent.includes('证书'));
+    }`, 20000);
+
+    // Click the in-content link to the tutorial chapter.
+    const clicked = await evalJs<boolean>(summaryPage, `() => {
+      const link = Array.from(document.querySelectorAll('#markdown-content a')).find(
+        (a) => (a.getAttribute('href') || '').includes('t01-tutorial'),
+      );
+      if (!link) return false;
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    }`);
+    assert.ok(clicked, 'rendered chapter must contain the cross-chapter link');
+
+    await waitFor(summaryPage, `() => {
+      const c = document.getElementById('markdown-content');
+      return Boolean(c && c.textContent && c.textContent.includes('教程正文内容'));
+    }`, 20000);
+
+    // The page must NOT have navigated — in-place switch keeps the URL.
+    assert.equal(
+      summaryPage.url().split('#')[0],
+      summaryUrl,
+      `in-content link navigation must stay in place (URL unchanged)`,
+    );
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// SUMMARY panel started from a CHAPTER file (not SUMMARY.md)
+//
+// Regression guard for the double file:// prefix bug: gitbook navigation
+// calls document.setDocumentPath(chapterUrl) with a FULL file:// URL, and the
+// Chrome document service used to derive `_baseUrl = file://<dir>` from the
+// URL — producing `file://file:///...`, an invalid base. The first panel
+// click still worked (baseUrl from page init was intact), but every later
+// click threw "Invalid base URL" in readRelativeFile, and on browsers where
+// fetch(file://) fails the panel fell back to a full page navigation.
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('installed Chrome extension — SUMMARY panel started from a chapter file', { skip: SKIP_EXT }, () => {
+  let context: BrowserContext;
+  let extensionId = '';
+  let userDataDir = '';
+  let chapterPage: Page;
+
+  before(async () => {
+    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
+      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
+    });
+
+    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-chapter-start-'));
+    context = await chromium.launchPersistentContext(userDataDir, {
+      channel: 'chromium',
+      headless: false,
+      args: [
+        `--disable-extensions-except=${EXT_DIR}`,
+        `--load-extension=${EXT_DIR}`,
+        '--no-first-run',
+        '--disable-default-apps',
+        '--allow-file-access-from-files',
+      ],
+    });
+
+    extensionId = await waitForExtensionId(context);
+
+    chapterPage = await context.newPage();
+    chapterPage.on('console', (msg) => {
+      if (msg.text().includes('Invalid base URL')) {
+        console.log('[chapter-start] console:', msg.text().slice(0, 200));
+      }
+    });
+    // Open a CHAPTER inside a subdirectory — the panel discovers SUMMARY.md
+    // by walking up from the page URL (the user's tpbaas scenario).
+    await chapterPage.goto(
+      'file://' + path.join(NESTED_BOOK_DIR, 'chapters/reference/06-identity.md'),
+      { waitUntil: 'load' },
+    );
+    await waitFor(chapterPage, WAIT_STANDALONE_READY_JS);
+    await waitFor(chapterPage, `() => document.querySelectorAll('#gitbook-panel a').length >= 3`);
+  });
+
+  after(async () => {
+    await context?.close();
+    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+  });
+
+  it('keeps navigating in place on the SECOND panel click (no Invalid base URL)', async () => {
+    const startUrl = 'file://' + path.join(NESTED_BOOK_DIR, 'chapters/reference/06-identity.md');
+    const errors: string[] = [];
+    const onConsole = (msg: { text: string }) => {
+      const t = msg.text();
+      if (t.includes('Invalid base URL') || t.includes('Failed to construct')) {
+        errors.push(t.slice(0, 200));
+      }
+    };
+    chapterPage.on('console', onConsole);
+    try {
+      // First click (works even with the old bug: baseUrl survived page init).
+      await evalJs(chapterPage, `(needle) => {
+        const link = Array.from(document.querySelectorAll('#gitbook-panel a')).find(
+          (a) => (a.getAttribute('data-href') || '').includes(needle),
+        );
+        if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        return Boolean(link);
+      }`, 't01-tutorial');
+      await waitFor(chapterPage, `() => {
+        const c = document.getElementById('markdown-content');
+        return Boolean(c && c.textContent && c.textContent.includes('教程正文内容'));
+      }`, 20000);
+      assert.equal(
+        chapterPage.url().split('#')[0],
+        startUrl,
+        'first click must stay in place',
+      );
+
+      // Second click — the bug corrupted _baseUrl after the first navigation.
+      await evalJs(chapterPage, `(needle) => {
+        const link = Array.from(document.querySelectorAll('#gitbook-panel a')).find(
+          (a) => (a.getAttribute('data-href') || '').includes('README'),
+        );
+        if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        return Boolean(link);
+      }`, 'README.md');
+      await waitFor(chapterPage, `() => {
+        const c = document.getElementById('markdown-content');
+        return Boolean(c && c.textContent && c.textContent.includes('首页'));
+      }`, 20000);
+
+      assert.equal(
+        chapterPage.url().split('#')[0],
+        startUrl,
+        'second click must also stay in place (no full page navigation)',
+      );
+      assert.deepEqual(
+        errors,
+        [],
+        `readRelativeFile must not throw "Invalid base URL" on the second click (got: ${errors.join(' | ')})`,
+      );
+    } finally {
+      chapterPage.off('console', onConsole);
+    }
   });
 });

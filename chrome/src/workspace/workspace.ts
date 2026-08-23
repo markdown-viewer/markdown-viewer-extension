@@ -948,6 +948,20 @@ function resolveRelativePath(fileDir: string, relativePath: string): string {
   return parts.join('/');
 }
 
+/**
+ * Decode a percent-encoded path from a rendered document. The browser
+ * serializes non-ASCII characters in `src`/`href` attributes as percent
+ * escapes (e.g. `06-01-%E8%AF%81...png`), but File System Access API lookups
+ * expect the real file name. Malformed sequences fall back to the raw path.
+ */
+function decodeDocumentPath(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 async function resolveFileFromRoot(path: string): Promise<File | null> {
   if (!rootDirHandle) {
     const droppedHandle = droppedFileHandles.get(path);
@@ -1338,7 +1352,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
 
   if (event.data?.type === 'RESOLVE_IMAGE') {
     const { src, id } = event.data;
-    const resolved = resolveRelativePath(currentFileDir, src);
+    const resolved = resolveRelativePath(currentFileDir, decodeDocumentPath(src));
     const file = await resolveFileFromRoot(resolved);
     if (file) {
       const url = URL.createObjectURL(file);
@@ -1353,7 +1367,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
     const hashIndex = rawPath.indexOf('#');
     const pathOnly = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
     if (pathOnly) {
-      const resolved = resolveRelativePath(currentFileDir, pathOnly);
+      const resolved = resolveRelativePath(currentFileDir, decodeDocumentPath(pathOnly));
       void navigateToWorkspaceFile(resolved);
     }
     return;
@@ -1362,7 +1376,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
   // File read requests from DocumentService.readRelativeFile (SVG plugin, DOCX export, etc.)
   if (event.data?.type === 'RESOLVE_FILE') {
     const { path, id, binary } = event.data;
-    const resolved = resolveRelativePath(currentFileDir, path);
+    const resolved = resolveRelativePath(currentFileDir, decodeDocumentPath(path));
     const file = await resolveFileFromRoot(resolved);
     if (file) {
       try {

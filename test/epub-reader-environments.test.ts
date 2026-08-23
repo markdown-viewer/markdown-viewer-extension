@@ -144,8 +144,9 @@ describe('EPUB reader environment matrix (full style suite)', () => {
     {
       const m = await harness.measureEpubReader(path.join(LAYOUT_DIR, 'body-text.md'), ['#markdown-content p'], env, { ...FIXED_PARAMS, ...CENTER });
       const p = firstOf(m, '#markdown-content p');
-      assert.equal(p.fontSize, '16px', ctx('body font size should stay 16px'));
-      assert.equal(p.lineHeight, '24px', ctx('body line-height should stay 1.5 (24px)'));
+      // 14pt body theme (db81b3c): 14pt = 18.6667px, line-height 1.5 = 28px.
+      assert.equal(p.fontSize, '18.6667px', ctx('body font size should stay 18.6667px'));
+      assert.equal(p.lineHeight, '28px', ctx('body line-height should stay 1.5 (28px)'));
       assert.equal(p.marginTop, '0px', ctx('body paragraph margin-top should stay 0'));
       assert.equal(p.marginBottom, '0px', ctx('body paragraph margin-bottom should stay 0'));
       assert.notEqual(p.color, 'rgba(0, 0, 0, 0)', ctx('body text color should be set'));
@@ -159,8 +160,9 @@ describe('EPUB reader environment matrix (full style suite)', () => {
       const h2 = firstOf(m, '#markdown-content h2');
       assert.ok(px(h1.marginTop) > 0 && px(h1.marginBottom) > 0, ctx('h1 should keep block spacing'));
       assert.ok(px(h2.marginTop) > 0 && px(h2.marginBottom) > 0, ctx('h2 should keep block spacing'));
-      assert.equal(h1.fontSize, '24px', ctx('h1 should stay 24px'));
-      assert.equal(h2.fontSize, '21.3333px', ctx('h2 should stay 21.3333px'));
+      // 14pt body theme (db81b3c): h1 20pt = 26.6667px, h2 18pt = 24px.
+      assert.equal(h1.fontSize, '26.6667px', ctx('h1 should stay 26.6667px'));
+      assert.equal(h2.fontSize, '24px', ctx('h2 should stay 24px'));
       assert.equal(h1.textAlign, 'center', ctx('h1 should stay centered'));
     }
 
@@ -184,7 +186,7 @@ describe('EPUB reader environment matrix (full style suite)', () => {
       const code = firstOf(m, '#markdown-content code');
       assert.notEqual(code.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('inline code should have a background'));
       assert.ok(px(code.paddingLeft) > 0, ctx('inline code should keep horizontal padding'));
-      assert.ok(px(code.fontSize) < 16, ctx('inline code should be smaller than body text'));
+      assert.ok(px(code.fontSize) < 18.6667, ctx('inline code should be smaller than the 14pt body text'));
     }
 
     // --- lists ---
@@ -193,7 +195,7 @@ describe('EPUB reader environment matrix (full style suite)', () => {
       assert.ok(px(firstOf(m, 'ul').paddingLeft) > 0, ctx('unordered list should keep indentation padding'));
       assert.ok(px(firstOf(m, 'ol').paddingLeft) > 0, ctx('ordered list should keep indentation padding'));
       const li = firstOf(m, 'ul li');
-      assert.equal(li.fontSize, '16px', ctx('list items should use the body font size'));
+      assert.equal(li.fontSize, '18.6667px', ctx('list items should use the body font size'));
       assert.ok(px(li.marginBottom) > 0, ctx('list items should keep bottom spacing'));
     }
 
@@ -208,7 +210,7 @@ describe('EPUB reader environment matrix (full style suite)', () => {
       const m = await harness.measureEpubReader(path.join(LAYOUT_DIR, 'math.md'), ['.katex-display', '.katex'], env, { ...FIXED_PARAMS, ...CENTER });
       const display = firstOf(m, '.katex-display');
       assert.ok(px(display.marginTop) > 0 && px(display.marginBottom) > 0, ctx('display math should keep block margins'));
-      assert.equal(firstOf(m, '.katex').fontSize, '16px', ctx('KaTeX should follow the body font size'));
+      assert.equal(firstOf(m, '.katex').fontSize, '18.6667px', ctx('KaTeX should follow the body font size'));
     }
   }
 

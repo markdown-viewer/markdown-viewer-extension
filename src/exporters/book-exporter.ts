@@ -22,6 +22,7 @@ import type {
 } from '../types/book-export';
 import type { PluginRenderer } from '../types/plugin';
 import type { TranslateFunction } from '../types/core';
+import type { DocumentService } from '../types/platform';
 
 // ============================================================================
 // Markers
@@ -321,6 +322,12 @@ export interface ExportBookToEpubOptions {
   fetchPage: (href: string) => Promise<string>;
   /** Diagram renderer (mermaid/plantuml etc.); optional */
   renderer?: PluginRenderer | null;
+  /**
+   * Optional platform document service used to embed chapter images.
+   * Without it, `ResourceEmbedder` cannot read local image files and every
+   * relative/absolute image reference stays in the EPUB unembedded (broken).
+   */
+  documentService?: DocumentService | null;
   translate: TranslateFunction;
   /** Auto-merge empty table cells (mirrors the viewer setting) */
   tableMergeEmpty?: boolean;
@@ -347,6 +354,7 @@ export async function exportBookToEpub(options: ExportBookToEpubOptions): Promis
     filename: filenameOption,
     fetchPage,
     renderer = null,
+    documentService = null,
     translate,
     tableMergeEmpty,
     tableLayout,
@@ -385,6 +393,7 @@ export async function exportBookToEpub(options: ExportBookToEpubOptions): Promis
       tocEntries: navEntries,
       title,
       filename,
+      documentService,
       onProgress: (phase, done, total) => {
         onProgress?.(phase, done, total);
       },

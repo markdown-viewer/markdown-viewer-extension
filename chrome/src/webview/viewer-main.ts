@@ -6,7 +6,7 @@
  */
 
 import DocxExporter from '../../../src/exporters/docx-exporter';
-import { exportBookToDocx, exportBookToEpub } from '../../../src/exporters/book-exporter';
+import { exportBookToDocx, exportBookToEpub, absolutizeMarkdownUrls } from '../../../src/exporters/book-exporter';
 import { renderBookForPrint } from '../../../src/exporters/book-renderer';
 import { printElement, BOOK_PRINT_CSS, PRINT_BLOCKED_BY_SANDBOX } from '../../../src/ui/print-utils';
 import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localization';
@@ -944,6 +944,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         imageLayout,
         diagramLayout,
         onProgress,
+        // Required so chapter images can be embedded: without a document
+        // service the EPUB export cannot read local image files and leaves
+        // broken external (file://) references in every chapter.
+        documentService: platform.document,
       });
     },
     onExportBookPdf: async ({ onProgress }) => {
@@ -1432,14 +1436,28 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   }
 
   // Setup GitBook navigation handler (navigate without page refresh)
-  onGitbookNavigate = async (url: string, content: string): Promise<void> => {
+  onGitbookNavigate = async (url: string, content: string, anchor?: string): Promise<void> => {
     try {
+      // Panel navigation keeps the page URL unchanged (it stays on the
+      // SUMMARY page), so relative image/link URLs inside a chapter would
+      // resolve against the SUMMARY directory instead of the chapter's own
+      // directory. Absolutize them against the chapter URL so previews keep
+      // working for chapters in subdirectories.
+      const fileUrl = anchor ? url.split('#')[0] : url;
+      const absolutized = absolutizeMarkdownUrls(content, fileUrl);
+
+      // Point the document service at the chapter so relative reads (SVG
+      // plugin, DOCX/print flows) resolve against the chapter directory too.
+      if (fileUrl.startsWith('file://') && platform.document) {
+        platform.document.setDocumentPath(fileUrl);
+      }
+
       // Update document title from URL or filename
-      const filename = url.split('/').pop()?.replace(/\.md$/, '') || 'Document';
+      const filename = fileUrl.split('/').pop()?.replace(/\.md$/, '') || 'Document';
       document.title = filename;
 
       // Update page content with new markdown
-      await renderMarkdown(content);
+      await renderMarkdown(absolutized, undefined, anchor);
 
       // Save to browser history
       saveToHistory(platform);
@@ -1733,6 +1751,97 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
   // Setup message listener for theme/locale/file changes
   setupMessageListener();
+
+  /**
+   * In-page navigation for markdown links inside the rendered content.
+   *
+   * Links in chapters are absolutized against the chapter URL during gitbook
+   * navigation, so clicking one natively would navigate the whole page
+   * (a janky full reload). Intercept markdown-file links and re-render in
+   * place — exactly like the SUMMARY panel — keeping the page URL stable.
+   * Anchor-only links, external protocols and the panel's own links keep
+   * their existing behavior.
+   */
+  document.addEventListener('click', (event) => {
+    // The workspace embed viewer handles links itself (WORKSPACE_NAVIGATE).
+    if (window.parent !== window) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    const anchor = target?.closest?.('a');
+    if (!anchor || anchor.target === '_blank') {
+      return;
+    }
+
+    const rawHref = anchor.getAttribute('href');
+    if (!rawHref || rawHref.startsWith('#')) {
+      return;
+    }
+    // Panel links already navigate in place via their own handler.
+    if (anchor.closest('#gitbook-panel')) {
+      return;
+    }
+
+    let targetUrl: string;
+    try {
+      targetUrl = new URL(rawHref, window.location.href).href;
+    } catch {
+      return;
+    }
+
+    const pathname = targetUrl.split('#')[0].toLowerCase();
+    const isMarkdownLink = pathname.endsWith('.md') || pathname.endsWith('.markdown');
+    // Intercept same-origin markdown links only (file:// pages count as one
+    // origin); external sites keep the browser's native navigation.
+    let sameOrigin = false;
+    try {
+      const current = new URL(window.location.href);
+      const target = new URL(targetUrl);
+      sameOrigin = target.protocol === current.protocol && target.host === current.host;
+    } catch {
+      sameOrigin = false;
+    }
+    if (!isMarkdownLink || !sameOrigin) {
+      return;
+    }
+
+    event.preventDefault();
+    const hashIndex = targetUrl.indexOf('#');
+    const anchorId = hashIndex >= 0 ? decodeURIComponent(targetUrl.slice(hashIndex + 1)) : undefined;
+
+    void (async () => {
+      try {
+        let content: string | null = null;
+        if (targetUrl.startsWith('file://') && platform.document) {
+          try {
+            content = await platform.document.readFile(targetUrl);
+          } catch (error) {
+            void error;
+          }
+        }
+        if (content === null && /^https?:/i.test(targetUrl)) {
+          const response = await fetch(targetUrl);
+          if (response.ok) {
+            content = await response.text();
+          }
+        }
+        if (content === null) {
+          throw new Error('Failed to read linked document');
+        }
+        if (onGitbookNavigate) {
+          await onGitbookNavigate(targetUrl, content, anchorId);
+        } else {
+          await renderMarkdown(content, undefined, anchorId);
+        }
+      } catch (error) {
+        // Never leave the click unanswered: fall back to the browser's own
+        // navigation (which also lets the content script re-render the file).
+        console.warn('[Viewer] In-page link navigation failed, opening directly:', targetUrl, error);
+        window.location.assign(targetUrl);
+      }
+    })();
+  });
 
   // Setup image context menu (shared cross-platform)
   const contentContainer = document.getElementById('markdown-content');

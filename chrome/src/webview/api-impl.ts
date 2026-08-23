@@ -110,12 +110,13 @@ export class ChromeDocumentService extends BaseDocumentService {
   }
 
   async readFile(absolutePath: string, options?: ReadFileOptions): Promise<string> {
+    const filePath = absolutePath.startsWith('file://') ? absolutePath : `file://${absolutePath}`;
     // Send to background script for file reading
     const response = await serviceChannel.send('READ_LOCAL_FILE', {
-      filePath: absolutePath.startsWith('file://') ? absolutePath : `file://${absolutePath}`,
+      filePath,
       binary: options?.binary ?? false,
     }) as { content: string };
-    
+
     return response.content;
   }
 
@@ -127,18 +128,24 @@ export class ChromeDocumentService extends BaseDocumentService {
 
     // Resolve relative path to absolute file:// URL
     const absoluteUrl = new URL(relativePath, this._baseUrl).href;
-    
+
     // Send to background script for file reading
     const response = await serviceChannel.send('READ_LOCAL_FILE', {
       filePath: absoluteUrl,
       binary: options?.binary ?? false,
     }) as { content: string };
-    
+
     return response.content;
   }
 
   override setDocumentPath(path: string, baseUrl?: string): void {
-    super.setDocumentPath(path, baseUrl);
+    // Normalize full file:// URLs to bare paths: BaseDocumentService derives
+    // _documentDir/_baseUrl from the path, and a full URL would yield a
+    // double file:// prefix (file://file:///...), which makes every later
+    // `new URL(relative, _baseUrl)` throw "Invalid base URL" — breaking
+    // panel navigation on the second click.
+    const normalizedPath = path.startsWith('file://') ? path.slice('file://'.length) : path;
+    super.setDocumentPath(normalizedPath, baseUrl);
     // Chrome uses file:// URLs directly
     if (!baseUrl) {
       this._baseUrl = `file://${this._documentDir}`;

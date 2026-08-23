@@ -469,7 +469,17 @@ export function createGitbookPanel(
         if (!href) {
           return;
         }
-        
+
+        // Fall back to a real browser navigation when in-page navigation
+        // fails. A dead click (silent "no response") is worse than a page
+        // load: the browser will open the file directly and the content
+        // script re-renders it as a standalone document (with relative
+        // images resolved against the file's own directory).
+        const fallbackToNavigation = (reason: unknown): void => {
+          console.warn('[GitBook] In-page navigation failed, opening the file directly:', href, reason);
+          window.location.assign(href);
+        };
+
         try {
           let content: string | null = null;
 
@@ -482,12 +492,16 @@ export function createGitbookPanel(
           }
 
           if (content === null) {
-            const response = await fetch(href);
-            if (!response.ok) {
-              console.error('Failed to fetch file:', response.status);
+            try {
+              const response = await fetch(href);
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              content = await response.text();
+            } catch (error) {
+              fallbackToNavigation(error);
               return;
             }
-            content = await response.text();
           }
 
           // If there is no history state yet, keep URL unchanged.
@@ -497,14 +511,20 @@ export function createGitbookPanel(
           
           // Call navigation callback if provided
           if (options.onNavigateFile) {
-            await options.onNavigateFile(href, content);
+            try {
+              await options.onNavigateFile(href, content);
+            } catch (error) {
+              fallbackToNavigation(error);
+              return;
+            }
           }
           
           // Mark active item
           panelDiv.querySelectorAll('a').forEach(el => el.classList.remove('active'));
           link.classList.add('active');
         } catch (error) {
-          console.error('Navigation failed:', error);
+          // Last resort: never leave the click unanswered.
+          fallbackToNavigation(error);
         }
       });
     });
