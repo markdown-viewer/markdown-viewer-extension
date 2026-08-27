@@ -85,6 +85,21 @@ function isProcessableContent(): boolean | null {
   return true;
 }
 
+function needsUtf8Recovery(text: string): boolean {
+  const sample = text.slice(0, 20000);
+  if (sample.includes('\uFFFD')) return true;
+
+  // A correctly decoded Chinese document contains CJK characters. When UTF-8
+  // bytes are decoded as a legacy single-byte charset, those characters turn
+  // into sequences such as "æ–¹æ¡ˆ" and no CJK characters remain.
+  if (/[\u3400-\u9fff]/.test(sample)) return false;
+
+  const markers = sample.match(
+    /(?:[æåçèéêëìíîï][\u0080-\u00ff\u2013\u2014\u2026\u2122]|Ã.|Â.|â(?:[\u0080-\u00ff]|[€‚„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]))/g,
+  );
+  return (markers?.length ?? 0) >= 2;
+}
+
 /**
  * Hide the page content immediately to prevent flash of unstyled content
  */
@@ -115,7 +130,7 @@ function hidePageContent(): void {
 /**
  * Inject the main content script
  */
-function injectContentScript(): void {
+async function injectContentScript(): Promise<void> {
   // If user explicitly marked this session to view as raw, abort.
   try {
     if (sessionStorage.getItem('markdownViewerRawOverride') === '1') {
@@ -125,10 +140,34 @@ function injectContentScript(): void {
     // sessionStorage access denied
   }
 
-  // Hide content immediately before injection to prevent flashing
+  // Hide content immediately while preserving the raw body for detection.
   hidePageContent();
 
+  // Ensure the text document has been parsed before inspecting its decoded body.
+  if (!document.body && document.readyState === 'loading') {
+    await new Promise<void>((resolve) => {
+      document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+    });
+  }
+
   const url = document.location.href;
+  const bodyText = document.body?.textContent || '';
+  // Only refetch when the decoded DOM shows clear UTF-8 recovery symptoms.
+  if (/^https?:/i.test(url) && needsUtf8Recovery(bodyText)) {
+    try {
+      const response = await fetch(url, { credentials: 'same-origin' });
+      if (response.ok) {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        const rawContent = new TextDecoder('utf-8').decode(bytes);
+        if (document.body) {
+          document.body.textContent = rawContent;
+        }
+      }
+    } catch {
+      // Background injection and the viewer retain their own fallbacks.
+    }
+  }
+
   const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   const request = {
