@@ -32,11 +32,35 @@ export interface ViewerSyncHostNavigationMessage {
   line?: number;
 }
 
+export interface ViewerExportRequestMessage {
+  type: 'EXPORT_REQUEST';
+  /** Export format: 'docx' | 'epub' | 'html' | 'pdf' | 'save' */
+  format: string;
+  /** Optional request id echoed back in EXPORT_RESULT. */
+  requestId?: string;
+  /** Optional base filename override. */
+  filename?: string;
+  /** Optional document title override. */
+  title?: string;
+}
+
+export interface ViewerExportResultMessage {
+  type: 'EXPORT_RESULT';
+  /** Echoed from the matching EXPORT_REQUEST. */
+  requestId?: string;
+  ok: boolean;
+  error?: string;
+  /** Final exported filename when the export succeeded. */
+  filename?: string;
+}
+
 export type ViewerIframeMessage =
   | ViewerOpenDocumentMessage
   | ViewerUpdateContentMessage
   | ViewerSyncHostUiMessage
-  | ViewerSyncHostNavigationMessage;
+  | ViewerSyncHostNavigationMessage
+  | ViewerExportRequestMessage
+  | ViewerExportResultMessage;
 
 export interface ViewerIframeDocumentSyncInput {
   documentKey: string;
@@ -49,11 +73,20 @@ export interface ViewerIframeDocumentSyncInput {
   targetLine?: number;
 }
 
+export interface ViewerIframeExportRequestInput {
+  format: string;
+  requestId?: string;
+  filename?: string;
+  title?: string;
+}
+
 export interface ViewerIframeHostBridge {
   reset(): void;
   syncDocument(input: ViewerIframeDocumentSyncInput): void;
   syncHostUi(input: Omit<ViewerSyncHostUiMessage, 'type'>): void;
   syncHostNavigation(input: Omit<ViewerSyncHostNavigationMessage, 'type'>): void;
+  /** Ask the embedded viewer to run an export (docx/epub/html/pdf/save). */
+  requestExport(input: ViewerIframeExportRequestInput): void;
 }
 
 export function createViewerIframeHostBridge(
@@ -110,6 +143,13 @@ export function createViewerIframeHostBridge(
     syncHostNavigation(input: Omit<ViewerSyncHostNavigationMessage, 'type'>): void {
       postMessage({
         type: 'SYNC_HOST_NAVIGATION',
+        ...input,
+      });
+    },
+
+    requestExport(input: ViewerIframeExportRequestInput): void {
+      postMessage({
+        type: 'EXPORT_REQUEST',
         ...input,
       });
     },

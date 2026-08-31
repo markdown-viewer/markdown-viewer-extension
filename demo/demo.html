@@ -164,6 +164,13 @@
         <button id="clearLog">Clear Log</button>
       </div>
       <div class="actions" style="margin-top:10px;">
+        <button id="exportDocx">Export DOCX</button>
+        <button id="exportEpub">Export EPUB</button>
+        <button id="exportHtml">Export HTML</button>
+        <button id="exportPdf">Export PDF</button>
+        <button id="exportSave">Save .md</button>
+      </div>
+      <div class="actions" style="margin-top:10px;">
         <input id="scrollLineInput" type="number" value="18" min="0" step="1" />
         <input id="anchorInput" type="text" value="section-b" />
       </div>
@@ -401,6 +408,23 @@ graph TD
         setStatus('ok', 'anchor requested');
       }
 
+      async function exportDocument(format) {
+        if (typeof viewerEl.export !== 'function') {
+          writeLog('export() unavailable', { reason: 'element method missing' });
+          setStatus('err', 'export() unavailable');
+          return;
+        }
+        setStatus('warn', 'exporting ' + format);
+        try {
+          await viewerEl.export(format, { filename: 'demo-export.md', title: 'Demo Export' });
+          writeLog('export() ok', { format: format });
+          setStatus('ok', 'export ' + format + ' done');
+        } catch (error) {
+          writeLog('export() failed', { format: format, error: String(error && error.message || error) });
+          setStatus('err', 'export ' + format + ' failed');
+        }
+      }
+
       viewerEl.addEventListener('scrolllinechange', function (event) {
         const detail = event && event.detail ? event.detail : {};
         writeLog('scrolllinechange', detail);
@@ -413,6 +437,11 @@ graph TD
       document.getElementById('appendBlock').addEventListener('click', appendBlock);
       document.getElementById('scrollToLine').addEventListener('click', setScrollLine);
       document.getElementById('jumpAnchor').addEventListener('click', jumpAnchor);
+      document.getElementById('exportDocx').addEventListener('click', function () { exportDocument('docx'); });
+      document.getElementById('exportEpub').addEventListener('click', function () { exportDocument('epub'); });
+      document.getElementById('exportHtml').addEventListener('click', function () { exportDocument('html'); });
+      document.getElementById('exportPdf').addEventListener('click', function () { exportDocument('pdf'); });
+      document.getElementById('exportSave').addEventListener('click', function () { exportDocument('save'); });
       document.getElementById('clearLog').addEventListener('click', function () {
         logEl.textContent = '';
         setStatus('warn', 'idle');

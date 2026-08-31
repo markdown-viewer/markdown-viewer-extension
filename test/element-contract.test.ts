@@ -54,6 +54,7 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
         const requests = [];
         window.__elementRequests = requests;
         window.__failNextRender = false;
+        window.__failNextExport = false;
         document.addEventListener('mv:render-request', (event) => {
           const detail = event.detail || {};
           requests.push({ type: 'render', markdown: detail.markdown });
@@ -61,6 +62,21 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
           window.__failNextRender = false;
           event.target.dispatchEvent(new CustomEvent('mv:response', {
             detail: { requestId: detail.requestId, ok: !fail, error: fail ? 'boom' : undefined },
+          }));
+        });
+        document.addEventListener('mv:export-request', (event) => {
+          const detail = event.detail || {};
+          requests.push({
+            type: 'export',
+            format: detail.format,
+            filename: detail.filename,
+            title: detail.title,
+            requestId: detail.requestId,
+          });
+          const fail = window.__failNextExport;
+          window.__failNextExport = false;
+          event.target.dispatchEvent(new CustomEvent('mv:response', {
+            detail: { requestId: detail.requestId, ok: !fail, error: fail ? 'export-boom' : undefined },
           }));
         });
         document.addEventListener('mv:scroll-to-anchor-request', (event) => {
@@ -88,6 +104,7 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
       hasRender: boolean;
       hasScrollToAnchor: boolean;
       hasGetCurrentLine: boolean;
+      hasExport: boolean;
     }>(page, `
       () => {
         const el = document.createElement('markdown-viewer');
@@ -96,6 +113,7 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
           hasRender: typeof el.render === 'function',
           hasScrollToAnchor: typeof el.scrollToAnchor === 'function',
           hasGetCurrentLine: typeof el.getCurrentLine === 'function',
+          hasExport: typeof el.export === 'function',
         };
       }
     `);
@@ -103,6 +121,7 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
     assert.equal(contract.hasRender, true);
     assert.equal(contract.hasScrollToAnchor, true);
     assert.equal(contract.hasGetCurrentLine, true);
+    assert.equal(contract.hasExport, true, 'export() must be part of the element contract');
   });
 
   it('reflects the value / mode / scroll-line properties onto attributes', async () => {
@@ -227,6 +246,97 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
     `);
     assert.equal(lines.before, null, 'no attribute → null');
     assert.equal(lines.after, 7, 'attribute value must be parsed as a number');
+  });
+
+  it('export() forwards the format via mv:export-request and resolves on mv:response', async () => {
+    const requests = await evalJs<Array<{ type: string; format?: string; filename?: string; title?: string }>>(page, `
+      async () => {
+        const el = document.createElement('markdown-viewer');
+        document.body.appendChild(el);
+        el.setAttribute('data-mv-ready', '1');
+        await el.export('docx', { filename: 'lesson-1.md', title: 'Lesson 1' });
+        return window.__elementRequests.filter((r) => r.type === 'export');
+      }
+    `);
+    assert.equal(requests.length, 1, 'exactly one export request');
+    assert.equal(requests[0].format, 'docx');
+    assert.equal(requests[0].filename, 'lesson-1.md', 'options.filename must be forwarded');
+    assert.equal(requests[0].title, 'Lesson 1', 'options.title must be forwarded');
+    assert.ok(requests[0].requestId, 'a requestId must be attached for the response correlation');
+  });
+
+  it('export() forwards each supported format and the docs alias', async () => {
+    const formats = await evalJs<Array<{ format?: string }>>(page, `
+      async () => {
+        const el = document.createElement('markdown-viewer');
+        document.body.appendChild(el);
+        el.setAttribute('data-mv-ready', '1');
+        // Requests accumulate across tests; track the delta instead.
+        const before = window.__elementRequests.filter((r) => r.type === 'export').length;
+        for (const format of ['docx', 'epub', 'html', 'pdf', 'save', 'docs']) {
+          await el.export(format);
+        }
+        return window.__elementRequests
+          .filter((r) => r.type === 'export')
+          .slice(before)
+          .map((r) => ({ format: r.format }));
+      }
+    `);
+    assert.deepEqual(
+      formats,
+      [
+        { format: 'docx' },
+        { format: 'epub' },
+        { format: 'html' },
+        { format: 'pdf' },
+        { format: 'save' },
+        { format: 'docs' },
+      ],
+      'all toolbar export formats (and the docs alias) must be forwarded',
+    );
+  });
+
+  it('export() rejects when the runtime answers with ok:false', async () => {
+    const error = await evalJs<string | null>(page, `
+      async () => {
+        const el = document.createElement('markdown-viewer');
+        document.body.appendChild(el);
+        el.setAttribute('data-mv-ready', '1');
+        window.__failNextExport = true;
+        try {
+          await el.export('epub');
+          return null;
+        } catch (err) {
+          return err.message;
+        }
+      }
+    `);
+    assert.equal(error, 'export-boom', 'export() must reject with the runtime error');
+  });
+
+  it('export() queues requests made before the runtime attaches and flushes them on data-mv-ready', async () => {
+    const queued = await evalJs<{ queuedBeforeReady: boolean; requests: Array<{ type: string; format?: string }> }>(page, `
+      async () => {
+        const el = document.createElement('markdown-viewer');
+        document.body.appendChild(el);
+        const before = window.__elementRequests.filter((r) => r.type === 'export').length;
+        const pending = el.export('html');
+        let settled = false;
+        void pending.then(() => { settled = true; });
+        await new Promise((r) => setTimeout(r, 30));
+        const queuedBeforeReady = !settled
+          && window.__elementRequests.filter((r) => r.type === 'export').length === before;
+        el.setAttribute('data-mv-ready', '1');
+        await pending;
+        return {
+          queuedBeforeReady,
+          requests: window.__elementRequests.filter((r) => r.type === 'export').slice(before),
+        };
+      }
+    `);
+    assert.equal(queued.queuedBeforeReady, true, 'export() must not dispatch before the runtime is ready');
+    assert.equal(queued.requests.length, 1, 'the queued export must flush exactly one request');
+    assert.equal(queued.requests[0].format, 'html');
   });
 
   it('does not crash the page while defining and using the element', async () => {

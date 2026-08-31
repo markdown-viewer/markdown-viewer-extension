@@ -1,5 +1,6 @@
 const RENDER_REQUEST_EVENT = 'mv:render-request';
 const ANCHOR_REQUEST_EVENT = 'mv:scroll-to-anchor-request';
+const EXPORT_REQUEST_EVENT = 'mv:export-request';
 const RESPONSE_EVENT = 'mv:response';
 const READY_ATTRIBUTE = 'data-mv-ready';
 // The isolated-world runtime attaches asynchronously (platform/localization
@@ -110,6 +111,28 @@ class MarkdownViewerElementProxy extends HTMLElement {
     }).catch(() => {
       // Runtime never attached — the anchor navigation cannot be delivered.
     });
+  }
+
+  /**
+   * Export the current document, mirroring the standalone preview toolbar's
+   * export menu. Supported formats:
+   * 'docx' | 'epub' | 'html' | 'pdf' (print) | 'save' (raw markdown file);
+   * 'docs' is accepted as an alias for 'docx'.
+   * Resolves when the export completes; rejects on failure.
+   */
+  async export(
+    format: 'docx' | 'docs' | 'epub' | 'html' | 'pdf' | 'save',
+    options?: { filename?: string; title?: string },
+  ): Promise<void> {
+    await this.waitForRuntime();
+    const requestId = createRequestId();
+    const response = waitForResponse(this, requestId);
+    this.dispatchEvent(new CustomEvent(EXPORT_REQUEST_EVENT, {
+      detail: { requestId, format, ...(options || {}) },
+      bubbles: true,
+      composed: true,
+    }));
+    await response;
   }
 
   getCurrentLine(): number | null {

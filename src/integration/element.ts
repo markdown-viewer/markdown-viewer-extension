@@ -1,4 +1,5 @@
 import type { TranslateFn } from '../core/viewer/viewer-host';
+import { exportViewerDocument, type ViewerExportFormat } from '../core/viewer/viewer-host';
 import { createPanelViewer } from '../core/viewer/panel-viewer';
 import { createViewerAssembler } from '../core/viewer/viewer-assembler';
 import { createPersistedStateHostBridge } from '../core/viewer/viewer-host-bridge';
@@ -20,10 +21,43 @@ import { createViewerIframeHostBridge } from './iframe-viewer-host';
 const OBSERVED_ATTRIBUTES = ['value', 'scroll-line', 'mode'] as const;
 const RENDER_REQUEST_EVENT = 'mv:render-request';
 const ANCHOR_REQUEST_EVENT = 'mv:scroll-to-anchor-request';
+const EXPORT_REQUEST_EVENT = 'mv:export-request';
 const RESPONSE_EVENT = 'mv:response';
 const ELEMENT_BASE_STYLE_ID = 'mdv-element-base-style';
 
 type MarkdownViewerRuntimeMode = 'inline' | 'iframe';
+
+/**
+ * Export formats accepted by the programmatic export command, mirroring the
+ * standalone preview toolbar's export menu:
+ * - 'docx' — Export to DOCX
+ * - 'epub' — Export to EPUB
+ * - 'html' — Export to HTML (single self-contained file)
+ * - 'pdf'  — Print to PDF (browser print dialog)
+ * - 'save' — Save the raw markdown file
+ */
+export type MarkdownViewerExportFormat = ViewerExportFormat;
+
+/** Accepted aliases, e.g. 'docs' for 'docx'. */
+export const MARKDOWN_VIEWER_EXPORT_FORMATS: readonly string[] = [
+  'docx',
+  'epub',
+  'html',
+  'pdf',
+  'save',
+];
+
+export interface MarkdownViewerExportOptions {
+  /** Base filename override (extension is normalized per format). */
+  filename?: string;
+  /** Document title override (used by 'html', 'epub' and 'pdf'). */
+  title?: string;
+}
+
+interface MarkdownViewerExportRequestDetail extends MarkdownViewerExportOptions {
+  requestId?: string;
+  format?: string;
+}
 
 export interface MarkdownViewerElementFactoryOptions {
   platform: PlatformAPI;
@@ -43,7 +77,22 @@ export interface MarkdownViewerElementRuntimeController {
   scrollToAnchor(anchor: string): void;
   getCurrentLine(): number | null;
   setScrollLine(line: number): void;
+  /** Run an export command (docx | epub | html | pdf | save). */
+  export(format: MarkdownViewerExportFormat, options?: MarkdownViewerExportOptions): Promise<void>;
   destroy(): void;
+}
+
+function normalizeExportFormat(format: unknown): MarkdownViewerExportFormat | null {
+  if (typeof format !== 'string') {
+    return null;
+  }
+  const lower = format.toLowerCase();
+  if (lower === 'docs') {
+    return 'docx';
+  }
+  return MARKDOWN_VIEWER_EXPORT_FORMATS.includes(lower)
+    ? (lower as MarkdownViewerExportFormat)
+    : null;
 }
 
 interface IncomingBroadcastMessage {
@@ -215,6 +264,14 @@ export function attachMarkdownViewerElementRuntime(
       postToFrame(message);
     });
 
+    interface PendingIframeExport {
+      resolve: () => void;
+      reject: (error: Error) => void;
+      dispatchResponse: (ok: boolean, error?: string) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+    const pendingIframeExports = new Map<string, PendingIframeExport>();
+
     const setFrameVisible = (visible: boolean): void => {
       if (!frame) return;
       frame.style.display = visible ? 'block' : 'none';
@@ -266,6 +323,25 @@ export function attachMarkdownViewerElementRuntime(
         setFrameVisible(hasRenderableContent(currentValue));
         return;
       }
+      if (data.type === 'EXPORT_RESULT') {
+        const detail = data as { requestId?: string; ok?: boolean; error?: string };
+        const requestId = detail.requestId;
+        if (!requestId) {
+          return;
+        }
+        const pending = pendingIframeExports.get(requestId);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pendingIframeExports.delete(requestId);
+          pending.dispatchResponse(Boolean(detail.ok), detail.error);
+          if (detail.ok) {
+            pending.resolve();
+          } else {
+            pending.reject(new Error(detail.error || 'Export failed'));
+          }
+        }
+        return;
+      }
       if (data.type === 'VIEWER_SCROLL_LINE_CHANGED') {
         const detail = data as { line?: unknown };
         const line = typeof detail.line === 'number' && Number.isFinite(detail.line) ? detail.line : null;
@@ -281,6 +357,67 @@ export function attachMarkdownViewerElementRuntime(
       }
     };
     window.addEventListener('message', onFrameMessage);
+
+    const runIframeExport = (
+      format: MarkdownViewerExportFormat,
+      options: MarkdownViewerExportOptions | undefined,
+      requestId: string,
+      dispatchResponse: (ok: boolean, error?: string) => void,
+    ): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pendingIframeExports.delete(requestId);
+          const error = new Error('Export timed out: the embedded viewer did not respond');
+          dispatchResponse(false, error.message);
+          reject(error);
+        }, 60000);
+        pendingIframeExports.set(requestId, {
+          resolve,
+          reject,
+          dispatchResponse,
+          timer,
+        });
+        frameHostBridge.requestExport({
+          format,
+          requestId,
+          filename: options?.filename,
+          title: options?.title,
+        });
+      });
+    };
+
+    const iframeExportDocument = (
+      format: MarkdownViewerExportFormat,
+      options?: MarkdownViewerExportOptions,
+      requestId?: string,
+    ): Promise<void> => {
+      const exportId = requestId || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const dispatchResponse = (ok: boolean, error?: string): void => {
+        if (!requestId) {
+          return;
+        }
+        dispatchBridgeResponse(target, requestId, ok, error);
+      };
+      return runIframeExport(format, options, exportId, dispatchResponse);
+    };
+
+    const onExportRequest = (event: Event): void => {
+      const detail = (event as CustomEvent<MarkdownViewerExportRequestDetail>).detail ?? {};
+      const format = normalizeExportFormat(detail.format);
+      if (!format) {
+        dispatchBridgeResponse(
+          target,
+          detail.requestId,
+          false,
+          `Unsupported export format: ${String(detail.format)}`,
+        );
+        return;
+      }
+      void iframeExportDocument(format, detail, detail.requestId).catch(() => {
+        // Failure already reported via dispatchResponse above.
+      });
+    };
+    target.addEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
 
     const attributeObserver = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -340,9 +477,18 @@ export function attachMarkdownViewerElementRuntime(
           frameHostBridge.syncHostNavigation({ line });
         }
       },
+      export(format: MarkdownViewerExportFormat, options?: MarkdownViewerExportOptions): Promise<void> {
+        return iframeExportDocument(format, options);
+      },
       destroy(): void {
         window.removeEventListener('message', onFrameMessage);
         attributeObserver.disconnect();
+        target.removeEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
+        for (const pending of pendingIframeExports.values()) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error('markdown-viewer element destroyed before export completed'));
+        }
+        pendingIframeExports.clear();
       },
     };
   }
@@ -621,6 +767,60 @@ export function attachMarkdownViewerElementRuntime(
     void viewerAssembler.requestTargetLine(line);
   };
 
+  const runInlineExport = async (
+    format: MarkdownViewerExportFormat,
+    options?: MarkdownViewerExportOptions,
+  ): Promise<void> => {
+    const filename = options?.filename || target.id || 'document';
+    await exportViewerDocument({
+      format,
+      markdown: currentValue,
+      filename,
+      title: options?.title || filename,
+      container,
+      renderer,
+      platform,
+    });
+  };
+
+  const inlineExportDocument = (
+    format: MarkdownViewerExportFormat,
+    options?: MarkdownViewerExportOptions,
+    requestId?: string,
+  ): Promise<void> => {
+    return runInlineExport(format, options).then(
+      () => {
+        if (requestId) {
+          dispatchBridgeResponse(target, requestId, true);
+        }
+      },
+      (error: unknown) => {
+        if (requestId) {
+          dispatchBridgeResponse(target, requestId, false, error);
+        }
+        throw error;
+      },
+    );
+  };
+
+  const onExportRequest = (event: Event): void => {
+    const detail = (event as CustomEvent<MarkdownViewerExportRequestDetail>).detail ?? {};
+    const format = normalizeExportFormat(detail.format);
+    if (!format) {
+      dispatchBridgeResponse(
+        target,
+        detail.requestId,
+        false,
+        `Unsupported export format: ${String(detail.format)}`,
+      );
+      return;
+    }
+    void inlineExportDocument(format, detail, detail.requestId).catch(() => {
+      // Failure already reported via dispatchBridgeResponse above.
+    });
+  };
+  target.addEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
+
   const toggleTocBtn = target.querySelector('#toggle-toc-btn') as HTMLButtonElement | null;
   if (toggleTocBtn) {
     toggleTocBtn.addEventListener('click', () => {
@@ -709,10 +909,14 @@ export function attachMarkdownViewerElementRuntime(
       return viewerAssembler.getSnapshot().currentLine ?? panelViewer.getCurrentLine();
     },
     setScrollLine,
+    export(format: MarkdownViewerExportFormat, options?: MarkdownViewerExportOptions): Promise<void> {
+      return inlineExportDocument(format, options);
+    },
     destroy(): void {
       attributeObserver.disconnect();
       target.removeEventListener(RENDER_REQUEST_EVENT, onRenderRequest as EventListener);
       target.removeEventListener(ANCHOR_REQUEST_EVENT, onAnchorRequest as EventListener);
+      target.removeEventListener(EXPORT_REQUEST_EVENT, onExportRequest as EventListener);
       panelViewer.destroy();
     },
   };
@@ -814,6 +1018,23 @@ export function createMarkdownViewerElementClass(options: MarkdownViewerElementF
 
     scrollToAnchor(anchor: string): void {
       this.runtimeController?.scrollToAnchor(anchor);
+    }
+
+    /**
+     * Run an export command, mirroring the standalone preview toolbar's
+     * export menu: 'docx' | 'epub' | 'html' | 'pdf' | 'save' ('docs' is an
+     * alias for 'docx'). Resolves when the export completes; rejects on
+     * failure.
+     */
+    async export(
+      format: MarkdownViewerExportFormat | 'docs',
+      options?: MarkdownViewerExportOptions,
+    ): Promise<void> {
+      const normalized = normalizeExportFormat(format);
+      if (!normalized) {
+        throw new Error(`Unsupported export format: ${String(format)}`);
+      }
+      await this.runtimeController?.export(normalized, options);
     }
   };
 }

@@ -16,7 +16,8 @@ import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { buildCodeReadingRender, applyCodeViewPresentation } from '../../../src/utils/code-preview';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
-import { getTableLayout, getImageLayout, getDiagramLayout } from '../../../src/core/viewer/viewer-host';
+import { getTableLayout, getImageLayout, getDiagramLayout, exportViewerDocument } from '../../../src/core/viewer/viewer-host';
+import type { ViewerExportFormat } from '../../../src/core/viewer/viewer-host';
 
 import type { PluginRenderer, RendererThemeConfig, PlatformAPI } from '../../../src/types/index';
 
@@ -122,6 +123,11 @@ export interface ViewerMainRuntime {
   requestAnchor(anchor: string): Promise<void>;
   setScrollLine(line: number): void;
   getCurrentScrollLine(): number;
+  /** Run an export command (docx | epub | html | pdf | save) on the current document. */
+  exportDocument(
+    format: ViewerExportFormat,
+    options?: { filename?: string; title?: string },
+  ): Promise<void>;
 }
 
 let currentViewerMainRuntime: ViewerMainRuntime | null = null;
@@ -1684,6 +1690,21 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       markdownViewerAdapter?.restorePreviewScroll(line);
     },
     getCurrentScrollLine: () => getCurrentScrollLine(),
+    exportDocument: async (format, exportOptions) => {
+      // Same behavior as the standalone preview toolbar's export menu:
+      // DOCX / EPUB / HTML / PDF (print) / save raw file.
+      const page = document.getElementById('markdown-page') as HTMLElement | null;
+      const filename = exportOptions?.filename || getDocumentFilename();
+      await exportViewerDocument({
+        format,
+        markdown: liveRawContent,
+        filename,
+        title: exportOptions?.title || document.title || filename,
+        container: page,
+        renderer: pluginRenderer,
+        platform,
+      });
+    },
   };
 
   /**

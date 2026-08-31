@@ -18,6 +18,7 @@ import { createScrollSyncController, type ScrollSyncController } from '../line-b
 import { getDocument, renderMarkdownDocument } from './viewer-controller';
 import { AsyncTaskManager } from '../markdown-processor';
 import { renderCodeViewBlock } from '../../utils/code-preview';
+import { toMarkdownFilename } from '../document-utils';
 import type { PluginRenderer, PlatformAPI } from '../../types/index';
 import type { FrontmatterDisplay } from './viewer-controller';
 import type { MountedViewer } from '../../integration/types';
@@ -1291,4 +1292,156 @@ export async function exportHtmlFlow(options: HtmlExportFlowOptions): Promise<vo
     console.error('[ViewerHost] HTML export failed:', errMsg);
     onError?.(errMsg);
   }
+}
+
+// ============================================================================
+// Unified programmatic export command (docx | epub | html | pdf | save)
+// ============================================================================
+
+/**
+ * Export format for the unified programmatic export command. Mirrors the
+ * standalone preview toolbar's export menu:
+ * - 'docx' — Export to DOCX
+ * - 'epub' — Export to EPUB
+ * - 'html' — Export to HTML (single self-contained file)
+ * - 'pdf'  — Print to PDF (browser print dialog → Save as PDF)
+ * - 'save' — Save the raw markdown file
+ */
+export type ViewerExportFormat = 'docx' | 'epub' | 'html' | 'pdf' | 'save';
+
+export interface ViewerExportOptions {
+  /** Target export format (see ViewerExportFormat). */
+  format: ViewerExportFormat;
+  /** Raw markdown content (used by 'docx' and 'save'). */
+  markdown: string;
+  /** Base filename; the extension is normalized per format. */
+  filename: string;
+  /** Optional document title (used by 'html', 'epub' and 'pdf'). */
+  title?: string;
+  /** Rendered content root to serialize (required by 'epub', 'html' and 'pdf'). */
+  container?: HTMLElement | null;
+  /** Plugin renderer for diagram rendering ('docx'). */
+  renderer: PluginRenderer;
+  /** Platform override (defaults to globalThis.platform). */
+  platform?: PlatformAPI;
+}
+
+function stripDocumentExtension(filename: string): string {
+  const base = (filename || 'document').replace(/\.(md|markdown|docx|epub|html?)$/i, '');
+  return base || 'document';
+}
+
+function anchorDownload(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  }, 100);
+}
+
+/**
+ * Unified programmatic export command shared by the <markdown-viewer> element
+ * (inline mode) and the embedded viewer iframe (iframe mode). Behaves exactly
+ * like the standalone preview toolbar's export menu: DOCX / EPUB / HTML / PDF
+ * (print) / save raw file.
+ *
+ * @returns The final exported filename.
+ * @throws If the export fails, the rendered container is missing, or the
+ *         format is unsupported.
+ */
+export async function exportViewerDocument(options: ViewerExportOptions): Promise<string> {
+  const {
+    format,
+    markdown,
+    filename,
+    title,
+    container,
+    renderer,
+    platform,
+  } = options;
+  const effectivePlatform = platform || (globalThis.platform as PlatformAPI | undefined);
+  const baseName = stripDocumentExtension(filename);
+  let exportedFilename = '';
+  let exportError: string | null = null;
+
+  const onSuccess = (name: string): void => {
+    exportedFilename = name;
+  };
+  const onError = (error: string): void => {
+    exportError = error;
+  };
+
+  if (format === 'docx') {
+    await exportDocxFlow({
+      markdown,
+      filename,
+      renderer,
+      onSuccess,
+      onError,
+    });
+    exportedFilename = exportedFilename || toDocxFilename(filename);
+  } else if (format === 'epub') {
+    if (!container) {
+      throw new Error('Rendered content is not available');
+    }
+    await exportEpubFlow({
+      container,
+      filename: baseName,
+      title: title || filename,
+      platform: effectivePlatform,
+      onSuccess,
+      onError,
+    });
+  } else if (format === 'html') {
+    if (!container) {
+      throw new Error('Rendered content is not available');
+    }
+    await exportHtmlFlow({
+      container,
+      filename: baseName,
+      title: title || filename,
+      platform: effectivePlatform,
+      onSuccess,
+      onError,
+    });
+  } else if (format === 'pdf') {
+    if (!container) {
+      throw new Error('Rendered content is not available');
+    }
+    const { printElement } = await import('../../ui/print-utils');
+    await printElement(container, title || filename || document.title);
+    exportedFilename = title || filename;
+  } else if (format === 'save') {
+    exportedFilename = toMarkdownFilename(filename);
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    // Local-file pages lose ephemeral upload sessions in the extension
+    // background, so prefer a direct anchor download (same strategy as the
+    // DOCX/HTML fallback paths). Everywhere else use the platform file
+    // service (chrome.downloads etc.), falling back to the anchor download.
+    if (
+      typeof window !== 'undefined'
+      && window.location?.protocol === 'file:'
+      && effectivePlatform?.platform !== 'mobile'
+    ) {
+      anchorDownload(blob, exportedFilename);
+    } else if (effectivePlatform?.file?.download) {
+      await effectivePlatform.file.download(blob, exportedFilename, { mimeType: 'text/markdown' });
+    } else {
+      anchorDownload(blob, exportedFilename);
+    }
+  } else {
+    throw new Error(`Unsupported export format: ${String(format)}`);
+  }
+
+  if (exportError) {
+    throw new Error(exportError);
+  }
+
+  return exportedFilename;
 }

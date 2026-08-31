@@ -18,7 +18,9 @@ import type {
   ViewerIframeMessage,
   ViewerOpenDocumentMessage,
   ViewerUpdateContentMessage,
+  ViewerExportRequestMessage,
 } from '../../../src/integration/iframe-viewer-host';
+import type { ViewerExportFormat } from '../../../src/core/viewer/viewer-host';
 
 type DocumentMessage = ViewerOpenDocumentMessage | ViewerUpdateContentMessage;
 
@@ -364,6 +366,37 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
   parentBridge.notifyViewerRendered();
 }
 
+const EXPORT_FORMATS: readonly ViewerExportFormat[] = ['docx', 'epub', 'html', 'pdf', 'save'];
+
+async function handleExportRequest(message: ViewerExportRequestMessage): Promise<void> {
+  const { requestId, format, filename, title } = message;
+  const postResult = (ok: boolean, error?: string): void => {
+    window.parent.postMessage({
+      type: 'EXPORT_RESULT',
+      requestId,
+      ok,
+      error,
+    }, '*');
+  };
+
+  const normalizedFormat = typeof format === 'string'
+    ? (format.toLowerCase() === 'docs' ? 'docx' : format.toLowerCase())
+    : '';
+  if (!EXPORT_FORMATS.includes(normalizedFormat as ViewerExportFormat)) {
+    postResult(false, `Unsupported export format: ${String(format)}`);
+    return;
+  }
+
+  try {
+    const runtime = await waitForViewerMainRuntime();
+    await runtime.exportDocument(normalizedFormat as ViewerExportFormat, { filename, title });
+    postResult(true);
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    postResult(false, errMsg);
+  }
+}
+
 function handleViewerMessage(data: ViewerIframeMessage): void {
   switch (data.type) {
     case 'OPEN_DOCUMENT':
@@ -377,6 +410,9 @@ function handleViewerMessage(data: ViewerIframeMessage): void {
       return;
     case 'SYNC_HOST_NAVIGATION':
       parentBridge.syncHostNavigation(data);
+      return;
+    case 'EXPORT_REQUEST':
+      void handleExportRequest(data);
       return;
     default:
       return;
