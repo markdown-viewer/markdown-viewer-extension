@@ -99,7 +99,7 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
         };
       }
     `);
-    assert.deepEqual(contract.observed, ['value', 'scroll-line', 'mode']);
+    assert.deepEqual(contract.observed, ['value', 'scroll-line', 'mode', 'data-mv-ready']);
     assert.equal(contract.hasRender, true);
     assert.equal(contract.hasScrollToAnchor, true);
     assert.equal(contract.hasGetCurrentLine, true);
@@ -142,6 +142,8 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
       async () => {
         const el = document.createElement('markdown-viewer');
         document.body.appendChild(el);
+        // Play the runtime's role: signal attachment before rendering.
+        el.setAttribute('data-mv-ready', '1');
         await el.render('# demo');
         return window.__elementRequests.slice();
       }
@@ -151,11 +153,41 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
     assert.equal(requests[0].markdown, '# demo');
   });
 
+  it('render() queues requests made before the runtime attaches and flushes them on data-mv-ready', async () => {
+    const requests = await evalJs<{ queuedBeforeReady: boolean; requests: Array<{ type: string; markdown?: string }> }>(page, `
+      async () => {
+        const el = document.createElement('markdown-viewer');
+        document.body.appendChild(el);
+        // Requests accumulate across tests; track the delta instead.
+        const before = window.__elementRequests.length;
+        // render() called BEFORE the runtime signals attachment: must be
+        // queued, then flushed once data-mv-ready arrives (the isolated-world
+        // runtime attaches asynchronously after this proxy is defined).
+        const pending = el.render('# queued');
+        let settled = false;
+        void pending.then(() => { settled = true; });
+        await new Promise((r) => setTimeout(r, 30));
+        const queuedBeforeReady = !settled && window.__elementRequests.length === before;
+        el.setAttribute('data-mv-ready', '1');
+        await pending;
+        return {
+          queuedBeforeReady,
+          requests: window.__elementRequests.slice(before),
+        };
+      }
+    `);
+    assert.equal(requests.queuedBeforeReady, true, 'render() must not dispatch before the runtime is ready');
+    assert.equal(requests.requests.length, 1, 'the queued render must flush exactly one request');
+    assert.equal(requests.requests[0].type, 'render');
+    assert.equal(requests.requests[0].markdown, '# queued');
+  });
+
   it('render() rejects when the runtime answers with ok:false', async () => {
     const error = await evalJs<string | null>(page, `
       async () => {
         const el = document.createElement('markdown-viewer');
         document.body.appendChild(el);
+        el.setAttribute('data-mv-ready', '1');
         window.__failNextRender = true;
         try {
           await el.render('x');
@@ -170,10 +202,13 @@ describe('markdown-viewer custom element contract (element-runtime-main.js)', ()
 
   it('scrollToAnchor() forwards the anchor via mv:scroll-to-anchor-request', async () => {
     const anchors = await evalJs<Array<string | undefined>>(page, `
-      () => {
+      async () => {
         const el = document.createElement('markdown-viewer');
         document.body.appendChild(el);
+        el.setAttribute('data-mv-ready', '1');
         el.scrollToAnchor('section-1');
+        // The anchor dispatch is queued until ready; wait a tick for the flush.
+        await new Promise((r) => setTimeout(r, 10));
         return window.__elementRequests.filter((r) => r.type === 'anchor').map((r) => r.anchor);
       }
     `);

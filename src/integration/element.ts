@@ -488,9 +488,41 @@ export function attachMarkdownViewerElementRuntime(
     overlayDiv?.classList.add('hidden');
   };
 
+  // Style-gated first reveal. The filtered content CSS (#mv-content-styles,
+  // injected asynchronously by inject-element-styles) and the theme CSS
+  // (#theme-dynamic-style, injected by loadAndApplyTheme) both arrive AFTER
+  // the runtime attaches, so a first render that starts immediately can paint
+  // before either lands — a visible flash of unstyled content that then jumps
+  // to the themed look (the takeover/embed surfaces avoid this via the preload
+  // opacity gate + theme-first init; the inline element needs its own gate).
+  // Bounded: if the styles never arrive (e.g. a non-extension host where the
+  // stylesheet fetch failed), reveal anyway after the deadline so the page
+  // never stays blank.
+  let stylingGate: Promise<void> | null = null;
+  const waitForElementStyling = (): Promise<void> => {
+    if (!stylingGate) {
+      stylingGate = (async () => {
+        const deadline = Date.now() + 1500;
+        const ready = (): boolean =>
+          Boolean(document.getElementById('mv-content-styles'))
+          && Boolean(document.getElementById('theme-dynamic-style'));
+        while (!ready() && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 16));
+        }
+      })();
+    }
+    return stylingGate;
+  };
+
   const viewerSurface = createViewerSurfacePort({
     render: async (effect) => {
       const shouldShow = hasRenderableContent(effect.renderModel.markdown);
+      if (shouldShow) {
+        // Do not reveal (or render into the live DOM) until the styling
+        // resources are present — the first paint must be themed, not a flash
+        // of unstyled defaults that then jumps to the themed look.
+        await waitForElementStyling();
+      }
       setMountedReaderVisible(shouldShow);
       // The shared panel document state machine: a viewport-preserving
       // update vs a fresh document (same semantics as editor panels).
@@ -566,6 +598,18 @@ export function attachMarkdownViewerElementRuntime(
 
   const switchTheme = async (themeId: string): Promise<void> => {
     const resolvedThemeId = await resolveThemeId(themeId);
+    // No-op when the resolved theme is already active AND its CSS is actually
+    // in the DOM: skip the full apply+rerender cycle. The attach-time
+    // switchTheme('') would otherwise re-render (forceRender) concurrently
+    // with the initial render and race it — the aborted initial render could
+    // still append its footnote section into the re-render's container (see
+    // viewer-controller abort guards). The CSS-tag check keeps the guard
+    // honest: if the styles were somehow removed, re-apply instead of leaving
+    // the page unstyled.
+    if (themeManager.getCurrentTheme()?.id === resolvedThemeId
+      && document.getElementById('theme-dynamic-style')) {
+      return;
+    }
     await viewerAssembler.setTheme(resolvedThemeId);
   };
 

@@ -13,6 +13,11 @@ export async function initializeElementRuntime(): Promise<PluginRenderer> {
   const attachIfNeeded = (element: HTMLElement): void => {
     if (controllers.has(element)) return;
     controllers.set(element, attachMarkdownViewerElementRuntime(element, options));
+    // Signal the MAIN-world proxy that this element's runtime is attached, so
+    // render()/scrollToAnchor() calls made before attachment (same-tick
+    // insertion, SPA frameworks) flush their queued requests instead of
+    // hanging forever on a response that never comes.
+    element.setAttribute('data-mv-ready', '1');
   };
   bindThemeSyncFromSettingsBroadcast(platform, controllers);
 

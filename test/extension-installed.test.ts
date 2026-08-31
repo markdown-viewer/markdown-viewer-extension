@@ -636,6 +636,79 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
     }`);
     assert.ok(hostClean, 'the filtered stylesheet must not leak global body rules into the host page');
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Footnote-only race (fresh <markdown-viewer> element, pre-set value)
+  //
+  // Regression guard for: "a document with footnotes rendered through a
+  // <markdown-viewer> element sometimes shows ONLY the footnote section".
+  //
+  // Root cause (fixed in viewer-controller.ts): at attach time the element
+  // starts the initial render (applyCurrentAttributes) while switchTheme('')
+  // concurrently runs the theme apply + rerender flow. The rerender
+  // (forceRender) aborts the initial render; the aborted render's streaming
+  // bailed out BUT its applyFootnotes still appended the footnote section
+  // into the new render's container. The new render then saw a non-empty
+  // container, took the incremental path, found zero diffs (identical
+  // content) and never rebuilt the body — leaving ONLY footnotes.
+  //
+  // Fix: aborted renders must not touch the container further (skip
+  // applyFootnotes + block appends after the abort), and the incremental
+  // path must fall back to a full rebuild when the container no longer
+  // mirrors the document's block list.
+  //
+  // The fixture (test/fixtures/regression/footnote-race.md) is the original
+  // repro document (temp/test.md): it is large enough that the race window
+  // (settings reads + chunked streaming) reliably overlaps the attach-time
+  // theme rerender. Pre-fix this failed ~60% of the time per iteration; the
+  // loop below makes a regression essentially certain to fail.
+  it('fresh element with pre-set value renders the body (no footnote-only state)', async () => {
+    const content = fs.readFileSync(path.resolve('test/fixtures/regression/footnote-race.md'), 'utf8');
+    for (let i = 0; i < 8; i++) {
+      // Create a FRESH element and set value in the same task, before the
+      // runtime attaches — the exact pattern that raced the initial render
+      // against the attach-time theme rerender.
+      await evalJs(inlinePage, `(md) => {
+        const old = document.getElementById('mv-race-probe');
+        if (old) old.remove();
+        const probe = document.createElement('div');
+        probe.id = 'mv-race-probe';
+        document.body.appendChild(probe);
+        const el = document.createElement('markdown-viewer');
+        el.setAttribute('mode', 'inline');
+        probe.appendChild(el);
+        el.setAttribute('value', md);
+        return true;
+      }`, content);
+      await waitFor(inlinePage, `() => {
+        const c = document.querySelector('#mv-race-probe .markdown-viewer-content');
+        return Boolean(c && c.children.length > 0);
+      }`, 20000);
+      // The footnote section is appended at the END of the render pipeline, so
+      // its presence marks the render as settled (mid-stream samples have no
+      // footnotes yet). On the buggy build it also appears — but as the ONLY
+      // child (body never rebuilt) — the body assertion below catches that.
+      await waitFor(inlinePage, `() => Boolean(
+        document.querySelector('#mv-race-probe .md-footnotes-container')
+      )`, 20000);
+      // The attach-time theme switch can re-render (clear + rebuild) right
+      // after the first render finishes — let the container settle before
+      // sampling so a mid-rebuild snapshot is not mistaken for a bug.
+      await inlinePage.waitForTimeout(800);
+      const state = await evalJs<{ body: number; foot: number; blocks: number }>(inlinePage, `() => {
+        const c = document.querySelector('#mv-race-probe .markdown-viewer-content');
+        const blocks = Array.from(c.children).filter((n) => n.classList && n.classList.contains('md-block'));
+        const foot = blocks.filter((b) => b.classList.contains('md-footnotes-container'));
+        const body = blocks.filter((b) => !b.classList.contains('md-footnotes-container'));
+        return { body: body.length, foot: foot.length, blocks: blocks.length };
+      }`);
+      assert.ok(state.foot >= 1, `iteration ${i}: footnote section must be present (blocks=${state.blocks})`);
+      assert.ok(
+        state.body > 0,
+        `iteration ${i}: body must be rendered — footnote-only state (body=${state.body}, foot=${state.foot})`,
+      );
+    }
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────

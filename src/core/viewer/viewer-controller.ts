@@ -203,15 +203,52 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   // Create shared slugger for unique heading IDs across blocks
   const slugger = new GithubSlugger();
   const processor = createMarkdownProcessor(renderer, taskManager, translate, { tableMergeEmpty, slugger });
-  
+
+  // Incremental updates are only safe when the container's DOM still mirrors
+  // the document's block list 1:1. A render that was aborted mid-way (because
+  // a newer render superseded it) can leave the container with a PARTIAL set
+  // of blocks — or with ONLY the footnote section appended — so the diff
+  // commands (computed against the full block list) would silently no-op and
+  // the body would never be rebuilt: the page ends up showing nothing but the
+  // footnote section. Detect that mismatch and fall back to a full rebuild.
+  const containerMatchesDocument = (): boolean => {
+    const expected = doc.getBlocks();
+    const present = container.querySelectorAll<HTMLElement>(':scope > .md-block:not(.md-footnotes-container)');
+    if (present.length !== expected.length) return false;
+    const presentIds = new Set(Array.from(present, (el) => el.getAttribute('data-block-id') || ''));
+    return expected.every((block) => presentIds.has(block.id));
+  };
+
   if (isFirstRender) {
     // First render: render all blocks with streaming (slugger accumulates state)
+    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, onHeadings, onChunkComplete);
+  } else if (!containerMatchesDocument()) {
+    // The DOM no longer mirrors the document (partial blocks or a stale
+    // footnote section left behind by an aborted render). A diff would be
+    // wrong — rebuild the body from scratch.
+    container.innerHTML = '';
     await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, onHeadings, onChunkComplete);
   } else {
     // Incremental update: apply DOM commands
     await applyIncrementalUpdate(doc, processor, container, updateResult.commands, taskManager, frontmatterDisplay);
-    // Normalize heading IDs after incremental DOM changes to ensure uniqueness
-    normalizeHeadingIds(container);
+    if (!taskManager.isAborted()) {
+      // Normalize heading IDs after incremental DOM changes to ensure
+      // uniqueness. Skip when aborted — the container may already belong to a
+      // newer render; re-slugging its headings here would be stale DOM writes.
+      normalizeHeadingIds(container);
+    }
+  }
+
+  // The render may have been aborted mid-stream by a newer render, which now
+  // owns the container. Appending our footnote section (or any other DOM
+  // change) here would inject stale content into the new render's page — the
+  // visible symptom is a body that never appears, with ONLY footnotes shown.
+  if (taskManager.isAborted()) {
+    return {
+      title: extractTitle(markdown),
+      headings: extractHeadings(container),
+      taskManager,
+    };
   }
 
   await applyFootnotes(container, footnotes, processor);
@@ -222,14 +259,6 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   // Update headings (final)
   const headings = extractHeadings(container);
   onHeadings?.(headings);
-
-  if (taskManager.isAborted()) {
-    return {
-      title: extractTitle(markdown),
-      headings,
-      taskManager,
-    };
-  }
 
   // Async tasks (diagrams, etc.) are NOT processed here.
   // Caller should call taskManager.processAll() after this function returns.
@@ -298,8 +327,10 @@ async function renderAllBlocksStreaming(
     }
     
     // Render block content
-    const html = await renderBlockContent(block.content, processor, taskManager, block.startLine);
-    doc.setBlockHtml(i, html);
+    const html = await renderBlockContent(block.content, processor, taskManager, block.startLine);    // The render may have been aborted while this block was processing (a
+    // newer render is now filling the container). Do not append this stale
+    // block into the new render's DOM.
+    if (taskManager.isAborted()) return;    doc.setBlockHtml(i, html);
     
     // Create and append DOM element
     const div = document.createElement('div');

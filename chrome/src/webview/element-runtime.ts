@@ -14,6 +14,11 @@ export async function initializeElementRuntime(): Promise<PluginRenderer> {
   const attachIfNeeded = (element: HTMLElement): void => {
     if (controllers.has(element)) return;
     controllers.set(element, attachMarkdownViewerElementRuntime(element, options));
+    // Signal the MAIN-world proxy that this element's runtime is attached, so
+    // render()/scrollToAnchor() calls made before attachment (same-tick
+    // insertion, SPA frameworks) flush their queued requests instead of
+    // hanging forever on a response that never comes.
+    element.setAttribute('data-mv-ready', '1');
   };
   bindThemeSyncFromSettingsBroadcast(platform, controllers);
 
@@ -41,7 +46,17 @@ export async function initializeElementRuntime(): Promise<PluginRenderer> {
   // idempotent — if no diagram blocks are present, it does nothing.
   const diagramScanner: DiagramCodeBlockScanner = createDiagramCodeBlockScanner({
     renderer: options.renderer,
-    setThemeConfig: (config) => platform.renderer.setThemeConfig(config),
+    setThemeConfig: (config) => {
+      // The scanner only knows the page's color scheme (light/dark) and runs
+      // its theme watcher on <html> class changes — which loadAndApplyTheme
+      // triggers when it toggles the dark/light classes. Merge the scanner's
+      // config into the theme config instead of replacing it: an overwrite
+      // drops fontFamily/fontSize/diagramStyle, so diagrams fall back to the
+      // renderer defaults ('SimSun', ...) instead of following the theme font
+      // — charts rendered 宋体 under a 仿宋 theme.
+      const current = platform.renderer.getThemeConfig?.() ?? null;
+      platform.renderer.setThemeConfig(current ? { ...current, ...config } : config);
+    },
   });
   diagramScanner.scan();
 
