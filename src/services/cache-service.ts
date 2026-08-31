@@ -51,14 +51,22 @@ export class CacheService {
   }
 
   /**
-   * Calculate SHA-256 hash of text
+   * Calculate hash of text (FNV-1a 64-bit, hex string).
+   *
+   * Cache keys are internal-only indices, so no cryptographic strength is
+   * needed. A non-crypto hash also avoids failures in non-secure contexts
+   * where `crypto.subtle` is unavailable (e.g. plain HTTP pages hosting
+   * <markdown-viewer> elements).
    */
   async calculateHash(text: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    let hash = 0xcbf29ce484222325n;
+    const prime = 0x100000001b3n;
+    const mask = 0xffffffffffffffffn;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= BigInt(text.charCodeAt(i));
+      hash = (hash * prime) & mask;
+    }
+    return hash.toString(16).padStart(16, '0');
   }
 
   /**
