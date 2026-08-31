@@ -4,7 +4,6 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
-  convertInchesToTwip,
   LevelFormat,
   NumberFormat,
   LevelSuffix,
@@ -47,10 +46,13 @@ interface NumberingLevel {
 
 /**
  * Create numbering levels configuration for ordered lists
- * @param extraLeftIndentTwips - Additional left indent in twips (e.g., for first-line indent)
+ * @param indentStepTwips - Left indent per nesting level in twips.
+ *   Level N sits at (N + 1) × indentStepTwips, mirroring the web preview's
+ *   `ul/ol { padding-left: 2em }` (2em of the body font, converted by the
+ *   caller). Default 560 twips = 2em at a 14pt body.
  * @returns Numbering levels configuration
  */
-export function createNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[] {
+export function createNumberingLevels(indentStepTwips = 560): NumberingLevel[] {
   const levels: NumberingLevel[] = [];
   const formats: Array<(typeof LevelFormat)[keyof typeof LevelFormat]> = [
     LevelFormat.DECIMAL,
@@ -63,11 +65,6 @@ export function createNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[
     LevelFormat.LOWER_LETTER,
     LevelFormat.LOWER_LETTER
   ];
-  // baseIndent = 0.34" (former left) − 0.14" (former hanging). With "special: none"
-  // the number sits at `left`, so subtract the old hanging to keep the list at its
-  // original horizontal position instead of shifting right by the hanging amount.
-  const baseIndent = 0.20;
-  const indentStep = 0.34;
 
   for (let i = 0; i < 9; i++) {
     levels.push({
@@ -79,7 +76,7 @@ export function createNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[
       style: {
         paragraph: {
           indent: {
-            left: convertInchesToTwip(baseIndent + i * indentStep) + extraLeftIndentTwips,
+            left: (i + 1) * indentStepTwips,
           },
         },
       },
@@ -90,17 +87,13 @@ export function createNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[
 
 /**
  * Create numbering levels configuration for bullet (unordered) lists
- * @param extraLeftIndentTwips - Additional left indent in twips (e.g., for first-line indent)
+ * @param indentStepTwips - Left indent per nesting level in twips (see
+ *   createNumberingLevels; default 560 twips = 2em at a 14pt body).
  * @returns Numbering levels configuration
  */
-export function createBulletNumberingLevels(extraLeftIndentTwips = 0): NumberingLevel[] {
+export function createBulletNumberingLevels(indentStepTwips = 560): NumberingLevel[] {
   const levels: NumberingLevel[] = [];
   const bulletChars = ['\u2022', '\u25E6', '\u25AA', '\u2022', '\u25E6', '\u25AA', '\u2022', '\u25E6', '\u25AA'];
-  // baseIndent = 0.34" (former left) − 0.14" (former hanging). With "special: none"
-  // the number sits at `left`, so subtract the old hanging to keep the list at its
-  // original horizontal position instead of shifting right by the hanging amount.
-  const baseIndent = 0.20;
-  const indentStep = 0.34;
 
   for (let i = 0; i < 9; i++) {
     levels.push({
@@ -112,7 +105,7 @@ export function createBulletNumberingLevels(extraLeftIndentTwips = 0): Numbering
       style: {
         paragraph: {
           indent: {
-            left: convertInchesToTwip(baseIndent + i * indentStep) + extraLeftIndentTwips,
+            left: (i + 1) * indentStepTwips,
           },
         },
       },

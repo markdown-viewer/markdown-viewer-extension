@@ -1040,7 +1040,9 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
 
 #markdown-content ul,
 #markdown-content ol {
-  padding-left: 20px;
+  /* 2em per level — matches GitHub / VS Code markdown conventions and
+     keeps the indent step constant regardless of nesting depth. */
+  padding-left: 2em;
 }
 
 /* Ordered list style by level */

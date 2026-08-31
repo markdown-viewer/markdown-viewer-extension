@@ -791,17 +791,14 @@ ${styles.join('\n')}
   if (blocks.listItem) {
     const marginBefore = toPx(blocks.listItem.spacingBefore);
     const marginAfter = toPx(blocks.listItem.spacingAfter);
-    const styles: string[] = [
-      `  margin: ${marginBefore} 0 ${marginAfter} 0;`
-    ];
-    // List-item alignment follows the paragraph first-line indent switch:
-    // both are controlled by the same user setting, so they stay in sync.
-    if (blocks.paragraph?.firstLineIndent && firstLineIndent > 0) {
-      styles.push(`  margin-left: ${firstLineIndent}em;`);
-    }
     css.push(`#markdown-content li {
-${styles.join('\n')}
+  margin: ${marginBefore} 0 ${marginAfter} 0;
 }`);
+    // Note: list indentation is intentionally decoupled from the paragraph
+    // first-line indent. Lists already carry their own hierarchy via the
+    // ul/ol 2em padding step; adding margin-left here would COMPOUND on
+    // every nesting level (each li matches) and balloon the indent step
+    // to ~3em per level.
   }
 
   // Blockquote spacing and border color from colorScheme
@@ -820,12 +817,6 @@ ${styles.join('\n')}
     if (blocks.paragraph.firstLineIndent && firstLineIndent > 0) {
       css.push(`#markdown-content blockquote p {
   text-indent: 0;
-}`);
-    }
-    // Override list indent inside blockquote (blockquotes don't follow first-line indent)
-    if (blocks.paragraph?.firstLineIndent && firstLineIndent > 0) {
-      css.push(`#markdown-content blockquote li {
-  margin-left: 0;
 }`);
     }
   }

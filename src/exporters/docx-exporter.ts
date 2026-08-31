@@ -303,14 +303,12 @@ class DocxExporter {
         paragraphStyles,
       };
 
-      // Calculate firstLineIndent twips for numbering (list) indent integration
-      let numberingExtraIndentTwips = 0;
-      if (this.themeStyles?.firstLineIndentEnabled && this.firstLineIndent > 0) {
-        const bodySizeHalfPt = this.themeStyles.default.run.size;
-        const bodySizePt = bodySizeHalfPt / 2;
-        const twipsPerEm = bodySizePt * 20;
-        numberingExtraIndentTwips = Math.round(this.firstLineIndent * twipsPerEm);
-      }
+      // List indent step = 2em of the body font, mirroring the web preview's
+      // `ul/ol { padding-left: 2em }`. Lists are deliberately decoupled from
+      // the paragraph first-line indent (markers already provide hierarchy).
+      const bodySizeHalfPt = this.themeStyles.default.run.size;
+      const bodySizePt = bodySizeHalfPt / 2;
+      const listIndentStepTwips = Math.round(2 * bodySizePt * 20);
 
       const doc = new Document({
         creator: 'Markdown Viewer Extension',
@@ -322,20 +320,19 @@ class DocxExporter {
           config: [
             {
               reference: 'default-ordered-list',
-              levels: createNumberingLevels(numberingExtraIndentTwips),
+              levels: createNumberingLevels(listIndentStepTwips),
             },
             {
               reference: 'default-bullet-list',
-              levels: createBulletNumberingLevels(numberingExtraIndentTwips),
+              levels: createBulletNumberingLevels(listIndentStepTwips),
             },
-            // Blockquote-internal lists: no first-line indent
             {
               reference: 'blockquote-ordered-list',
-              levels: createNumberingLevels(0),
+              levels: createNumberingLevels(listIndentStepTwips),
             },
             {
               reference: 'blockquote-bullet-list',
-              levels: createBulletNumberingLevels(0),
+              levels: createBulletNumberingLevels(listIndentStepTwips),
             },
           ],
         },
