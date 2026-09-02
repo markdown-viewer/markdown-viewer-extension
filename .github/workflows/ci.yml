@@ -1,0 +1,66 @@
+# CI — single fibjs test entry (test/all.test.js)
+#
+# Runs the ENTIRE suite with the fibjs runtime, exactly like `npm test`
+# locally:
+#   - pure units + DOM units
+#   - browser/CLI/export contract suites (headless Chrome via Playwright)
+#   - installed-extension e2e (headless Chromium + dist/chrome build)
+#
+# fibjs distribution: the suite needs a dev build WITH CSSOM support
+# (element.style, added after v0.37.0 — see docs/dev/fibjs-dom-style-limitation.md).
+# There is no official binary download for the dev line, so the workflow
+# extracts the fibjs binary straight out of the fibjs/dev docker image and runs
+# it on the VM (no container-internal browser setup needed). The image is
+# multi-arch; the ubuntu runner pulls the amd64 variant automatically.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: fibjs test (all.test.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Extract fibjs (dev build incl. CSSOM) from the fibjs/dev image
+      - name: Extract fibjs from fibjs/dev image
+        run: |
+          docker create --name fibjs-extract fibjs/dev
+          docker cp fibjs-extract:/usr/local/bin/fibjs ./fibjs
+          docker rm fibjs-extract
+          chmod +x ./fibjs
+          ./fibjs --version
+          sudo mv ./fibjs /usr/local/bin/fibjs
+          fibjs --version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      # Google Chrome for suites that launch channel:'chrome'
+      - name: Setup Google Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      # Playwright Chromium for the installed-extension e2e (channel:'chromium',
+      # needed because branded Chrome refuses --load-extension on macOS/Windows)
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install chromium --with-deps
+
+      # Browser/export contract suites read dist/cli assets; the extension
+      # e2e loads dist/chrome.
+      - name: Build CLI and Chrome extension
+        run: |
+          npm run build:cli
+          npm run build:chrome
+
+      - name: Run all tests
+        run: npm test
