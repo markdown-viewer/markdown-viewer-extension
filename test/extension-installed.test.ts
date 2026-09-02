@@ -259,21 +259,6 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
     // Pin the settings used by every render.
     await embedPage.goto(`chrome-extension://${extensionId}/ui/workspace/viewer-embed.html?embed=1`);
     await evalJs(embedPage, SET_STORAGE_JS, { ...FIXED_SETTINGS });
-
-    // Diagnose render failures on CI: page console errors/warnings and
-    // uncaught exceptions are printed to the test output immediately.
-    for (const page of [standalonePage, embedPage, inlinePage, workspacePage]) {
-      page.on('console', (msg) => {
-        if (msg.type() === 'error' || msg.type() === 'warning') {
-          // eslint-disable-next-line no-console
-          console.log(`[page ${msg.type()}]`, msg.text().slice(0, 500));
-        }
-      });
-      page.on('pageerror', (err) => {
-        // eslint-disable-next-line no-console
-        console.log('[pageerror]', String(err).slice(0, 500));
-      });
-    }
   });
 
   after(async () => {
@@ -340,11 +325,6 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
     }`, fixtureName);
     // The preview iframe is created lazily by the workspace bridge.
     const frame = await waitForWorkspaceFrame();
-    // Ensure the click actually switched the preview to the requested file
-    // before waiting for render signals — otherwise a stale render of the
-    // PREVIOUS fixture can satisfy WAIT_RENDERED_JS (its content is still in
-    // the DOM until the next render pass clears it).
-    await waitFor(frame, `() => document.documentElement.dataset.viewerFilename === ${JSON.stringify(fixtureName)}`, 30000);
     await waitFor(frame, WAIT_RENDERED_JS);
     await evalJs(frame, WAIT_IMAGES_JS);
   };
@@ -382,261 +362,202 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
   /** Selector for the content root in the given mode. */
   const contentSel = (mode: string) => (mode === 'inline' ? '.markdown-viewer-content' : '#markdown-content');
 
-  /**
-   * Wait until a selector exists inside the content root AND stays present
-   * across a short stability window. Rendering replaces #markdown-content in
-   * one async pass; on a slow CI runner a measurement that lands between
-   * “selector present” and a subsequent re-render pass can observe an empty
-   * container, so single-shot waits are not enough.
-   */
-  const waitForContent = async (mode: string, selector: string): Promise<void> => {
-    const target = modeTarget(mode);
-    const js = `() => Boolean(document.querySelector('${contentSel(mode)} ${selector}'))`;
-    const deadline = Date.now() + 60000;
-    for (;;) {
-      await waitFor(target, js);
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      if (await evalJs<boolean>(target, js)) {
-        return;
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(`waitForContent stable timeout: ${js.slice(0, 80)}`);
-      }
-      // Selector vanished again (re-render in progress) — wait for the next pass.
-    }
-  };
+  /** Wait until a selector exists inside the content root (async rendering). */
+  const waitForContent = (mode: string, selector: string) =>
+    waitFor(modeTarget(mode), `() => Boolean(document.querySelector('${contentSel(mode)} ${selector}'))`);
 
   const collectCss = (mode: string) => evalJs<string>(modeTarget(mode), COLLECT_CSS_JS);
 
   // ── Fixture matrix (same semantics as the Web baseline) ──────────────────
 
-  // Each fixture renders as its OWN it() per mode (registered in the
-  // mode describes below) so one broken fixture fails in isolation.
+  const runFullMatrix = async (mode: string) => {
+    const ctx = (name: string) => `[${mode}] ${name}`;
 
-  interface MatrixFixtureCase {
-    name: string;
-    overrides?: Record<string, unknown>;
-    run: (mode: string) => Promise<void>;
-  }
+    // images (data-URL fixtures: relative resources are unresolvable in the
+    // embed/workspace modes, and a broken image stretches block-level to the
+    // container width, zeroing its auto margins)
+    {
+      await openFixture(mode, 'image-center-data.md');
+      await waitForContent(mode, 'img');
+      const m = await measure(mode, [`${contentSel(mode)} img`]);
+      const img = firstOf(m, `${contentSel(mode)} img`);
+      assert.equal(img.display, 'block', ctx('centered image should be block'));
+      assert.equal(img.marginLeft, img.marginRight, ctx('centered image needs symmetric margins'));
+      assert.ok(px(img.marginLeft) > 0, ctx('centered image needs a positive centering margin'));
+    }
+    {
+      await openFixture(mode, 'image-left-data.md', { imageLayout: 'left' });
+      await waitForContent(mode, 'img');
+      const m = await measure(mode, [`${contentSel(mode)} img`]);
+      const img = firstOf(m, `${contentSel(mode)} img`);
+      assert.equal(img.marginLeft, '0px', ctx('left image must have zero margin-left'));
+      assert.equal(img.display, 'block', ctx('left image should be block'));
+    }
 
-  const MATRIX_FIXTURES: MatrixFixtureCase[] = [
+    // diagrams
     {
-      name: "image-center-data",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] image-center-data: ${n}`;
-        await waitForContent(mode, 'img');
-        const m = await measure(mode, [`${contentSel(mode)} img`]);
-        const img = firstOf(m, `${contentSel(mode)} img`);
-        assert.equal(img.display, 'block', ctx('centered image should be block'));
-        assert.equal(img.marginLeft, img.marginRight, ctx('centered image needs symmetric margins'));
-        assert.ok(px(img.marginLeft) > 0, ctx('centered image needs a positive centering margin'));
-      },
-    },
+      await openFixture(mode, 'diagram-center.md');
+      await waitForContent(mode, '.diagram-block');
+      const m = await measure(mode, ['.diagram-block']);
+      const block = firstOf(m, '.diagram-block');
+      assert.equal(block.marginLeft, block.marginRight, ctx('centered diagram needs symmetric margins'));
+      assert.ok(px(block.marginLeft) > 0, ctx('centered diagram needs a positive centering margin'));
+    }
     {
-      name: "image-left-data",
-      overrides: { imageLayout: 'left' },
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] image-left-data: ${n}`;
-        await waitForContent(mode, 'img');
-        const m = await measure(mode, [`${contentSel(mode)} img`]);
-        const img = firstOf(m, `${contentSel(mode)} img`);
-        assert.equal(img.marginLeft, '0px', ctx('left image must have zero margin-left'));
-        assert.equal(img.display, 'block', ctx('left image should be block'));
-      },
-    },
+      await openFixture(mode, 'diagram-left.md', { diagramLayout: 'left' });
+      await waitForContent(mode, '.diagram-block');
+      const m = await measure(mode, ['.diagram-block']);
+      const block = firstOf(m, '.diagram-block');
+      assert.equal(block.marginLeft, '0px', ctx('left diagram must have zero margin-left'));
+      assert.equal(block.textAlign, 'left', ctx('left diagram container should be text-align:left'));
+    }
+
+    // tables
     {
-      name: "diagram-center",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] diagram-center: ${n}`;
-        await waitForContent(mode, '.diagram-block');
-        const m = await measure(mode, ['.diagram-block']);
-        const block = firstOf(m, '.diagram-block');
-        assert.equal(block.marginLeft, block.marginRight, ctx('centered diagram needs symmetric margins'));
-        assert.ok(px(block.marginLeft) > 0, ctx('centered diagram needs a positive centering margin'));
-      },
-    },
+      await openFixture(mode, 'table-center.md');
+      await waitForContent(mode, 'table');
+      const m = await measure(mode, [`${contentSel(mode)} table`]);
+      const table = firstOf(m, `${contentSel(mode)} table`);
+      assert.ok(Math.abs(px(table.marginLeft) - px(table.marginRight)) < 1, ctx('centered table margins symmetric within 1px'));
+      assert.ok(px(table.marginLeft) > 0, ctx('centered table needs a positive centering margin'));
+    }
     {
-      name: "diagram-left",
-      overrides: { diagramLayout: 'left' },
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] diagram-left: ${n}`;
-        await waitForContent(mode, '.diagram-block');
-        const m = await measure(mode, ['.diagram-block']);
-        const block = firstOf(m, '.diagram-block');
-        assert.equal(block.marginLeft, '0px', ctx('left diagram must have zero margin-left'));
-        assert.equal(block.textAlign, 'left', ctx('left diagram container should be text-align:left'));
-      },
-    },
+      await openFixture(mode, 'table-left.md', { tableLayout: 'left' });
+      await waitForContent(mode, 'table');
+      const m = await measure(mode, [`${contentSel(mode)} table`]);
+      const table = firstOf(m, `${contentSel(mode)} table`);
+      assert.equal(table.marginLeft, '0px', ctx('left table must have zero margin-left'));
+    }
     {
-      name: "table-center",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] table-center: ${n}`;
-        await waitForContent(mode, 'table');
-        const m = await measure(mode, [`${contentSel(mode)} table`]);
-        const table = firstOf(m, `${contentSel(mode)} table`);
-        assert.ok(Math.abs(px(table.marginLeft) - px(table.marginRight)) < 1, ctx('centered table margins symmetric within 1px'));
-        assert.ok(px(table.marginLeft) > 0, ctx('centered table needs a positive centering margin'));
-      },
-    },
+      await openFixture(mode, 'table-full.md', { tableLayout: 'center-full-width' });
+      await waitForContent(mode, 'table');
+      const m = await measure(mode, [`${contentSel(mode)} table`]);
+      const table = firstOf(m, `${contentSel(mode)} table`);
+      assert.equal(table.display, 'table', ctx('full-width table should be a real table layout box'));
+      // Workspace preview iframe is narrower than the 1440px baseline; the
+      // semantic is "spans the content width", so require a wide table but
+      // not the desktop baseline width.
+      assert.ok(table.width > 400, ctx(`full-width table should span the content width (got ${table.width}px)`));
+    }
     {
-      name: "table-left",
-      overrides: { tableLayout: 'left' },
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] table-left: ${n}`;
-        await waitForContent(mode, 'table');
-        const m = await measure(mode, [`${contentSel(mode)} table`]);
-        const table = firstOf(m, `${contentSel(mode)} table`);
-        assert.equal(table.marginLeft, '0px', ctx('left table must have zero margin-left'));
-      },
-    },
+      await openFixture(mode, 'table-cells.md');
+      await waitForContent(mode, 'table');
+      const m = await measure(mode, ['table th', 'table td']);
+      const th = firstOf(m, 'table th');
+      const td = firstOf(m, 'table td');
+      assert.equal(th.fontWeight, '700', ctx('table header should be bold'));
+      assert.equal(td.fontWeight, '400', ctx('table body cells should be regular'));
+      assert.notEqual(th.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('table header should have a background'));
+      assert.ok(px(td.paddingTop) > 0 && px(td.paddingLeft) > 0, ctx('cells should keep padding'));
+      assert.ok(px(td.borderTopWidth) > 0 && px(td.borderLeftWidth) > 0, ctx('cells should keep borders'));
+    }
+
+    // blockquote
     {
-      name: "table-full",
-      overrides: { tableLayout: 'center-full-width' },
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] table-full: ${n}`;
-        await waitForContent(mode, 'table');
-        const m = await measure(mode, [`${contentSel(mode)} table`]);
-        const table = firstOf(m, `${contentSel(mode)} table`);
-        assert.equal(table.display, 'table', ctx('full-width table should be a real table layout box'));
-        // Workspace preview iframe is narrower than the 1440px baseline; the
-        // semantic is "spans the content width", so require a wide table but
-        // not the desktop baseline width.
-        assert.ok(table.width > 400, ctx(`full-width table should span the content width (got ${table.width}px)`));
-      },
-    },
+      await openFixture(mode, 'blockquote-body.md');
+      await waitForContent(mode, 'blockquote');
+      const m = await measure(mode, ['blockquote']);
+      const quote = firstOf(m, 'blockquote');
+      assert.ok(px(quote.borderLeftWidth) > 0, ctx('blockquote should keep a left border'));
+      assert.ok(px(quote.paddingLeft) > 0, ctx('blockquote should keep left padding'));
+      assert.notEqual(quote.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('blockquote should keep a themed background'));
+    }
+
+    // body typography
     {
-      name: "table-cells",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] table-cells: ${n}`;
-        await waitForContent(mode, 'table');
-        const m = await measure(mode, ['table th', 'table td']);
-        const th = firstOf(m, 'table th');
-        const td = firstOf(m, 'table td');
-        assert.equal(th.fontWeight, '700', ctx('table header should be bold'));
-        assert.equal(td.fontWeight, '400', ctx('table body cells should be regular'));
-        assert.notEqual(th.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('table header should have a background'));
-        assert.ok(px(td.paddingTop) > 0 && px(td.paddingLeft) > 0, ctx('cells should keep padding'));
-        assert.ok(px(td.borderTopWidth) > 0 && px(td.borderLeftWidth) > 0, ctx('cells should keep borders'));
-      },
-    },
+      await openFixture(mode, 'body-text.md');
+      await waitForContent(mode, 'p');
+      const m = await measure(mode, [`${contentSel(mode)} p`]);
+      const p = firstOf(m, `${contentSel(mode)} p`);
+      // 14pt body theme (db81b3c): 14pt = 18.6667px, line-height 1.5 = 28px.
+      assert.equal(p.fontSize, '18.6667px', ctx('body font size should stay 18.6667px'));
+      assert.equal(p.lineHeight, '28px', ctx('body line-height should stay 1.5 (28px)'));
+      assert.notEqual(p.color, 'rgba(0, 0, 0, 0)', ctx('body text color should be set'));
+      assert.ok(p.fontFamily.includes('FangSong'), ctx('body font stack should keep FangSong first'));
+    }
+
+    // headings
     {
-      name: "blockquote-body",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] blockquote-body: ${n}`;
-        await waitForContent(mode, 'blockquote');
-        const m = await measure(mode, ['blockquote']);
-        const quote = firstOf(m, 'blockquote');
-        assert.ok(px(quote.borderLeftWidth) > 0, ctx('blockquote should keep a left border'));
-        assert.ok(px(quote.paddingLeft) > 0, ctx('blockquote should keep left padding'));
-        assert.notEqual(quote.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('blockquote should keep a themed background'));
-      },
-    },
+      await openFixture(mode, 'headings.md');
+      await waitForContent(mode, 'h1');
+      const m = await measure(mode, [`${contentSel(mode)} h1`, `${contentSel(mode)} h2`]);
+      const h1 = firstOf(m, `${contentSel(mode)} h1`);
+      const h2 = firstOf(m, `${contentSel(mode)} h2`);
+      assert.ok(px(h1.marginTop) > 0 && px(h1.marginBottom) > 0, ctx('h1 should keep block spacing'));
+      assert.ok(px(h2.marginTop) > 0 && px(h2.marginBottom) > 0, ctx('h2 should keep block spacing'));
+      // 14pt body theme (db81b3c): h1 20pt = 26.6667px, h2 18pt = 24px.
+      assert.equal(h1.fontSize, '26.6667px', ctx('h1 should stay 26.6667px'));
+      assert.equal(h2.fontSize, '24px', ctx('h2 should stay 24px'));
+    }
+
+    // hr
     {
-      name: "body-text",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] body-text: ${n}`;
-        await waitForContent(mode, 'p');
-        const m = await measure(mode, [`${contentSel(mode)} p`]);
-        const p = firstOf(m, `${contentSel(mode)} p`);
-        // 14pt body theme (db81b3c): 14pt = 18.6667px, line-height 1.5 = 28px.
-        assert.equal(p.fontSize, '18.6667px', ctx('body font size should stay 18.6667px'));
-        assert.equal(p.lineHeight, '28px', ctx('body line-height should stay 1.5 (28px)'));
-        assert.notEqual(p.color, 'rgba(0, 0, 0, 0)', ctx('body text color should be set'));
-        assert.ok(p.fontFamily.includes('FangSong'), ctx('body font stack should keep FangSong first'));
-      },
-    },
+      await openFixture(mode, 'hr.md');
+      await waitForContent(mode, 'hr');
+      const m = await measure(mode, ['hr']);
+      const hr = firstOf(m, 'hr');
+      assert.ok(px(hr.marginTop) > 0 && px(hr.marginBottom) > 0, ctx('hr should keep vertical margins'));
+      assert.notEqual(hr.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('hr should render a visible rule'));
+    }
+
+    // inline formatting
     {
-      name: "headings",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] headings: ${n}`;
-        await waitForContent(mode, 'h1');
-        const m = await measure(mode, [`${contentSel(mode)} h1`, `${contentSel(mode)} h2`]);
-        const h1 = firstOf(m, `${contentSel(mode)} h1`);
-        const h2 = firstOf(m, `${contentSel(mode)} h2`);
-        assert.ok(px(h1.marginTop) > 0 && px(h1.marginBottom) > 0, ctx('h1 should keep block spacing'));
-        assert.ok(px(h2.marginTop) > 0 && px(h2.marginBottom) > 0, ctx('h2 should keep block spacing'));
-        // 14pt body theme (db81b3c): h1 20pt = 26.6667px, h2 18pt = 24px.
-        assert.equal(h1.fontSize, '26.6667px', ctx('h1 should stay 26.6667px'));
-        assert.equal(h2.fontSize, '24px', ctx('h2 should stay 24px'));
-      },
-    },
+      await openFixture(mode, 'text-format.md');
+      await waitForContent(mode, 'strong');
+      const m = await measure(mode, ['strong', 'em', 'del', 'a', `${contentSel(mode)} code`]);
+      assert.equal(firstOf(m, 'strong').fontWeight, '700', ctx('strong should render bold'));
+      assert.equal(firstOf(m, 'em').fontStyle, 'italic', ctx('em should render italic'));
+      assert.equal(firstOf(m, 'del').textDecorationLine, 'line-through', ctx('del should render struck through'));
+      const link = firstOf(m, 'a');
+      assert.notEqual(link.color, 'rgb(23, 23, 23)', ctx('links should use an accent color, not body color'));
+      assert.equal(link.textDecorationLine, 'none', ctx('links should not be underlined'));
+      const code = firstOf(m, `${contentSel(mode)} code`);
+      assert.notEqual(code.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('inline code should have a background'));
+      assert.ok(px(code.paddingLeft) > 0, ctx('inline code should keep horizontal padding'));
+      assert.ok(px(code.fontSize) < 18.6667, ctx('inline code should be smaller than the 14pt body text'));
+    }
+
+    // lists
     {
-      name: "hr",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] hr: ${n}`;
-        await waitForContent(mode, 'hr');
-        const m = await measure(mode, ['hr']);
-        const hr = firstOf(m, 'hr');
-        assert.ok(px(hr.marginTop) > 0 && px(hr.marginBottom) > 0, ctx('hr should keep vertical margins'));
-        assert.notEqual(hr.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('hr should render a visible rule'));
-      },
-    },
+      await openFixture(mode, 'list.md');
+      await waitForContent(mode, 'ul');
+      const m = await measure(mode, ['ul', 'ol', 'ul li']);
+      assert.ok(px(firstOf(m, 'ul').paddingLeft) > 0, ctx('unordered list should keep indentation padding'));
+      assert.ok(px(firstOf(m, 'ol').paddingLeft) > 0, ctx('ordered list should keep indentation padding'));
+      const li = firstOf(m, 'ul li');
+      assert.equal(li.fontSize, '18.6667px', ctx('list items should use the body font size'));
+      assert.ok(px(li.marginBottom) > 0, ctx('list items should keep bottom spacing'));
+    }
+
+    // code blocks (pagination compatibility: no scroll containers)
     {
-      name: "text-format",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] text-format: ${n}`;
-        await waitForContent(mode, 'strong');
-        const m = await measure(mode, ['strong', 'em', 'del', 'a', `${contentSel(mode)} code`]);
-        assert.equal(firstOf(m, 'strong').fontWeight, '700', ctx('strong should render bold'));
-        assert.equal(firstOf(m, 'em').fontStyle, 'italic', ctx('em should render italic'));
-        assert.equal(firstOf(m, 'del').textDecorationLine, 'line-through', ctx('del should render struck through'));
-        const link = firstOf(m, 'a');
-        assert.notEqual(link.color, 'rgb(23, 23, 23)', ctx('links should use an accent color, not body color'));
-        assert.equal(link.textDecorationLine, 'none', ctx('links should not be underlined'));
-        const code = firstOf(m, `${contentSel(mode)} code`);
-        assert.notEqual(code.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('inline code should have a background'));
-        assert.ok(px(code.paddingLeft) > 0, ctx('inline code should keep horizontal padding'));
-        assert.ok(px(code.fontSize) < 18.6667, ctx('inline code should be smaller than the 14pt body text'));
-      },
-    },
+      await openFixture(mode, 'code-block.md');
+      await waitForContent(mode, 'pre');
+      const m = await measure(mode, [`${contentSel(mode)} pre`]);
+      const pre = firstOf(m, `${contentSel(mode)} pre`);
+      assert.equal(pre.overflowX, 'visible', ctx('pre must not be a horizontal scroll container (pagination)'));
+      assert.equal(pre.overflowY, 'visible', ctx('pre must not be a vertical scroll container (pagination)'));
+      assert.notEqual(pre.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('pre should have a background'));
+    }
+
+    // footnotes & math
     {
-      name: "list",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] list: ${n}`;
-        await waitForContent(mode, 'ul');
-        const m = await measure(mode, ['ul', 'ol', 'ul li']);
-        assert.ok(px(firstOf(m, 'ul').paddingLeft) > 0, ctx('unordered list should keep indentation padding'));
-        assert.ok(px(firstOf(m, 'ol').paddingLeft) > 0, ctx('ordered list should keep indentation padding'));
-        const li = firstOf(m, 'ul li');
-        assert.equal(li.fontSize, '18.6667px', ctx('list items should use the body font size'));
-        assert.ok(px(li.marginBottom) > 0, ctx('list items should keep bottom spacing'));
-      },
-    },
+      await openFixture(mode, 'footnotes.md');
+      await waitForContent(mode, 'section.footnotes');
+      const m = await measure(mode, ['section.footnotes', 'sup']);
+      const section = firstOf(m, 'section.footnotes');
+      assert.ok(px(section.fontSize) > 0, ctx('footnotes section should have typography'));
+      firstOf(m, 'sup');
+    }
     {
-      name: "code-block",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] code-block: ${n}`;
-        await waitForContent(mode, 'pre');
-        const m = await measure(mode, [`${contentSel(mode)} pre`]);
-        const pre = firstOf(m, `${contentSel(mode)} pre`);
-        assert.equal(pre.overflowX, 'visible', ctx('pre must not be a horizontal scroll container (pagination)'));
-        assert.equal(pre.overflowY, 'visible', ctx('pre must not be a vertical scroll container (pagination)'));
-        assert.notEqual(pre.backgroundColor, 'rgba(0, 0, 0, 0)', ctx('pre should have a background'));
-      },
-    },
-    {
-      name: "footnotes",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] footnotes: ${n}`;
-        await waitForContent(mode, 'section.footnotes');
-        const m = await measure(mode, ['section.footnotes', 'sup']);
-        const section = firstOf(m, 'section.footnotes');
-        assert.ok(px(section.fontSize) > 0, ctx('footnotes section should have typography'));
-        firstOf(m, 'sup');
-      },
-    },
-    {
-      name: "math",
-      run: async (mode) => {
-        const ctx = (n: string) => `[${mode}] math: ${n}`;
-        await waitForContent(mode, '.katex-display');
-        const m = await measure(mode, ['.katex-display', '.katex']);
-        const display = firstOf(m, '.katex-display');
-        assert.ok(px(display.marginTop) > 0 && px(display.marginBottom) > 0, ctx('display math should keep block margins'));
-        assert.equal(firstOf(m, '.katex').fontSize, '18.6667px', ctx('KaTeX should follow the body font size'));
-      },
-    },
-  ];
+      await openFixture(mode, 'math.md');
+      await waitForContent(mode, '.katex-display');
+      const m = await measure(mode, ['.katex-display', '.katex']);
+      const display = firstOf(m, '.katex-display');
+      assert.ok(px(display.marginTop) > 0 && px(display.marginBottom) > 0, ctx('display math should keep block margins'));
+      assert.equal(firstOf(m, '.katex').fontSize, '18.6667px', ctx('KaTeX should follow the body font size'));
+    }
+  };
 
   const runCollectionContract = async (mode: string) => {
     await openFixture(mode, 'diagram-center.md');
@@ -696,14 +617,9 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
         await runCollectionContract(mode);
       });
 
-      // One it() per fixture so a broken fixture fails in isolation and the
-      // failure names the exact markdown case (slow-CI friendly).
-      for (const fixture of MATRIX_FIXTURES) {
-        it(`renders fixture: ${fixture.name}`, async () => {
-          await openFixture(mode, `${fixture.name}.md`, fixture.overrides);
-          await fixture.run(mode);
-        });
-      }
+      it('renders the full fixture matrix', async () => {
+        await runFullMatrix(mode);
+      });
     });
   }
 
@@ -1146,40 +1062,15 @@ describe('installed Chrome extension — SUMMARY panel preview of nested chapter
       return Boolean(c && c.textContent && c.textContent.includes('证书'));
     }`, 20000);
 
-    // Click the in-content link to the tutorial chapter. The previous test in
-    // this describe leaves the page on 06-identity, so the panel click above
-    // re-renders the SAME chapter; on a slow CI runner a single-shot lookup
-    // can land between the render clear and fill passes and miss the link.
-    // Wait until the link is present AND stable across a re-render window,
-    // then dispatch the click.
-    const clicked = await (async () => {
-      const deadline = Date.now() + 20000;
-      let seen = false;
-      for (;;) {
-        const found = await evalJs<boolean>(summaryPage, `() => {
-          return Array.from(document.querySelectorAll('#markdown-content a'))
-            .some((a) => (a.getAttribute('href') || '').includes('t01-tutorial'));
-        }`);
-        if (found) {
-          if (seen) {
-            await evalJs(summaryPage, `() => {
-              const link = Array.from(document.querySelectorAll('#markdown-content a')).find(
-                (a) => (a.getAttribute('href') || '').includes('t01-tutorial'),
-              );
-              if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-              return Boolean(link);
-            }`);
-            return true;
-          }
-          seen = true;
-          await new Promise((resolve) => setTimeout(resolve, 350));
-          continue;
-        }
-        seen = false;
-        if (Date.now() >= deadline) return false;
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-    })();
+    // Click the in-content link to the tutorial chapter.
+    const clicked = await evalJs<boolean>(summaryPage, `() => {
+      const link = Array.from(document.querySelectorAll('#markdown-content a')).find(
+        (a) => (a.getAttribute('href') || '').includes('t01-tutorial'),
+      );
+      if (!link) return false;
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    }`);
     assert.ok(clicked, 'rendered chapter must contain the cross-chapter link');
 
     await waitFor(summaryPage, `() => {
