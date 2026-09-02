@@ -1040,8 +1040,15 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
 
 #markdown-content ul,
 #markdown-content ol {
-  /* 2em per level — matches GitHub / VS Code markdown conventions and
-     keeps the indent step constant regardless of nesting depth. */
+  /* Top-level marker gutter: ~1em holds the widest common marker ("1.", "10.")
+     while keeping the marker flush with the text start. Nested levels step
+     2em below (marker aligns with the parent item's text). */
+  padding-left: 1em;
+}
+
+#markdown-content li ul,
+#markdown-content li ol {
+  /* Nested levels keep the constant 2em step (GitHub convention). */
   padding-left: 2em;
 }
 

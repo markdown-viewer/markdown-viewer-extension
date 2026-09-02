@@ -47,12 +47,17 @@ interface NumberingLevel {
 /**
  * Create numbering levels configuration for ordered lists
  * @param indentStepTwips - Left indent per nesting level in twips.
- *   Level N sits at (N + 1) × indentStepTwips, mirroring the web preview's
- *   `ul/ol { padding-left: 2em }` (2em of the body font, converted by the
- *   caller). Default 560 twips = 2em at a 14pt body.
+ *   Level N sits at N × indentStepTwips + indentStepTwips/2 (a 1em marker
+ *   gutter holds the widest common marker "10.", mirroring the web preview's
+ *   `ul/ol { padding-left: 1em }` + nested `2em` step). Default 560 twips =
+ *   2em at a 14pt body.
+ * @param extraLeftIndentTwips - Constant offset added to EVERY level,
+ *   mirroring the web preview's top-level `margin-left` when the body uses
+ *   a first-line indent: the whole list block shifts right, the per-level
+ *   step stays constant.
  * @returns Numbering levels configuration
  */
-export function createNumberingLevels(indentStepTwips = 560): NumberingLevel[] {
+export function createNumberingLevels(indentStepTwips = 560, extraLeftIndentTwips = 0): NumberingLevel[] {
   const levels: NumberingLevel[] = [];
   const formats: Array<(typeof LevelFormat)[keyof typeof LevelFormat]> = [
     LevelFormat.DECIMAL,
@@ -76,7 +81,7 @@ export function createNumberingLevels(indentStepTwips = 560): NumberingLevel[] {
       style: {
         paragraph: {
           indent: {
-            left: (i + 1) * indentStepTwips,
+            left: i * indentStepTwips + Math.round(indentStepTwips / 2) + extraLeftIndentTwips,
           },
         },
       },
@@ -89,9 +94,11 @@ export function createNumberingLevels(indentStepTwips = 560): NumberingLevel[] {
  * Create numbering levels configuration for bullet (unordered) lists
  * @param indentStepTwips - Left indent per nesting level in twips (see
  *   createNumberingLevels; default 560 twips = 2em at a 14pt body).
+ * @param extraLeftIndentTwips - Constant offset added to EVERY level (see
+ *   createNumberingLevels).
  * @returns Numbering levels configuration
  */
-export function createBulletNumberingLevels(indentStepTwips = 560): NumberingLevel[] {
+export function createBulletNumberingLevels(indentStepTwips = 560, extraLeftIndentTwips = 0): NumberingLevel[] {
   const levels: NumberingLevel[] = [];
   const bulletChars = ['\u2022', '\u25E6', '\u25AA', '\u2022', '\u25E6', '\u25AA', '\u2022', '\u25E6', '\u25AA'];
 
@@ -105,7 +112,7 @@ export function createBulletNumberingLevels(indentStepTwips = 560): NumberingLev
       style: {
         paragraph: {
           indent: {
-            left: (i + 1) * indentStepTwips,
+            left: i * indentStepTwips + Math.round(indentStepTwips / 2) + extraLeftIndentTwips,
           },
         },
       },

@@ -304,11 +304,20 @@ class DocxExporter {
       };
 
       // List indent step = 2em of the body font, mirroring the web preview's
-      // `ul/ol { padding-left: 2em }`. Lists are deliberately decoupled from
-      // the paragraph first-line indent (markers already provide hierarchy).
+      // `ul/ol { padding-left: 2em }` — constant per-level step.
       const bodySizeHalfPt = this.themeStyles.default.run.size;
       const bodySizePt = bodySizeHalfPt / 2;
       const listIndentStepTwips = Math.round(2 * bodySizePt * 20);
+
+      // When the body uses a first-line indent, shift the list block as a
+      // WHOLE by the same amount (mirror of the web preview's top-level
+      // `margin-left` on ul/ol): the marker then starts at the body's
+      // first-line position instead of hanging to its left. Adding the same
+      // offset to every level keeps the per-level step constant.
+      let listBlockOffsetTwips = 0;
+      if (this.themeStyles?.firstLineIndentEnabled && this.firstLineIndent > 0) {
+        listBlockOffsetTwips = Math.round(this.firstLineIndent * bodySizePt * 20);
+      }
 
       const doc = new Document({
         creator: 'Markdown Viewer Extension',
@@ -320,12 +329,13 @@ class DocxExporter {
           config: [
             {
               reference: 'default-ordered-list',
-              levels: createNumberingLevels(listIndentStepTwips),
+              levels: createNumberingLevels(listIndentStepTwips, listBlockOffsetTwips),
             },
             {
               reference: 'default-bullet-list',
-              levels: createBulletNumberingLevels(listIndentStepTwips),
+              levels: createBulletNumberingLevels(listIndentStepTwips, listBlockOffsetTwips),
             },
+            // Blockquote-internal lists do not follow the body first-line indent
             {
               reference: 'blockquote-ordered-list',
               levels: createNumberingLevels(listIndentStepTwips),

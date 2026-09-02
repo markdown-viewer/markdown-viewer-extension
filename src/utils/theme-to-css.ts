@@ -785,6 +785,28 @@ ${styles.join('\n')}
 #markdown-content ol {
   margin: ${marginBefore} 0 ${marginAfter} 0;
 }`);
+    // When the body uses a first-line indent (clreq: 2em is the standard for
+    // Chinese publications), shift the FIRST-LEVEL list as a whole by the same
+    // amount so the marker starts at the body's first-line position (the
+    // "tupai/itemization" convention for numbered lists: the marker sits at
+    // the line start, text follows and wrapped lines align). Applied as
+    // "every list shifts, nested lists and blockquote-internal lists reset" —
+    // a top-level list cannot be targeted with `#markdown-content > ul`
+    // because the document renderer wraps every block in a
+    // `<div class="md-block">`. Putting the offset on li instead would
+    // compound on every nesting level.
+    if (blocks.paragraph?.firstLineIndent && firstLineIndent > 0) {
+      css.push(`#markdown-content ul,
+#markdown-content ol {
+  margin-left: ${firstLineIndent}em;
+}
+#markdown-content li ul,
+#markdown-content li ol,
+#markdown-content blockquote ul,
+#markdown-content blockquote ol {
+  margin-left: 0;
+}`);
+    }
   }
 
   // List item spacing
