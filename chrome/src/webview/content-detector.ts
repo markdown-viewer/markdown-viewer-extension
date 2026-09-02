@@ -3,6 +3,7 @@
 // Supports both Chrome (chrome.*) and Firefox (browser.*) APIs
 
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
+import { decodeBytes, detectByteEncoding, hasMojibakeSymptoms } from '../../../src/utils/encoding-recovery';
 
 import {
   ALL_SUPPORTED_EXTENSIONS,
@@ -85,21 +86,6 @@ function isProcessableContent(): boolean | null {
   return true;
 }
 
-function needsUtf8Recovery(text: string): boolean {
-  const sample = text.slice(0, 20000);
-  if (sample.includes('\uFFFD')) return true;
-
-  // A correctly decoded Chinese document contains CJK characters. When UTF-8
-  // bytes are decoded as a legacy single-byte charset, those characters turn
-  // into sequences such as "æ–¹æ¡ˆ" and no CJK characters remain.
-  if (/[\u3400-\u9fff]/.test(sample)) return false;
-
-  const markers = sample.match(
-    /(?:[æåçèéêëìíîï][\u0080-\u00ff\u2013\u2014\u2026\u2122]|Ã.|Â.|â(?:[\u0080-\u00ff]|[€‚„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]))/g,
-  );
-  return (markers?.length ?? 0) >= 2;
-}
-
 /**
  * Hide the page content immediately to prevent flash of unstyled content
  */
@@ -152,15 +138,22 @@ async function injectContentScript(): Promise<void> {
 
   const url = document.location.href;
   const bodyText = document.body?.textContent || '';
-  // Only refetch when the decoded DOM shows clear UTF-8 recovery symptoms.
-  if (/^https?:/i.test(url) && needsUtf8Recovery(bodyText)) {
+  // Only refetch when the decoded DOM shows clear misdecoding symptoms.
+  if (/^https?:/i.test(url) && hasMojibakeSymptoms(bodyText)) {
     try {
       const response = await fetch(url, { credentials: 'same-origin' });
       if (response.ok) {
         const bytes = new Uint8Array(await response.arrayBuffer());
-        const rawContent = new TextDecoder('utf-8').decode(bytes);
-        if (document.body) {
-          document.body.textContent = rawContent;
+        // Detect the real charset from the raw bytes instead of assuming
+        // UTF-8: genuinely legacy files (GBK/Big5/...) would otherwise turn
+        // into U+FFFD garbage, and single-byte legacy files that decoded
+        // correctly must not be touched.
+        const encoding = detectByteEncoding(bytes);
+        const recovered = encoding ? decodeBytes(bytes, encoding) : null;
+        // Skip rewriting when the detected encoding reproduces what the
+        // browser already decoded (the text is intact) or yielded nothing.
+        if (document.body && recovered && recovered !== bodyText) {
+          document.body.textContent = recovered;
         }
       }
     } catch {

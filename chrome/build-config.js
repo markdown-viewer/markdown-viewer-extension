@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dagreShimPlugin } from '../scripts/dagre-shim-plugin.js';
+import { nodeShimPlugin } from '../scripts/node-shim-plugin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -130,6 +131,7 @@ export const createBuildConfig = (overrides = {}) => {
     minify: !options.development,
     sourcemap: options.development,
     plugins: [
+      nodeShimPlugin,
       dagreShimPlugin,
       // Redirect @markdown-viewer/drawio2svg and draw-uml imports to shims
       // ONLY for files under src/renderers/ — these run in the offscreen render

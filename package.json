@@ -32,7 +32,7 @@
     "app:init": "cd mobile && flutter pub get",
     "check:homepage-i18n": "node scripts/check-homepage-i18n.cjs",
     "typecheck": "npx tsc --noEmit",
-    "test": "npx tsx --test test/cli.test.js test/gitbook-panel.test.ts test/book-export-progress.test.ts test/browser-render-harness.test.ts test/browser-baseline.test.ts test/html-export-layout.test.ts test/list-indent-contract.test.ts test/epub-styles-contract.test.ts test/epub-reader-environments.test.ts test/theme-to-css-content-root.test.ts test/theme-alert-css.test.ts test/theme-table-css.test.ts test/font-config.test.ts test/element-contract.test.ts test/print-isolation.test.ts",
+    "test": "npx tsx --test test/cli.test.js test/gitbook-panel.test.ts test/book-export-progress.test.ts test/browser-render-harness.test.ts test/browser-baseline.test.ts test/html-export-layout.test.ts test/list-indent-contract.test.ts test/epub-styles-contract.test.ts test/epub-reader-environments.test.ts test/theme-to-css-content-root.test.ts test/theme-alert-css.test.ts test/theme-table-css.test.ts test/font-config.test.ts test/element-contract.test.ts test/print-isolation.test.ts test/encoding-recovery.test.ts",
     "test:ext": "npx tsx --test test/extension-installed.test.ts"
   },
   "keywords": [
@@ -101,6 +101,7 @@
     "@vueuse/core": "^13.0.0",
     "@vueuse/integrations": "^13.0.0",
     "buffer": "^6.0.3",
+    "chardet": "0.7.0",
     "d3-array": "^3.2.4",
     "docx": "^9.5.1",
     "echarts": "^6.1.0",
