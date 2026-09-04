@@ -66,18 +66,18 @@
     "KaiTi": {
       "name": "KaiTi",
       "displayName": "楷体 (KaiTi)",
-      "webFallback": "'KaiTi', 'STKaiti', 'Kaiti SC', 'Kai', serif, SimSun",
+      "webFallback": "'Times New Roman', Georgia, 'KaiTi', 'STKaiti', 'Kaiti SC', 'Kai', SimSun, serif",
       "docx": {
         "ascii": "Times New Roman",
-        "eastAsia": "楷体"
+        "eastAsia": "KaiTi"
       }
     },
     "FangSong": {
       "name": "FangSong",
       "displayName": "仿宋 (FangSong)",
-      "webFallback": "FangSong, STFangsong, 'Zhuque Fangsong', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Microsoft YaHei', Georgia, 'Times New Roman', serif",
+      "webFallback": "'Times New Roman', Georgia, FangSong, STFangsong, 'Zhuque Fangsong', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Microsoft YaHei', serif",
       "docx": {
-        "ascii": "Georgia",
+        "ascii": "Times New Roman",
         "eastAsia": "FangSong"
       }
     },
