@@ -41,7 +41,7 @@ const EXT_DIR = path.resolve('dist/chrome');
 const LAYOUT_DIR = path.resolve('test/fixtures/layout');
 
 const FIXED_SETTINGS = {
-  theme: 'default',
+  themeId: 'default',
   language: 'en',
   frontmatterDisplay: 'hide',
   tableMergeEmpty: false,
@@ -152,6 +152,38 @@ const WAIT_IMAGES_JS = waitImagesJs('#markdown-content');
 const WAIT_RENDERED_JS = `() => {
   const c = document.getElementById('markdown-content');
   return Boolean(c && c.children.length > 0);
+}`;
+
+/**
+ * Sample the theme background coverage contract in the LIVE page:
+ *  - `expected`  — the theme's page background resolved from its CSS variable
+ *                  (--md-page-bg) through a probe element, so the test never
+ *                  hardcodes palette values;
+ *  - `contentBg` — computed background of the content root;
+ *  - `pageBg`    — computed background of the #markdown-page card (the
+ *                  container whose 20px gutter wraps the content).
+ *
+ * Invariant (standalone web preview): `pageBg` must equal `contentBg` so the
+ * themed background covers the WHOLE reading sheet. If the card keeps the
+ * frame surface color (pure white in light mode) the assertion fails — that
+ * is the regression where the background only paints the text strip and the
+ * gutter between content and container shows white.
+ */
+const READ_BG_COVERAGE_JS = `() => {
+  const cssOf = (el) => (el ? getComputedStyle(el).backgroundColor : null);
+  const content = document.querySelector('#markdown-content, .markdown-viewer-content');
+  const page = document.getElementById('markdown-page');
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;background:var(--md-page-bg);';
+  document.body.appendChild(probe);
+  const expected = cssOf(probe);
+  probe.remove();
+  return {
+    expected,
+    contentBg: cssOf(content),
+    pageBg: cssOf(page),
+    hasPage: Boolean(page),
+  };
 }`;
 
 // standalone: content render + the async style injection (inject-styles
@@ -706,6 +738,67 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       }
     });
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Theme background coverage (web preview)
+  //
+  // A theme with its own page background (typewriter → sepia tint, midnight →
+  // dark blue-black) must paint the WHOLE content area. Regression: the card
+  // (#markdown-page) kept the frame surface color (pure white in light mode),
+  // so the 20px gutter between the content strip and the container edge
+  // showed WHITE around tinted content.
+  //
+  // Detection is pure computed-style comparison on the live DOM: content root
+  // and card must both resolve to the theme's own --md-page-bg (sampled via a
+  // probe element — never a hardcoded palette value). mv-embed modes make the
+  // card transparent by design; there the content root IS the reading surface
+  // and must carry the theme color, which the same contentBg assertion covers.
+  // ──────────────────────────────────────────────────────────────────────────
+  describe('themed background covers the whole content area', () => {
+    const themeCases = [
+      { themeId: 'typewriter', label: 'light tinted (sepia)' },
+      { themeId: 'midnight', label: 'dark' },
+    ];
+    for (const mode of ['standalone', 'embed', 'workspace']) {
+      for (const { themeId, label } of themeCases) {
+        it(`[${mode}] ${label} theme (${themeId}): no white gutter between content and container`, async () => {
+          const ctx = (n: string) => `[${mode}/${themeId}] ${n}`;
+          await openFixture(mode, 'body-text.md', { themeId });
+          // Theme CSS is injected asynchronously — wait for the dynamic style
+          // that declares --md-page-bg before sampling backgrounds.
+          await waitFor(modeTarget(mode), `() => {
+            const s = document.getElementById('theme-dynamic-style');
+            return Boolean(s && s.textContent.includes('--md-page-bg'));
+          }`);
+          const bg = await evalJs<{ expected: string | null; contentBg: string | null; pageBg: string | null; hasPage: boolean }>(
+            modeTarget(mode),
+            READ_BG_COVERAGE_JS,
+          );
+          assert.ok(
+            bg.expected && bg.expected !== 'rgba(0, 0, 0, 0)',
+            ctx(`theme --md-page-bg must resolve to a color (got ${bg.expected})`),
+          );
+          assert.equal(bg.contentBg, bg.expected, ctx('the content root must carry the theme page background'));
+          if (bg.hasPage && bg.pageBg !== 'rgba(0, 0, 0, 0)') {
+            // Card mode (standalone preview, workspace preview iframe): the
+            // #markdown-page card wraps the content in a 20px gutter. Its
+            // background must follow the theme page color — the regression
+            // left it on the frame surface color (pure white in light mode),
+            // so the gutter showed white around tinted content.
+            assert.equal(
+              bg.pageBg,
+              bg.expected,
+              ctx('the card background must follow the theme page color — the gutter between content and container must not show the frame color (white)'),
+            );
+          } else {
+            // mv-embed: card is transparent by design; the content root fills
+            // the whole reading surface (asserted above via contentBg).
+            assert.equal(bg.pageBg, 'rgba(0, 0, 0, 0)', ctx('the embedded card must stay transparent by design'));
+          }
+        });
+      }
+    }
+  });
 
   // Inline-specific concerns on top of the shared matrix above: the host page
   // must receive the shared content stylesheet in FILTERED form only.

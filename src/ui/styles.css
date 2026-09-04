@@ -712,11 +712,19 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
    root itself stays pure content so Web / HTML / EPUB consume the exact same
    content styles — the card is a page-level concept. The gutter is a modest
    20px so the card's inner whitespace matches the panel layouts (VS Code,
-   mobile) instead of dominating narrow windows. */
+   mobile) instead of dominating narrow windows.
+   The card background follows the theme's page color (--md-page-bg is set on
+   :root by the theme stylesheet whenever the theme defines a page
+   background): with a tinted theme the whole sheet — including the 20px
+   gutter between the content strip and the card edge — keeps the themed
+   background instead of showing the frame surface (pure white in light
+   mode). Themes without a page background fall back to the frame surface,
+   which matches the card of the default theme. Print and .mv-embed override
+   this rule (transparent) further down. */
 #markdown-page {
   max-width: 1060px;
   margin: 0 auto;
-  background: var(--color-bg-surface);
+  background: var(--md-page-bg, var(--color-bg-surface, #ffffff));
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
   padding: 20px;
   box-sizing: border-box;
