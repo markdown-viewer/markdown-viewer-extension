@@ -138,19 +138,6 @@ function scrollToCodeViewLine(
   const lineHeight = lineElement.getBoundingClientRect().height;
   const scrollTo = lineTop + lineHeight * lineProgress - topOffset;
 
-  logScrollDebug('scrollToCodeViewLine', {
-    blockId: block.getAttribute('data-block-id') ?? '',
-    progress,
-    lineCount: lineElements.length,
-    logicalLine,
-    lineIndex,
-    lineProgress,
-    lineTop,
-    lineHeight,
-    topOffset,
-    scrollTo,
-  });
-
   scrollToPosition(Math.max(0, scrollTo), behavior, scrollContainer);
   return true;
 }

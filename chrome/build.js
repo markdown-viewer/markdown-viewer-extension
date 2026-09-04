@@ -61,6 +61,10 @@ try {
   const { default: syncFormats } = await import('../scripts/sync-formats.js');
   syncFormats();
 
+  // Sync settings schema
+  const { default: syncSettings } = await import('../scripts/sync-settings.js');
+  syncSettings();
+
   // Check translations
   await checkMissingKeys();
 

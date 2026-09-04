@@ -8,6 +8,7 @@ import type { LocaleInfo, LocaleRegistry } from '../../utils/localization';
 import { translate, applyI18nText, getUiLocale } from './i18n-helpers';
 import { storageGet, storageSet } from './storage-helper';
 import type { EmojiStyle } from '../../types/docx.js';
+import { DEFAULT_SETTINGS } from '../../config/settings.generated';
 
 // Helper: Send message compatible with both Chrome and Firefox
 function safeSendMessage(message: unknown): void {
@@ -134,6 +135,7 @@ export type PanelSideMode = boolean;
  */
 interface Settings {
   maxCacheItems: number;
+  themeId?: string;
   preferredLocale: string;
   docxHrDisplay: 'pageBreak' | 'line' | 'hide';
   docxEmojiStyle?: EmojiStyle;
@@ -180,16 +182,7 @@ export function createSettingsTabManager({
 }: SettingsTabManagerOptions): SettingsTabManager {
   let settings: Settings = {
     maxCacheItems: 1000,
-    preferredLocale: DEFAULT_SETTING_LOCALE,
-    docxHrDisplay: 'hide',
-    docxEmojiStyle: 'system',
-    frontmatterDisplay: 'hide',
-    tableMergeEmpty: true,
-    tableLayout: 'center',
-    imageLayout: 'left',
-    diagramLayout: 'center',
-    swapPanelSide: false,
-    firstLineIndent: 2,
+    ...DEFAULT_SETTINGS,
   };
   let currentTheme = 'default';
   let themes: ThemeDefinition[] = [];
@@ -217,7 +210,7 @@ export function createSettingsTabManager({
       }
 
       if (!settings.docxHrDisplay) {
-        settings.docxHrDisplay = 'hide';
+        settings.docxHrDisplay = DEFAULT_SETTINGS.docxHrDisplay;
       }
 
       // Prefer the unified settings key, but keep fallback compatibility
@@ -261,7 +254,7 @@ export function createSettingsTabManager({
     // DOCX: Horizontal rule display
     const docxHrDisplayEl = document.getElementById('docx-hr-display') as HTMLSelectElement | null;
     if (docxHrDisplayEl) {
-      docxHrDisplayEl.value = settings.docxHrDisplay || 'hide';
+      docxHrDisplayEl.value = settings.docxHrDisplay || DEFAULT_SETTINGS.docxHrDisplay;
 
       // Add change listener for immediate save
       if (!docxHrDisplayEl.dataset.listenerAdded) {
@@ -276,7 +269,7 @@ export function createSettingsTabManager({
     // DOCX: Emoji style
     const docxEmojiStyleEl = document.getElementById('docx-emoji-style') as HTMLSelectElement | null;
     if (docxEmojiStyleEl) {
-        docxEmojiStyleEl.value = settings.docxEmojiStyle || 'system';
+        docxEmojiStyleEl.value = settings.docxEmojiStyle || DEFAULT_SETTINGS.docxEmojiStyle;
       if (!docxEmojiStyleEl.dataset.listenerAdded) {
         docxEmojiStyleEl.dataset.listenerAdded = 'true';
         docxEmojiStyleEl.addEventListener('change', async () => {
@@ -289,7 +282,7 @@ export function createSettingsTabManager({
     // Frontmatter display mode
     const frontmatterDisplayEl = document.getElementById('frontmatter-display') as HTMLSelectElement | null;
     if (frontmatterDisplayEl) {
-      frontmatterDisplayEl.value = settings.frontmatterDisplay || 'hide';
+      frontmatterDisplayEl.value = settings.frontmatterDisplay || DEFAULT_SETTINGS.frontmatterDisplay;
       if (!frontmatterDisplayEl.dataset.listenerAdded) {
         frontmatterDisplayEl.dataset.listenerAdded = 'true';
         frontmatterDisplayEl.addEventListener('change', async () => {
@@ -319,7 +312,7 @@ export function createSettingsTabManager({
     // Table layout
     const tableLayoutEl = document.getElementById('table-layout') as HTMLSelectElement | null;
     if (tableLayoutEl) {
-      tableLayoutEl.value = settings.tableLayout || 'center';
+      tableLayoutEl.value = settings.tableLayout || DEFAULT_SETTINGS.tableLayout;
       if (!tableLayoutEl.dataset.listenerAdded) {
         tableLayoutEl.dataset.listenerAdded = 'true';
         tableLayoutEl.addEventListener('change', async () => {
@@ -334,7 +327,7 @@ export function createSettingsTabManager({
     // Image layout
     const imageLayoutEl = document.getElementById('image-layout') as HTMLSelectElement | null;
     if (imageLayoutEl) {
-      imageLayoutEl.value = settings.imageLayout || 'left';
+      imageLayoutEl.value = settings.imageLayout || DEFAULT_SETTINGS.imageLayout;
       if (!imageLayoutEl.dataset.listenerAdded) {
         imageLayoutEl.dataset.listenerAdded = 'true';
         imageLayoutEl.addEventListener('change', async () => {
@@ -349,7 +342,7 @@ export function createSettingsTabManager({
     // Diagram layout
     const diagramLayoutEl = document.getElementById('diagram-layout') as HTMLSelectElement | null;
     if (diagramLayoutEl) {
-      diagramLayoutEl.value = settings.diagramLayout || 'center';
+      diagramLayoutEl.value = settings.diagramLayout || DEFAULT_SETTINGS.diagramLayout;
       if (!diagramLayoutEl.dataset.listenerAdded) {
         diagramLayoutEl.dataset.listenerAdded = 'true';
         diagramLayoutEl.addEventListener('change', async () => {
@@ -892,15 +885,7 @@ export function createSettingsTabManager({
     try {
       settings = {
         maxCacheItems: 1000,
-        preferredLocale: DEFAULT_SETTING_LOCALE,
-        docxHrDisplay: 'hide',
-        docxEmojiStyle: 'system',
-        tableMergeEmpty: true,
-        tableLayout: 'center',
-        imageLayout: 'left',
-        diagramLayout: 'center',
-        swapPanelSide: false,
-        firstLineIndent: 2,
+        ...DEFAULT_SETTINGS,
       };
 
       await storageSet({

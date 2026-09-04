@@ -1,4 +1,6 @@
 
+import type { ViewerContainerMode } from '../core/viewer/viewer-session-contract';
+
 export type ViewerIframeContainerMode = Extract<ViewerContainerMode, 'browser' | 'panel'>;
 
 export interface ViewerOpenDocumentMessage {

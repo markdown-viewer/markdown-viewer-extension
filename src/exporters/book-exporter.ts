@@ -215,9 +215,9 @@ export async function buildMergedMarkdown(options: BuildMergedMarkdownOptions): 
     try {
       const raw = await fetchPage(page.href);
       const processed = preprocessPage(raw, page.href, { depth: page.depth, chapterTitle: page.title });
-      const pageHeadingPath = activeHeadingPath
+      const pageHeadingPath: BookTocHeading[] = activeHeadingPath
         .filter((heading) => heading.depth < page.depth)
-        .map((heading) => ({ type: 'heading', title: heading.title, depth: heading.depth }));
+        .map((heading) => ({ type: 'heading' as const, title: heading.title, depth: heading.depth }));
       const headingBlock = diffHeadingPath(pageHeadingPath, emittedHeadingPath);
 
       if (processedPages > 0 && parts.length > 0) {
@@ -393,7 +393,7 @@ export async function exportBookToEpub(options: ExportBookToEpubOptions): Promis
       tocEntries: navEntries,
       title,
       filename,
-      documentService,
+      documentService: documentService ?? undefined,
       onProgress: (phase, done, total) => {
         onProgress?.(phase, done, total);
       },

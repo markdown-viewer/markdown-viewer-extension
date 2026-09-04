@@ -1,0 +1,108 @@
+{
+  "version": "1.0.0",
+  "doc": "Single source of truth for all shared render/layout settings. Consumed by scripts/sync-settings.js to generate src/config/settings.generated.ts (TS types/constants/normalizeSetting) and mobile/lib/config/settings_defaults.g.dart (Dart constants). NEVER hardcode a default elsewhere.",
+  "settings": [
+    {
+      "key": "themeId",
+      "type": "string",
+      "default": "default",
+      "render": true,
+      "renderKey": "theme",
+      "dartKey": "theme",
+      "doc": "Theme preset id (themes/presets/<id>.json). Exposed as `theme` in DEFAULT_RENDER_SETTINGS (CLI) and `theme` in the mobile settings service."
+    },
+    {
+      "key": "language",
+      "type": "string",
+      "default": "en",
+      "cliOnly": true,
+      "doc": "Language code of the rendered/exported document (CLI only, deliberate separate from preferredLocale which is the extension UI locale)."
+    },
+    {
+      "key": "frontmatterDisplay",
+      "type": "enum",
+      "values": ["hide", "table", "raw"],
+      "default": "hide",
+      "render": true,
+      "doc": "Frontmatter display: hide | table | raw."
+    },
+    {
+      "key": "tableLayout",
+      "type": "enum",
+      "values": ["left", "center", "center-full-width"],
+      "default": "center",
+      "render": true,
+      "doc": "Table alignment."
+    },
+    {
+      "key": "imageLayout",
+      "type": "enum",
+      "values": ["left", "center"],
+      "default": "center",
+      "render": true,
+      "doc": "Standalone image alignment."
+    },
+    {
+      "key": "diagramLayout",
+      "type": "enum",
+      "values": ["left", "center"],
+      "default": "center",
+      "render": true,
+      "doc": "Diagram/chart alignment."
+    },
+    {
+      "key": "tableMergeEmpty",
+      "type": "boolean",
+      "default": true,
+      "render": true,
+      "doc": "Merge empty table cells."
+    },
+    {
+      "key": "firstLineIndent",
+      "type": "number",
+      "min": 0,
+      "max": 4,
+      "default": 2,
+      "render": true,
+      "doc": "First-line indent in characters (0 = none)."
+    },
+    {
+      "key": "preferredLocale",
+      "type": "string",
+      "default": "auto",
+      "dartKey": "locale",
+      "dartDefault": "system",
+      "doc": "Extension UI locale. Mobile uses 'system' as its default (device locale)."
+    },
+    {
+      "key": "docxHrDisplay",
+      "type": "enum",
+      "values": ["pageBreak", "line", "hide"],
+      "default": "hide",
+      "dartKey": "hrDisplay",
+      "doc": "HR display mode in DOCX export."
+    },
+    {
+      "key": "docxEmojiStyle",
+      "type": "enum",
+      "values": ["apple", "windows", "system"],
+      "default": "system",
+      "dartKey": "emojiStyle",
+      "doc": "Emoji style in DOCX export."
+    },
+    {
+      "key": "swapPanelSide",
+      "type": "boolean",
+      "default": false,
+      "doc": "Swap the side of the side panel (desktop platforms)."
+    },
+    {
+      "key": "readerSidebarWidth",
+      "type": "number",
+      "min": 160,
+      "max": 600,
+      "default": 280,
+      "doc": "Reader sidebar width in pixels."
+    }
+  ]
+}

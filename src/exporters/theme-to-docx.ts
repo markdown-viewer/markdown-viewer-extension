@@ -20,6 +20,7 @@ import type {
   BorderStyleValue,
 } from '../types/docx';
 import type { ColorScheme } from '../types/index';
+import type { LayoutBlockConfig } from '../types/theme';
 
 // Re-export DOCXThemeStyles for backward compatibility
 export type { DOCXThemeStyles };
@@ -73,18 +74,6 @@ interface LayoutHeadingConfig {
   spacingBefore: string;
   spacingAfter: string;
   alignment?: 'left' | 'center' | 'right';
-}
-
-/**
- * Layout scheme block configuration
- */
-interface LayoutBlockConfig {
-  spacingBefore?: string;
-  spacingAfter?: string;
-  paddingVertical?: string;
-  paddingHorizontal?: string;
-  /** Whether the theme supports first-line indentation on paragraphs. */
-  firstLineIndent?: boolean;
 }
 
 /**

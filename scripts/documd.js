@@ -29,6 +29,8 @@ const CLI_PKG = JSON.parse(readFileSync(CLI_PKG_PATH, 'utf8'));
 const CLI_VERSION = CLI_PKG.version;
 const CLI_HOMEPAGE = 'https://docu.md';
 
+// Defaults in the help text are derived from the shared settings schema so
+// the CLI help can never drift from settings-schema.json.
 const HELP = `documd v${CLI_VERSION} — ${CLI_HOMEPAGE}
 Render Markdown / diagrams / books with headless Chrome
 
@@ -47,15 +49,15 @@ Options:
       --format <f>          html, epub, docx, pdf, svg, png or drawio
   -b, --book                Whole-book export: input is a GitBook SUMMARY.md
       --diagram-type <t>    Diagram renderer (default: inferred from the extension)
-  -t, --theme <id>          Viewer theme (default: default)
+  -t, --theme <id>          Viewer theme (default: ${DEFAULT_RENDER_SETTINGS.theme})
       --title <text>        Override the document title
-      --language <code>     Document language code (default: en)
-      --frontmatter <mode>  hide, table, or raw (default: hide)
-      --table-layout <mode> left, center, or center-full-width (default: center)
-      --image-layout <mode> left or center (default: left)
-      --diagram-layout <mode> left or center (default: center)
+      --language <code>     Document language code (default: ${DEFAULT_RENDER_SETTINGS.language})
+      --frontmatter <mode>  hide, table, or raw (default: ${DEFAULT_RENDER_SETTINGS.frontmatterDisplay})
+      --table-layout <mode> left, center, or center-full-width (default: ${DEFAULT_RENDER_SETTINGS.tableLayout})
+      --image-layout <mode> left or center (default: ${DEFAULT_RENDER_SETTINGS.imageLayout})
+      --diagram-layout <mode> left or center (default: ${DEFAULT_RENDER_SETTINGS.diagramLayout})
       --merge-empty-cells   Merge empty Markdown table cells (default: on)
-      --first-line-indent <n>  First-line indent in characters, 0-4 (default: 2)
+      --first-line-indent <n>  First-line indent in characters, 0-4 (default: ${DEFAULT_RENDER_SETTINGS.firstLineIndent})
       --chrome <path>       Explicit Chrome executable path
       --timeout <seconds>   Overall render timeout (default: 120)
   -v, --version             Print the version and exit

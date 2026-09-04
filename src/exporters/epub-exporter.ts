@@ -330,7 +330,7 @@ function mapTocEntriesToChapterFiles(tocEntries: BookTocEntry[] | undefined, cha
     : chapters.map((chapter) => ({ type: 'page' as const, title: chapter.title, href: chapter.href, depth: 0 }));
 
   let pageIndex = 0;
-  return sourceEntries.flatMap((entry) => {
+  return sourceEntries.flatMap<BookTocEntry>((entry) => {
     if (entry.type === 'heading') {
       return [entry];
     }

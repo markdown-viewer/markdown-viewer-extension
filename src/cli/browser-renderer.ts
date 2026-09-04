@@ -8,6 +8,8 @@ import { handleRender, initRenderEnvironment } from '../renderers/render-worker-
 import { loadAndApplyTheme } from '../utils/theme-to-css';
 import type { DocumentService, PlatformAPI } from '../types/platform';
 import type { RendererThemeConfig } from '../types/render';
+import type { BookPage } from '../types/book-export';
+import { DEFAULT_RENDER_SETTINGS } from '../config/settings.generated';
 
 type FrontmatterDisplay = 'hide' | 'table' | 'raw';
 
@@ -118,6 +120,21 @@ let rendererThemeConfig: RendererThemeConfig | null = null;
 /** Captures the blob passed to platform.file.download during an export. */
 let capturedDownload: Blob | null = null;
 
+/**
+ * Return the blob captured by the platform file.download mock. Read via a
+ * helper (never inline after a local `capturedDownload = null` reset):
+ * TypeScript's control flow cannot see that configurePlatform's download
+ * callback re-assigns the module-level variable, so a direct read after the
+ * guard narrows to `never`.
+ */
+function requireCapturedDownload(message: string): Blob {
+  const blob = capturedDownload;
+  if (!blob) {
+    throw new Error(message);
+  }
+  return blob;
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   const chunkSize = 0x8000;
@@ -149,8 +166,8 @@ function mapCliBookTocEntries(entries: CliBookTocEntryInput[] | undefined) {
  * external (broken) image references.
  */
 function resolveBookPageHrefs(
-  request: CliBrowserRenderRequest,
-): Array<{ href: string; title: string; depth?: number }> {
+  request: CliBrowserRenderRequest & { pages: CliBookPageInput[] },
+): BookPage[] {
   const baseUrl = `${request.documentBaseUrl || 'http://127.0.0.1/'}/`;
   return (request.pages || []).map((page) => {
     let href = page.href;
@@ -159,7 +176,7 @@ function resolveBookPageHrefs(
     } catch {
       // Keep the raw href when it cannot be parsed (fetchPage will surface the error).
     }
-    return { href, title: page.title, depth: page.depth };
+    return { href, title: page.title, depth: page.depth ?? 0 };
   });
 }
 
@@ -237,11 +254,11 @@ function configurePlatform(request: CliBrowserRenderRequest): DocumentService {
       get: async (key: string) => {
         switch (key) {
           case 'themeId': return request.theme || 'default';
-          case 'firstLineIndent': return request.firstLineIndent || 0;
-          case 'tableLayout': return request.tableLayout || 'center';
-          case 'imageLayout': return request.imageLayout || 'center';
-          case 'diagramLayout': return request.diagramLayout || 'center';
-          case 'frontmatterDisplay': return request.frontmatterDisplay || 'hide';
+          case 'firstLineIndent': return request.firstLineIndent ?? DEFAULT_RENDER_SETTINGS.firstLineIndent;
+          case 'tableLayout': return request.tableLayout ?? DEFAULT_RENDER_SETTINGS.tableLayout;
+          case 'imageLayout': return request.imageLayout ?? DEFAULT_RENDER_SETTINGS.imageLayout;
+          case 'diagramLayout': return request.diagramLayout ?? DEFAULT_RENDER_SETTINGS.diagramLayout;
+          case 'frontmatterDisplay': return request.frontmatterDisplay ?? DEFAULT_RENDER_SETTINGS.frontmatterDisplay;
           case 'tableMergeEmpty': return request.tableMergeEmpty ?? false;
           case 'docxHrDisplay': return 'hide';
           case 'docxEmojiStyle': return 'system';
@@ -293,9 +310,9 @@ async function renderContent(request: CliBrowserRenderRequest): Promise<void> {
     'diagram-layout-center',
   );
   markdownContent.classList.add(
-    `table-layout-${request.tableLayout || 'center'}`,
-    `image-layout-${request.imageLayout || 'center'}`,
-    `diagram-layout-${request.diagramLayout || 'center'}`,
+    `table-layout-${request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout}`,
+    `image-layout-${request.imageLayout || DEFAULT_RENDER_SETTINGS.imageLayout}`,
+    `diagram-layout-${request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout}`,
   );
 
   const result = await renderMarkdownDocument({
@@ -303,9 +320,9 @@ async function renderContent(request: CliBrowserRenderRequest): Promise<void> {
     container: markdownContent,
     renderer: globalThis.platform!.renderer,
     translate: (key) => key,
-    frontmatterDisplay: request.frontmatterDisplay || 'hide',
+    frontmatterDisplay: request.frontmatterDisplay || DEFAULT_RENDER_SETTINGS.frontmatterDisplay,
     tableMergeEmpty: request.tableMergeEmpty ?? false,
-    tableLayout: request.tableLayout || 'center',
+    tableLayout: request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout,
   });
 
   await result.taskManager.processAll();
@@ -361,9 +378,9 @@ async function snapshotDom(request: CliBrowserRenderRequest): Promise<CliBrowser
     'diagram-layout-center',
   );
   markdownContent.classList.add(
-    `table-layout-${request.tableLayout || 'center'}`,
-    `image-layout-${request.imageLayout || 'center'}`,
-    `diagram-layout-${request.diagramLayout || 'center'}`,
+    `table-layout-${request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout}`,
+    `image-layout-${request.imageLayout || DEFAULT_RENDER_SETTINGS.imageLayout}`,
+    `diagram-layout-${request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout}`,
   );
 
   const result = await renderMarkdownDocument({
@@ -371,9 +388,9 @@ async function snapshotDom(request: CliBrowserRenderRequest): Promise<CliBrowser
     container: markdownContent,
     renderer: globalThis.platform!.renderer,
     translate: (key) => key,
-    frontmatterDisplay: request.frontmatterDisplay || 'hide',
+    frontmatterDisplay: request.frontmatterDisplay || DEFAULT_RENDER_SETTINGS.frontmatterDisplay,
     tableMergeEmpty: request.tableMergeEmpty ?? false,
-    tableLayout: request.tableLayout || 'center',
+    tableLayout: request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout,
   });
 
   await result.taskManager.processAll();
@@ -457,18 +474,19 @@ async function renderBookDom(
 
   const { renderBookForPrint } = await import('../exporters/book-renderer');
   const platform = globalThis.platform as PlatformAPI;
+  const documentService = platform.document as DocumentService;
   const rendered = await renderBookForPrint({
     pages: resolveBookPageHrefs(request),
     fetchPage: async (href) => {
-      const content = await platform.document.readRelativeFile(href);
+      const content = await documentService.readRelativeFile(href);
       return content;
     },
     renderer: platform.renderer,
     translate: (key) => key,
     tableMergeEmpty: request.tableMergeEmpty ?? false,
-    tableLayout: request.tableLayout || 'center',
-    imageLayout: request.imageLayout || 'center',
-    diagramLayout: request.diagramLayout || 'center',
+    tableLayout: request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout,
+    imageLayout: request.imageLayout || DEFAULT_RENDER_SETTINGS.imageLayout,
+    diagramLayout: request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout,
   });
 
   try {
@@ -502,22 +520,23 @@ async function renderBookEpub(
 
   const { exportBookToEpub } = await import('../exporters/book-exporter');
   const platform = globalThis.platform as PlatformAPI;
+  const documentService = platform.document as DocumentService;
   let resultFilename = '';
   let exportError: string | null = null;
 
   const result = await exportBookToEpub({
     pages: resolveBookPageHrefs(request),
-    documentService: platform.document,
+    documentService,
     navEntries: mapCliBookTocEntries(request.tocEntries),
     bookTitle: request.bookTitle || request.title,
     filename: request.filename,
-    fetchPage: async (href) => platform.document.readRelativeFile(href),
+    fetchPage: async (href) => documentService.readRelativeFile(href),
     renderer: platform.renderer,
     translate: (key) => key,
     tableMergeEmpty: request.tableMergeEmpty ?? false,
-    tableLayout: request.tableLayout || 'center',
-    imageLayout: request.imageLayout || 'center',
-    diagramLayout: request.diagramLayout || 'center',
+    tableLayout: request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout,
+    imageLayout: request.imageLayout || DEFAULT_RENDER_SETTINGS.imageLayout,
+    diagramLayout: request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout,
     onProgress: (phase, done, total) => {
       progressTrace.push({ phase, done, total, elapsedMs: performance.now() - startedAt });
     },
@@ -527,11 +546,10 @@ async function renderBookEpub(
     throw new Error(result.error || 'Book EPUB export failed');
   }
   resultFilename = result.filename;
-  if (!capturedDownload) {
-    throw new Error('Book EPUB export completed but no download blob was captured');
-  }
 
-  const bytes = new Uint8Array(await capturedDownload.arrayBuffer());
+  const bytes = new Uint8Array(
+    await requireCapturedDownload('Book EPUB export completed but no download blob was captured').arrayBuffer(),
+  );
   return {
     filename: resultFilename,
     base64: bytesToBase64(bytes),
@@ -601,11 +619,10 @@ async function renderDocx(request: CliBrowserRenderRequest): Promise<{ filename:
   if (!result.success) {
     throw new Error(result.error || 'DOCX export failed');
   }
-  if (!capturedDownload) {
-    throw new Error('DOCX export completed but no download blob was captured');
-  }
 
-  const bytes = new Uint8Array(await capturedDownload.arrayBuffer());
+  const bytes = new Uint8Array(
+    await requireCapturedDownload('DOCX export completed but no download blob was captured').arrayBuffer(),
+  );
   return { filename: toDocxFilename(request.filename), base64: bytesToBase64(bytes) };
 }
 
@@ -624,12 +641,13 @@ async function renderBookDocx(
 
   const { exportBookToDocx } = await import('../exporters/book-exporter');
   const platform = globalThis.platform as PlatformAPI;
+  const documentService = platform.document as DocumentService;
   const result = await exportBookToDocx({
     pages: resolveBookPageHrefs(request),
     navEntries: mapCliBookTocEntries(request.tocEntries),
     bookTitle: request.bookTitle || request.title,
     filename: request.filename,
-    fetchPage: async (href) => platform.document.readRelativeFile(href),
+    fetchPage: async (href) => documentService.readRelativeFile(href),
     renderer: platform.renderer,
     onProgress: (phase, done, total) => {
       progressTrace.push({ phase, done, total, elapsedMs: performance.now() - startedAt });
@@ -639,11 +657,10 @@ async function renderBookDocx(
   if (!result.success) {
     throw new Error(result.error || 'Book DOCX export failed');
   }
-  if (!capturedDownload) {
-    throw new Error('Book DOCX export completed but no download blob was captured');
-  }
 
-  const bytes = new Uint8Array(await capturedDownload.arrayBuffer());
+  const bytes = new Uint8Array(
+    await requireCapturedDownload('Book DOCX export completed but no download blob was captured').arrayBuffer(),
+  );
   return {
     filename: result.filename || toDocxFilename(request.filename),
     base64: bytesToBase64(bytes),
@@ -685,15 +702,16 @@ async function renderBookPdf(
   const { renderBookForPrint } = await import('../exporters/book-renderer');
   const { buildPrintCss, BOOK_PRINT_CSS } = await import('../ui/print-utils');
   const platform = globalThis.platform as PlatformAPI;
+  const documentService = platform.document as DocumentService;
   await renderBookForPrint({
     pages: resolveBookPageHrefs(request),
-    fetchPage: async (href) => platform.document.readRelativeFile(href),
+    fetchPage: async (href) => documentService.readRelativeFile(href),
     renderer: platform.renderer,
     translate: (key) => key,
     tableMergeEmpty: request.tableMergeEmpty ?? false,
-    tableLayout: request.tableLayout || 'center',
-    imageLayout: request.imageLayout || 'center',
-    diagramLayout: request.diagramLayout || 'center',
+    tableLayout: request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout,
+    imageLayout: request.imageLayout || DEFAULT_RENDER_SETTINGS.imageLayout,
+    diagramLayout: request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout,
   });
 
   const printStyle = document.createElement('style');

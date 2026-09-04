@@ -103,7 +103,7 @@ async function inlineImages(
   embedder: ResourceEmbedder,
   onItemDone?: () => void,
 ): Promise<void> {
-  const images = Array.from(root.querySelectorAll('img[src]'));
+  const images = Array.from(root.querySelectorAll<HTMLImageElement>('img[src]'));
   const tasks = images.map(async (img) => {
     const srcAttr = img.getAttribute('src') || '';
     const src = srcAttr || img.src || '';

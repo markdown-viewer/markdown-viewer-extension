@@ -40,6 +40,7 @@ import { escapePipesInTableCodeSpans } from '../utils/markdown-table-code';
 import { getPluginForNode, convertNodeToDOCX } from '../plugins/index';
 import type { PluginRenderer } from '../types/plugin';
 import type { DocumentService } from '../types/platform';
+import { normalizeSetting, DEFAULT_SETTINGS } from '../config/settings.generated';
 import type {
   DOCXThemeStyles,
   DOCXNamedParagraphStyle,
@@ -102,7 +103,7 @@ class DocxExporter {
   private frontmatterDisplay: FrontmatterDisplay = 'hide';
   private tableMergeEmpty = true;  // Default: enabled
   private tableLayout: 'left' | 'center' | 'center-full-width' = 'center';  // Default: center
-  private imageLayout: 'left' | 'center' = 'left';
+  private imageLayout: 'left' | 'center' = DEFAULT_SETTINGS.imageLayout;
   private diagramLayout: 'left' | 'center' = 'center';
   private firstLineIndent = 0;  // Default: no indent (0-4 characters)
   
@@ -237,29 +238,29 @@ class DocxExporter {
             settings.get('diagramLayout'),
             settings.get('firstLineIndent'),
           ]);
-          this.docxHrDisplay = hrDisplay;
-          this.docxEmojiStyle = emojiStyle;
-          this.frontmatterDisplay = frontmatterDisplay;
-          this.tableMergeEmpty = tableMergeEmpty;
-          this.tableLayout = tableLayout || 'center';
-          this.imageLayout = imageLayout === 'center' ? 'center' : 'left';
-          this.diagramLayout = diagramLayout === 'left' ? 'left' : 'center';
+          this.docxHrDisplay = normalizeSetting('docxHrDisplay', hrDisplay);
+          this.docxEmojiStyle = normalizeSetting('docxEmojiStyle', emojiStyle);
+          this.frontmatterDisplay = normalizeSetting('frontmatterDisplay', frontmatterDisplay);
+          this.tableMergeEmpty = normalizeSetting('tableMergeEmpty', tableMergeEmpty);
+          this.tableLayout = normalizeSetting('tableLayout', tableLayout);
+          this.imageLayout = normalizeSetting('imageLayout', imageLayout);
+          this.diagramLayout = normalizeSetting('diagramLayout', diagramLayout);
           this.firstLineIndent = typeof firstLineIndent === 'number' ? firstLineIndent : 0;
         } else {
-          this.docxHrDisplay = 'hide';
-          this.frontmatterDisplay = 'hide';
-          this.tableMergeEmpty = true;
-          this.tableLayout = 'center';
-          this.imageLayout = 'left';
-          this.diagramLayout = 'center';
+          this.docxHrDisplay = DEFAULT_SETTINGS.docxHrDisplay;
+          this.frontmatterDisplay = DEFAULT_SETTINGS.frontmatterDisplay;
+          this.tableMergeEmpty = DEFAULT_SETTINGS.tableMergeEmpty;
+          this.tableLayout = DEFAULT_SETTINGS.tableLayout;
+          this.imageLayout = DEFAULT_SETTINGS.imageLayout;
+          this.diagramLayout = DEFAULT_SETTINGS.diagramLayout;
         }
       } catch {
-        this.docxHrDisplay = 'hide';
-        this.frontmatterDisplay = 'hide';
-        this.tableMergeEmpty = true;
-        this.tableLayout = 'center';
-        this.imageLayout = 'left';
-        this.diagramLayout = 'center';
+        this.docxHrDisplay = DEFAULT_SETTINGS.docxHrDisplay;
+        this.frontmatterDisplay = DEFAULT_SETTINGS.frontmatterDisplay;
+        this.tableMergeEmpty = DEFAULT_SETTINGS.tableMergeEmpty;
+        this.tableLayout = DEFAULT_SETTINGS.tableLayout;
+        this.imageLayout = DEFAULT_SETTINGS.imageLayout;
+        this.diagramLayout = DEFAULT_SETTINGS.diagramLayout;
       }
 
       const selectedThemeId = await themeManager.loadSelectedTheme();

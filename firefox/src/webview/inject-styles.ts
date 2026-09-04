@@ -8,6 +8,14 @@
  *
  * FOUC is handled by the document_start preload style.
  */
+
+// Firefox WebExtension API — available as a global in content scripts.
+declare const browser: {
+  runtime: {
+    getURL: (path: string) => string;
+  };
+};
+
 function injectContentStyles(): void {
   if (document.getElementById('mv-content-styles')) {
     return;
@@ -29,3 +37,5 @@ function injectContentStyles(): void {
 }
 
 injectContentStyles();
+
+export {};

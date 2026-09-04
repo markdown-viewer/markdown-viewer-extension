@@ -15,6 +15,7 @@ import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
 import type { ScrollSyncController } from '../../../src/core/line-based-scroll';
 import type { EmojiStyle } from '../../../src/types/docx.js';
+import { DEFAULT_SETTINGS } from '../../../src/config/settings.generated';
 
 // Shared modules
 import Localization from '../../../src/utils/localization';
@@ -89,15 +90,15 @@ let savedSettings: {
   diagramLayout: string;
   firstLineIndent: number;
 } = {
-  locale: 'auto',
-  docxHrDisplay: 'hide',
-  docxEmojiStyle: 'system',
-  frontmatterDisplay: 'hide',
-  tableMergeEmpty: true,
-  tableLayout: 'center',
-  imageLayout: 'left',
-  diagramLayout: 'center',
-  firstLineIndent: 2,
+  locale: DEFAULT_SETTINGS.preferredLocale,
+  docxHrDisplay: DEFAULT_SETTINGS.docxHrDisplay,
+  docxEmojiStyle: DEFAULT_SETTINGS.docxEmojiStyle,
+  frontmatterDisplay: DEFAULT_SETTINGS.frontmatterDisplay,
+  tableMergeEmpty: DEFAULT_SETTINGS.tableMergeEmpty,
+  tableLayout: DEFAULT_SETTINGS.tableLayout,
+  imageLayout: DEFAULT_SETTINGS.imageLayout,
+  diagramLayout: DEFAULT_SETTINGS.diagramLayout,
+  firstLineIndent: DEFAULT_SETTINGS.firstLineIndent,
 };
 
 // Render queue for serializing updates

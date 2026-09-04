@@ -19,8 +19,9 @@
 
 import { wrapFileContent } from '../../utils/file-wrapper';
 import { createMountedViewer, setCurrentFileKey } from './viewer-host';
-import type { HeadingInfo, TranslateFn } from './viewer-host';
-import type { ScrollSyncController } from './line-based-scroll';
+import type { TranslateFn } from './viewer-host';
+import type { HeadingInfo } from '../markdown-processor';
+import type { ScrollSyncController } from '../line-based-scroll';
 import type { PlatformAPI, PluginRenderer } from '../../types';
 
 export interface PanelViewerOptions {

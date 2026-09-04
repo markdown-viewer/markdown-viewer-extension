@@ -105,3 +105,5 @@ function injectElementContentStyles(): void {
 }
 
 injectElementContentStyles();
+
+export {};

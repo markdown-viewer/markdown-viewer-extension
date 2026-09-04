@@ -135,8 +135,8 @@ export function findLiLineInBlock(node: Node, blockEl: Element): number | null {
   const blockStart = Number(blockEl.getAttribute('data-line')) || 0;
   while (el && el !== blockEl) {
     if (el.tagName === 'LI') {
-      const allLis = Array.from(blockEl.querySelectorAll('li'));
-      const idx = allLis.indexOf(el as HTMLElement);
+      const allLis = Array.from(blockEl.querySelectorAll<HTMLLIElement>('li'));
+      const idx = allLis.indexOf(el as HTMLLIElement);
       return idx >= 0 ? blockStart + idx : null;
     }
     el = el.parentElement;

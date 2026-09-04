@@ -14,6 +14,7 @@ import { getFileType } from '../../../src/utils/file-wrapper';
 import { rewriteObsidianSvgEmbeds } from './obsidian-svg-embed-rewrite';
 import { expandObsidianMarkdownEmbeds } from './obsidian-markdown-embed-rewrite';
 import { getEmbeddedAsset } from './embedded-assets';
+import { normalizeSetting } from '../../../src/config/settings.generated';
 
 // Viewer module — runs in same process, no iframe
 import { initializeViewer, obsidianHostTransport } from '../webview/main';
@@ -419,16 +420,20 @@ export class MarkdownPreviewView extends ItemView {
     this.hostChannel.handle('LOAD_SETTINGS', async () => {
       const data = (await this.plugin.loadData()) ?? {};
       const stored = (data.markdownViewerSettings as Record<string, unknown>) ?? {};
+      // Merge raw values (stored wrapper overrides legacy top-level keys) and
+      // normalize against the shared settings schema — the single fallback.
+      const merged = (key: string) =>
+        stored[key] !== undefined ? stored[key] : (data as Record<string, unknown>)[key];
       return {
-        locale: stored.locale ?? data.locale ?? 'auto',
-        docxHrDisplay: stored.docxHrDisplay ?? data.docxHrDisplay ?? 'hide',
-        docxEmojiStyle: stored.docxEmojiStyle ?? data.docxEmojiStyle ?? 'system',
-        frontmatterDisplay: stored.frontmatterDisplay ?? data.frontmatterDisplay ?? 'hide',
-        tableMergeEmpty: stored.tableMergeEmpty ?? (data.tableMergeEmpty !== false),
-        tableLayout: stored.tableLayout ?? data.tableLayout ?? 'center',
-        imageLayout: stored.imageLayout ?? data.imageLayout ?? 'left',
-        diagramLayout: stored.diagramLayout ?? data.diagramLayout ?? 'center',
-        firstLineIndent: (typeof stored.firstLineIndent === 'number' ? stored.firstLineIndent : (typeof (data as Record<string, unknown>).firstLineIndent === 'number' ? (data as Record<string, unknown>).firstLineIndent as number : 2)),
+        locale: normalizeSetting('preferredLocale', merged('locale') ?? merged('preferredLocale')),
+        docxHrDisplay: normalizeSetting('docxHrDisplay', merged('docxHrDisplay')),
+        docxEmojiStyle: normalizeSetting('docxEmojiStyle', merged('docxEmojiStyle')),
+        frontmatterDisplay: normalizeSetting('frontmatterDisplay', merged('frontmatterDisplay')),
+        tableMergeEmpty: normalizeSetting('tableMergeEmpty', merged('tableMergeEmpty')),
+        tableLayout: normalizeSetting('tableLayout', merged('tableLayout')),
+        imageLayout: normalizeSetting('imageLayout', merged('imageLayout')),
+        diagramLayout: normalizeSetting('diagramLayout', merged('diagramLayout')),
+        firstLineIndent: normalizeSetting('firstLineIndent', merged('firstLineIndent')),
       };
     });
 

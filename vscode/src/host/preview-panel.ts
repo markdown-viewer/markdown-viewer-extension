@@ -11,6 +11,10 @@ import * as os from 'os';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import type { CacheStorage } from './cache-storage';
 import type { EmojiStyle } from '../../../src/types/docx.js';
+import {
+  normalizeSetting,
+  DEFAULT_SETTINGS,
+} from '../../../src/config/settings.generated';
 
 interface ThemeBootstrapData {
   fontConfig: unknown;
@@ -1140,24 +1144,16 @@ export class MarkdownPreviewPanel {
     // Get settings from persistent storage
     const settings = globalState?.get<Record<string, unknown>>('storage.markdownViewerSettings') ?? {};
     // Theme is stored separately at storage.selectedTheme (used by theme-manager.ts and settings-tab.ts)
-    const theme = globalState?.get<string>('storage.selectedTheme') || 'default';
-    const locale = (typeof settings.preferredLocale === 'string' && settings.preferredLocale) ? settings.preferredLocale : 'auto';
-    const storedHrDisplay = settings.docxHrDisplay;
-    const docxHrDisplay = (storedHrDisplay === 'pageBreak' || storedHrDisplay === 'line' || storedHrDisplay === 'hide')
-      ? storedHrDisplay
-      : 'hide';
-    const tableMergeEmpty = (typeof settings.tableMergeEmpty === 'boolean') ? settings.tableMergeEmpty : true;
-    const storedTableLayout = settings.tableLayout;
-    const tableLayout = (storedTableLayout === 'left' || storedTableLayout === 'center' || storedTableLayout === 'center-full-width') ? storedTableLayout : 'center';
-    const storedImageLayout = settings.imageLayout;
-    const imageLayout = (storedImageLayout === 'center') ? storedImageLayout : 'left';
-    const storedDiagramLayout = settings.diagramLayout;
-    const diagramLayout = (storedDiagramLayout === 'left') ? storedDiagramLayout : 'center';
-    const storedEmojiStyle = settings.docxEmojiStyle;
-    const docxEmojiStyle: EmojiStyle = (storedEmojiStyle === 'apple' || storedEmojiStyle === 'windows' || storedEmojiStyle === 'system') ? storedEmojiStyle : 'system';
-    const storedFrontmatterDisplay = settings.frontmatterDisplay;
-    const frontmatterDisplay = (storedFrontmatterDisplay === 'hide' || storedFrontmatterDisplay === 'table' || storedFrontmatterDisplay === 'raw') ? storedFrontmatterDisplay : 'hide';
-    const firstLineIndent = (typeof settings.firstLineIndent === 'number' && settings.firstLineIndent >= 0 && settings.firstLineIndent <= 4) ? settings.firstLineIndent : 2;
+    const theme = globalState?.get<string>('storage.selectedTheme') || DEFAULT_SETTINGS.themeId;
+    const locale = normalizeSetting('preferredLocale', settings.preferredLocale);
+    const docxHrDisplay = normalizeSetting('docxHrDisplay', settings.docxHrDisplay);
+    const tableMergeEmpty = normalizeSetting('tableMergeEmpty', settings.tableMergeEmpty);
+    const tableLayout = normalizeSetting('tableLayout', settings.tableLayout);
+    const imageLayout = normalizeSetting('imageLayout', settings.imageLayout);
+    const diagramLayout = normalizeSetting('diagramLayout', settings.diagramLayout);
+    const docxEmojiStyle = normalizeSetting('docxEmojiStyle', settings.docxEmojiStyle) as EmojiStyle;
+    const frontmatterDisplay = normalizeSetting('frontmatterDisplay', settings.frontmatterDisplay);
+    const firstLineIndent = normalizeSetting('firstLineIndent', settings.firstLineIndent);
     
     return {
       theme,

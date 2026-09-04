@@ -52,6 +52,18 @@ async function checkMissingKeys() {
 }
 
 /**
+ * Sync the settings schema (regenerates the Dart default constants)
+ */
+async function syncSettingsSchema() {
+  try {
+    const { default: syncSettings } = await import('../scripts/sync-settings.js');
+    syncSettings();
+  } catch (error) {
+    console.error('⚠️  Warning: Failed to sync settings schema:', error.message);
+  }
+}
+
+/**
  * Download custom fonts if not present
  */
 async function downloadFonts() {
@@ -348,6 +360,9 @@ async function main() {
 
   // Check translations
   await checkMissingKeys();
+
+  // Sync settings schema (Dart defaults)
+  await syncSettingsSchema();
 
   // Download fonts if needed
   await downloadFonts();

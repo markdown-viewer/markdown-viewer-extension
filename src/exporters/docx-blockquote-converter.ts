@@ -138,11 +138,6 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
     // (before/after balanced around the line leading), so each paragraph is
     // self-balanced and the container's symmetric cell padding keeps the
     // top/bottom gaps equal — no per-paragraph spacing override needed.
-    const paragraphConfig: IParagraphOptions = {
-      children: children as ParagraphChild[],
-      style: 'BlockquoteText',
-    };
-    
     // FIRST paragraph: add half of the line leading (line height minus char
     // height) to the spacing-before — the "extra top space" that keeps the
     // text vertically centered in the container. The bottom half is absorbed
@@ -150,10 +145,12 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
     // negative paragraph spacing is emitted (Word renders negative spacing
     // inside table cells with huge blank areas). Auto line spacing is kept
     // (exact rules clip glyph tops).
-    if (isFirst) {
-      const styleBefore = themeStyles.paragraphStyles['BlockquoteText']?.paragraph?.spacing?.before ?? 0;
-      paragraphConfig.spacing = { before: styleBefore + halfExtra };
-    }
+    const styleBefore = themeStyles.paragraphStyles['BlockquoteText']?.paragraph?.spacing?.before ?? 0;
+    const paragraphConfig: IParagraphOptions = {
+      children: children as ParagraphChild[],
+      style: 'BlockquoteText',
+      ...(isFirst ? { spacing: { before: styleBefore + halfExtra } } : {}),
+    };
     
     return new Paragraph(paragraphConfig);
   }

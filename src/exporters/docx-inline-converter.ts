@@ -26,6 +26,7 @@ import type {
   DOCXImageType,
   EmojiStyle,
 } from '../types/docx';
+import { DEFAULT_SETTINGS } from '../config/settings.generated';
 
 // ============================================================================
 // Type Definitions
@@ -281,10 +282,10 @@ export function createInlineConverter({
   reportResourceProgress,
   linkDefinitions,
   renderer,
-  emojiStyle = 'system',
+  emojiStyle = DEFAULT_SETTINGS.docxEmojiStyle,
   linkColor = '0366D6',  // Default to GitHub blue
-  imageLayout = 'left',
-  diagramLayout = 'center'
+  imageLayout = DEFAULT_SETTINGS.imageLayout,
+  diagramLayout = DEFAULT_SETTINGS.diagramLayout
 }: InlineConverterOptions): InlineConverter {
   // Get emoji font based on user preference (null for system style)
   const emojiFont = emojiStyle === 'system' ? null : getEmojiFont(emojiStyle);

@@ -2,66 +2,20 @@
  * Settings Type Definitions
  * 
  * Unified types for settings management across all platforms.
+ *
+ * SettingKey / SettingTypes / DEFAULT_SETTINGS are AUTO-GENERATED from
+ * `settings-schema.json` (via scripts/sync-settings.js) — do not edit them
+ * by hand. This file keeps the hand-written service interfaces.
  */
 
-import { DEFAULT_RENDER_SETTINGS } from '../config/defaults';
+import type { SettingKey, SettingTypes } from '../config/settings.generated';
 
-/**
- * All available setting keys
- */
-export type SettingKey = 
-  | 'themeId'
-  | 'tableMergeEmpty'
-  | 'tableLayout'
-  | 'imageLayout'
-  | 'diagramLayout'
-  | 'swapPanelSide'
-  | 'readerSidebarWidth'
-  | 'frontmatterDisplay'
-  | 'preferredLocale'
-  | 'docxHrDisplay'
-  | 'docxEmojiStyle'
-  | 'firstLineIndent';
-
-/**
- * Setting value types mapped by key
- */
-export interface SettingTypes {
-  themeId: string;
-  tableMergeEmpty: boolean;
-  tableLayout: 'left' | 'center' | 'center-full-width';
-  /** Standalone image alignment: 'left' (default) or 'center' */
-  imageLayout: 'left' | 'center';
-  /** Diagram/chart alignment: 'left' or 'center' (default) */
-  diagramLayout: 'left' | 'center';
-  swapPanelSide: boolean;
-  readerSidebarWidth: number;
-  frontmatterDisplay: 'hide' | 'table' | 'raw';
-  preferredLocale: string;
-  docxHrDisplay: 'pageBreak' | 'line' | 'hide';
-  docxEmojiStyle: 'apple' | 'windows' | 'system';
-  firstLineIndent: number; // 0 = no indent, 1-4 = number of characters
-}
-
-/**
- * Default values for all settings.
- * Render/layout defaults come from the shared config (also used by the
- * documd CLI) so every consumer agrees on the same defaults.
- */
-export const DEFAULT_SETTINGS: SettingTypes = {
-  themeId: DEFAULT_RENDER_SETTINGS.theme,
-  tableMergeEmpty: DEFAULT_RENDER_SETTINGS.tableMergeEmpty,
-  tableLayout: DEFAULT_RENDER_SETTINGS.tableLayout,
-  imageLayout: DEFAULT_RENDER_SETTINGS.imageLayout,
-  diagramLayout: DEFAULT_RENDER_SETTINGS.diagramLayout,
-  swapPanelSide: false,
-  readerSidebarWidth: 280,
-  frontmatterDisplay: DEFAULT_RENDER_SETTINGS.frontmatterDisplay,
-  preferredLocale: 'auto',
-  docxHrDisplay: 'hide',
-  docxEmojiStyle: 'system',
-  firstLineIndent: DEFAULT_RENDER_SETTINGS.firstLineIndent,
-};
+export {
+  DEFAULT_SETTINGS,
+  DEFAULT_RENDER_SETTINGS,
+  normalizeSetting,
+} from '../config/settings.generated';
+export type { SettingKey, SettingTypes } from '../config/settings.generated';
 
 /**
  * Options for setting a value

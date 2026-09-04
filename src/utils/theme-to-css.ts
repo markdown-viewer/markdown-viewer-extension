@@ -13,6 +13,7 @@
 import themeManager from './theme-manager';
 import { fetchJSON } from './fetch-utils';
 import type { PlatformAPI, ColorScheme } from '../types/index';
+import type { Theme, LayoutBlockConfig } from '../types/theme';
 
 /**
  * Content-root selectors. Theme CSS is generated against `#markdown-content`
@@ -196,6 +197,8 @@ interface FontScheme {
  * Theme configuration (v2.0 format)
  */
 export interface ThemeConfig {
+  /** Registry id — present on loaded/bundled theme records (not on raw config subsets). */
+  id?: string;
   fontScheme: FontScheme;
   layoutScheme: string;    // reference to layout-schemes/
   colorScheme: string;     // reference to color-schemes/
@@ -268,20 +271,6 @@ interface LayoutHeadingConfig {
     style?: string;         // default 'solid'
     paddingBottom?: string; // e.g. "0.3em"
   };
-}
-
-/**
- * Layout scheme block configuration
- */
-interface LayoutBlockConfig {
-  spacingBefore?: string;
-  spacingAfter?: string;
-  paddingVertical?: string;
-  paddingHorizontal?: string;
-  /** Optional border width for horizontal rule (hr). Color comes from colorScheme.rule.color or table.border fallback. */
-  borderWidth?: string;
-  /** Whether the theme supports first-line indentation on paragraphs. */
-  firstLineIndent?: boolean;
 }
 
 /**
@@ -1055,7 +1044,9 @@ export async function loadAndApplyTheme(themeId: string): Promise<void> {
         colorScheme = bundle.colorScheme;
         tableStyle = bundle.tableStyle;
         codeTheme = bundle.codeTheme;
-        themeManager.setCurrentTheme(theme);
+        // The bundle theme record is the full registry Theme (id/name included),
+        // while ThemeConfig models the config subset consumed here.
+        themeManager.setCurrentTheme(theme as unknown as Theme);
       } catch {
         theme = (await themeManager.loadTheme(themeId)) as unknown as ThemeConfig;
         [layoutScheme, colorScheme, tableStyle, codeTheme] = await loadThemeParts(theme, platform);
@@ -1088,7 +1079,7 @@ export async function loadAndApplyTheme(themeId: string): Promise<void> {
     // Derive colorSchema from the theme's registry category. Dark presets live
     // under the 'dark' category so downstream renderers (mermaid, vega, dot,
     // infographic) can switch to dark styling. Mirrors the slidev mechanism.
-    const category = themeManager.getThemeCategory(theme.id);
+    const category = theme.id ? themeManager.getThemeCategory(theme.id) : null;
     const colorSchema: 'light' | 'dark' = category === 'dark' ? 'dark' : 'light';
     platform.renderer.setThemeConfig({ fontFamily, fontSize, diagramStyle, colorSchema });
 

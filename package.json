@@ -24,6 +24,8 @@
     "prepack": "node scripts/build-cli.js",
     "documd": "node scripts/documd.js",
     "sync:formats": "node scripts/sync-formats.js",
+    "sync:settings": "node scripts/sync-settings.js",
+    "check:settings": "node scripts/check-settings-schema.js",
     "build:app": "node mobile/build-app.js all",
     "build:ios": "node mobile/build-app.js ios",
     "build:ios:sim": "node mobile/build-app.js ios:sim",
@@ -31,7 +33,7 @@
     "build:macos": "node mobile/build-app.js macos",
     "app:init": "cd mobile && flutter pub get",
     "check:homepage-i18n": "node scripts/check-homepage-i18n.cjs",
-    "typecheck": "npx tsc --noEmit",
+    "typecheck": "node scripts/typecheck.cjs",
     "test": "fibjs test/all.test.js"
   },
   "keywords": [

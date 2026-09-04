@@ -20,6 +20,7 @@ import { AsyncTaskManager } from '../markdown-processor';
 import { renderCodeViewBlock } from '../../utils/code-preview';
 import { toMarkdownFilename } from '../document-utils';
 import type { PluginRenderer, PlatformAPI } from '../../types/index';
+import { normalizeSetting, DEFAULT_SETTINGS } from '../../config/settings.generated';
 import type { FrontmatterDisplay } from './viewer-controller';
 import type { MountedViewer } from '../../integration/types';
 
@@ -389,13 +390,13 @@ export function createPluginRenderer(platform: PlatformAPI): PluginRenderer {
  * Get the frontmatter display setting.
  * Uses platform.settings service exclusively.
  *
- * @returns 'hide' | 'show' | 'fold'
+ * @returns 'hide' | 'table' | 'raw' (default: 'hide')
  */
 export async function getFrontmatterDisplay(platform: PlatformAPI): Promise<FrontmatterDisplay> {
   try {
     return await platform.settings.get('frontmatterDisplay');
   } catch {
-    return 'hide';
+    return DEFAULT_SETTINGS.frontmatterDisplay;
   }
 }
 
@@ -409,7 +410,7 @@ export async function getTableMergeEmpty(platform: PlatformAPI): Promise<boolean
   try {
     return await platform.settings.get('tableMergeEmpty');
   } catch {
-    return true;
+    return DEFAULT_SETTINGS.tableMergeEmpty;
   }
 }
 
@@ -421,10 +422,9 @@ export async function getTableMergeEmpty(platform: PlatformAPI): Promise<boolean
  */
 export async function getTableLayout(platform: PlatformAPI): Promise<'left' | 'center' | 'center-full-width'> {
   try {
-    const layout = await platform.settings.get('tableLayout');
-    return layout === 'left' || layout === 'center-full-width' ? layout : 'center';
+    return normalizeSetting('tableLayout', await platform.settings.get('tableLayout'));
   } catch {
-    return 'center';
+    return DEFAULT_SETTINGS.tableLayout;
   }
 }
 
@@ -432,14 +432,13 @@ export async function getTableLayout(platform: PlatformAPI): Promise<'left' | 'c
  * Get the standalone image layout setting.
  * Uses platform.settings service exclusively.
  *
- * @returns 'left' | 'center' (default: 'left')
+ * @returns 'left' | 'center' (default: 'center')
  */
 export async function getImageLayout(platform: PlatformAPI): Promise<'left' | 'center'> {
   try {
-    const layout = await platform.settings.get('imageLayout');
-    return layout === 'center' ? 'center' : 'left';
+    return normalizeSetting('imageLayout', await platform.settings.get('imageLayout'));
   } catch {
-    return 'left';
+    return DEFAULT_SETTINGS.imageLayout;
   }
 }
 
@@ -451,10 +450,9 @@ export async function getImageLayout(platform: PlatformAPI): Promise<'left' | 'c
  */
 export async function getDiagramLayout(platform: PlatformAPI): Promise<'left' | 'center'> {
   try {
-    const layout = await platform.settings.get('diagramLayout');
-    return layout === 'left' ? 'left' : 'center';
+    return normalizeSetting('diagramLayout', await platform.settings.get('diagramLayout'));
   } catch {
-    return 'center';
+    return DEFAULT_SETTINGS.diagramLayout;
   }
 }
 

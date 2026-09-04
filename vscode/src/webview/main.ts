@@ -18,6 +18,7 @@ import themeManager, { type FontConfigFile, type ThemeRegistry } from '../../../
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
 import { resolveTocPresentation, type ViewerContainerMode } from '../../../src/core/viewer/viewer-session-contract';
+import { normalizeSetting, DEFAULT_SETTINGS } from '../../../src/config/settings.generated';
 
 // Shared utilities from viewer-host
 import {
@@ -146,7 +147,7 @@ async function initialize(): Promise<void> {
         container: contentContainer,
         platform,
         renderer: pluginRenderer,
-        translate: (key: string, subs?: string[]) => Localization.translate(key, subs),
+        translate: (key, subs) => Localization.translate(key, subs),
         persistScroll: false,
         scrollController: scrollSyncController,
         deferAsyncRenderUntilFirstPaint: window.VSCODE_CONFIG?.deferAsyncRenderUntilFirstPaint === true,
@@ -220,6 +221,7 @@ interface OpenDocumentPayload {
   filename?: string;
   documentKey?: string;
   documentBaseUri?: string;
+  forceRender?: boolean;
   scrollLine?: number;
 }
 
@@ -297,7 +299,7 @@ function handleExtensionMessage(message: ExtensionMessage): void {
       break;
 
     case 'PRINT':
-      handlePrint(payload as { inlineCSS?: string } | undefined);
+      handlePrint();
       break;
 
     case 'SET_ZOOM':
@@ -796,15 +798,15 @@ function initializeUI(): void {
   // Create settings panel (needs to be in DOM for positioning)
   settingsPanel = createSettingsPanel({
     currentTheme: currentThemeId,
-    currentLocale: window.VSCODE_CONFIG?.locale as string || 'auto',
-    docxHrDisplay: (window.VSCODE_CONFIG?.docxHrDisplay as 'pageBreak' | 'line' | 'hide') || 'hide',
-    docxEmojiStyle: (window.VSCODE_CONFIG?.docxEmojiStyle as EmojiStyle) || 'system',
-    frontmatterDisplay: (window.VSCODE_CONFIG?.frontmatterDisplay as FrontmatterDisplay) || 'hide',
-    tableMergeEmpty: window.VSCODE_CONFIG?.tableMergeEmpty !== false,
-    tableLayout: (window.VSCODE_CONFIG?.tableLayout as 'left' | 'center' | 'center-full-width') || 'center',
-    imageLayout: (window.VSCODE_CONFIG?.imageLayout as 'left' | 'center') || 'left',
-    diagramLayout: (window.VSCODE_CONFIG?.diagramLayout as 'left' | 'center') || 'center',
-    firstLineIndent: (typeof window.VSCODE_CONFIG?.firstLineIndent === 'number' ? window.VSCODE_CONFIG.firstLineIndent : 2) as number,
+    currentLocale: window.VSCODE_CONFIG?.locale as string || DEFAULT_SETTINGS.preferredLocale,
+    docxHrDisplay: normalizeSetting('docxHrDisplay', window.VSCODE_CONFIG?.docxHrDisplay),
+    docxEmojiStyle: normalizeSetting('docxEmojiStyle', window.VSCODE_CONFIG?.docxEmojiStyle),
+    frontmatterDisplay: normalizeSetting('frontmatterDisplay', window.VSCODE_CONFIG?.frontmatterDisplay),
+    tableMergeEmpty: normalizeSetting('tableMergeEmpty', window.VSCODE_CONFIG?.tableMergeEmpty),
+    tableLayout: normalizeSetting('tableLayout', window.VSCODE_CONFIG?.tableLayout),
+    imageLayout: normalizeSetting('imageLayout', window.VSCODE_CONFIG?.imageLayout),
+    diagramLayout: normalizeSetting('diagramLayout', window.VSCODE_CONFIG?.diagramLayout),
+    firstLineIndent: normalizeSetting('firstLineIndent', window.VSCODE_CONFIG?.firstLineIndent),
     onThemeChange: async (themeId) => {
       // handleSetTheme saves via themeManager.saveSelectedTheme (same as Chrome)
       await handleSetTheme({ themeId });

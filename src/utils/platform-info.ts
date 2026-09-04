@@ -59,6 +59,16 @@ type RuntimeMessageListener = (
   sendResponse: (response?: unknown) => void
 ) => void | boolean | Promise<unknown>;
 
+type StorageChangeLike = {
+  oldValue?: unknown;
+  newValue?: unknown;
+};
+
+type StorageOnChangedListener = (
+  changes: Record<string, StorageChangeLike>,
+  areaName: string
+) => void;
+
 type WebExtensionApiLike = {
   runtime: {
     sendMessage: (message: unknown) => Promise<unknown>;
@@ -71,6 +81,10 @@ type WebExtensionApiLike = {
   storage: {
     local: {
       get: (keys: string[] | string | Record<string, unknown>) => Promise<Record<string, unknown>>;
+    };
+    onChanged?: {
+      addListener: (listener: StorageOnChangedListener) => void;
+      removeListener?: (listener: StorageOnChangedListener) => void;
     };
   };
   i18n?: {

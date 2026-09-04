@@ -5,6 +5,13 @@
  * modes only) is injected so inline rendering gets the shared content styles
  * without restyling the host page itself.
  */
+
+// Firefox WebExtension API — available as a global in content scripts.
+declare const browser: {
+  runtime: {
+    getURL: (path: string) => string;
+  };
+};
 const CONTENT_SELECTOR_TOKENS = [
   '#markdown-content',
   '#markdown-page',
@@ -92,3 +99,5 @@ function injectElementContentStyles(): void {
 }
 
 injectElementContentStyles();
+
+export {};

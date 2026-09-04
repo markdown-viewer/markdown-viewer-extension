@@ -433,6 +433,10 @@ async function main() {
     const { default: syncFormats } = await import('../scripts/sync-formats.js');
     syncFormats();
 
+    // Sync settings schema
+    const { default: syncSettings } = await import('../scripts/sync-settings.js');
+    syncSettings();
+
     // Clean output
     if (fs.existsSync(outdir)) fs.rmSync(outdir, { recursive: true, force: true });
     if (fs.existsSync(stagingDir)) fs.rmSync(stagingDir, { recursive: true, force: true });

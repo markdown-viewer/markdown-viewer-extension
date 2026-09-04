@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 import { chromium } from 'playwright-core';
 
+import { DEFAULT_RENDER_SETTINGS } from '../src/config/defaults.ts';
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDir, '..');
 const cliAssetDir = path.join(projectRoot, 'dist', 'cli');
@@ -27,13 +29,13 @@ Options:
       --format <f>          html, epub, docx, pdf, svg, png or drawio
   -b, --book                Whole-book export: input is a GitBook SUMMARY.md
       --diagram-type <t>    Diagram renderer (default: inferred from the extension)
-  -t, --theme <id>          Viewer theme (default: default)
+  -t, --theme <id>          Viewer theme (default: ${DEFAULT_RENDER_SETTINGS.theme})
       --title <text>        Override the document title
-      --language <code>     Document language code (default: en)
-      --frontmatter <mode>  hide, table, or raw (default: hide)
-      --table-layout <mode> left, center, or center-full-width
-      --image-layout <mode> left or center (default: center)
-      --diagram-layout <mode> left or center (default: center)
+      --language <code>     Document language code (default: ${DEFAULT_RENDER_SETTINGS.language})
+      --frontmatter <mode>  hide, table, or raw (default: ${DEFAULT_RENDER_SETTINGS.frontmatterDisplay})
+      --table-layout <mode> left, center, or center-full-width (default: ${DEFAULT_RENDER_SETTINGS.tableLayout})
+      --image-layout <mode> left or center (default: ${DEFAULT_RENDER_SETTINGS.imageLayout})
+      --diagram-layout <mode> left or center (default: ${DEFAULT_RENDER_SETTINGS.diagramLayout})
       --merge-empty-cells   Merge empty Markdown table cells
       --chrome <path>       Explicit Chrome executable path
       --timeout <seconds>   Overall render timeout (default: 120)
@@ -84,12 +86,12 @@ function inferDiagramType(inputPath) {
 
 export function parseArgs(args) {
   const options = {
-    theme: 'default',
-    language: 'en',
-    frontmatterDisplay: 'hide',
-    tableLayout: 'center',
-    imageLayout: 'center',
-    diagramLayout: 'center',
+    theme: DEFAULT_RENDER_SETTINGS.theme,
+    language: DEFAULT_RENDER_SETTINGS.language,
+    frontmatterDisplay: DEFAULT_RENDER_SETTINGS.frontmatterDisplay,
+    tableLayout: DEFAULT_RENDER_SETTINGS.tableLayout,
+    imageLayout: DEFAULT_RENDER_SETTINGS.imageLayout,
+    diagramLayout: DEFAULT_RENDER_SETTINGS.diagramLayout,
     tableMergeEmpty: false,
     timeoutMs: 120_000,
   };

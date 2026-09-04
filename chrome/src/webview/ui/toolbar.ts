@@ -432,6 +432,36 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   }
 
   /**
+   * Toggle TOC visibility (shared by the toolbar button and the Ctrl/Cmd+B
+   * keyboard shortcut). Delegates to the host callback when provided, else
+   * toggles the DOM state directly.
+   */
+  function setTocVisibility(visible: boolean): void {
+    if (onSetTocVisibility) {
+      onSetTocVisibility(visible);
+      return;
+    }
+
+    const tocDiv = document.getElementById('table-of-contents');
+    const overlayDiv = document.getElementById('toc-overlay');
+    if (!tocDiv || !overlayDiv) {
+      return;
+    }
+
+    tocDiv.classList.toggle('hidden', !visible);
+    document.body.classList.toggle('toc-hidden', !visible);
+    if (isMobile && visible) {
+      overlayDiv.classList.remove('hidden');
+    } else {
+      overlayDiv.classList.add('hidden');
+    }
+
+    saveFileState({
+      tocVisible: visible,
+    });
+  }
+
+  /**
    * Setup toolbar button event handlers
    */
   async function setupToolbarButtons(): Promise<void> {
@@ -442,29 +472,6 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     const toggleTocBtn = document.getElementById('toggle-toc-btn');
     const tocDiv = document.getElementById('table-of-contents');
     const overlayDiv = document.getElementById('toc-overlay');
-
-    const setTocVisibility = (visible: boolean): void => {
-      if (onSetTocVisibility) {
-        onSetTocVisibility(visible);
-        return;
-      }
-
-      if (!tocDiv || !overlayDiv) {
-        return;
-      }
-
-      tocDiv.classList.toggle('hidden', !visible);
-      document.body.classList.toggle('toc-hidden', !visible);
-      if (isMobile && visible) {
-        overlayDiv.classList.remove('hidden');
-      } else {
-        overlayDiv.classList.add('hidden');
-      }
-
-      saveFileState({
-        tocVisible: visible,
-      });
-    };
 
     if (toggleTocBtn && tocDiv && overlayDiv) {
       toggleTocBtn.addEventListener('click', () => {

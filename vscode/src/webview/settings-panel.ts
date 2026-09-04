@@ -10,6 +10,7 @@
 import Localization from '../../../src/utils/localization';
 import type { EmojiStyle } from '../../../src/types/docx.js';
 import type { FrontmatterDisplay } from '../../../src/core/viewer/viewer-controller';
+import { DEFAULT_SETTINGS } from '../../../src/config/settings.generated';
 
 /** Table layout mode */
 export type TableLayout = 'left' | 'center' | 'center-full-width';
@@ -113,16 +114,16 @@ export interface CacheStats {
  */
 export function createSettingsPanel(options: SettingsPanelOptions): SettingsPanel {
   const {
-    currentTheme = 'default',
-    currentLocale = 'auto',
-    docxHrDisplay = 'hide',
-    docxEmojiStyle = 'windows',
-    frontmatterDisplay = 'hide',
-    tableMergeEmpty = true,
-    tableLayout = 'center',
-    imageLayout = 'left',
-    diagramLayout = 'center',
-    firstLineIndent = 2,
+    currentTheme = DEFAULT_SETTINGS.themeId,
+    currentLocale = DEFAULT_SETTINGS.preferredLocale,
+    docxHrDisplay = DEFAULT_SETTINGS.docxHrDisplay,
+    docxEmojiStyle = DEFAULT_SETTINGS.docxEmojiStyle,
+    frontmatterDisplay = DEFAULT_SETTINGS.frontmatterDisplay,
+    tableMergeEmpty = DEFAULT_SETTINGS.tableMergeEmpty,
+    tableLayout = DEFAULT_SETTINGS.tableLayout,
+    imageLayout = DEFAULT_SETTINGS.imageLayout,
+    diagramLayout = DEFAULT_SETTINGS.diagramLayout,
+    firstLineIndent = DEFAULT_SETTINGS.firstLineIndent,
     onThemeChange,
     onLocaleChange,
     onDocxHrDisplayChange,

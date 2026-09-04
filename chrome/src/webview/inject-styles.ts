@@ -35,3 +35,5 @@ function injectContentStyles(): void {
 }
 
 injectContentStyles();
+
+export {};

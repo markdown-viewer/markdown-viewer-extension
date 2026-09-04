@@ -16,6 +16,7 @@ import { preprocessPage } from './book-exporter';
 import type { BookExportProgressHandler, BookPage } from '../types/book-export';
 import type { PluginRenderer } from '../types/plugin';
 import type { TranslateFunction } from '../types/core';
+import { DEFAULT_SETTINGS } from '../config/settings.generated';
 
 export interface RenderBookForPrintOptions {
   pages: BookPage[];
@@ -59,10 +60,10 @@ export async function renderBookForPrint(options: RenderBookForPrintOptions): Pr
     fetchPage,
     renderer,
     translate,
-    tableMergeEmpty = false,
-    tableLayout = 'center',
-    imageLayout = 'left',
-    diagramLayout = 'center',
+    tableMergeEmpty = DEFAULT_SETTINGS.tableMergeEmpty,
+    tableLayout = DEFAULT_SETTINGS.tableLayout,
+    imageLayout = DEFAULT_SETTINGS.imageLayout,
+    diagramLayout = DEFAULT_SETTINGS.diagramLayout,
     onProgress,
     signal,
   } = options;

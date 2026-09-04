@@ -554,7 +554,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   // Create navigation callback for GitBook panel (will be set after renderMarkdown is defined)
-  let onGitbookNavigate: ((url: string, content: string) => Promise<void>) | undefined;
+  let onGitbookNavigate: ((url: string, content: string, anchor?: string) => Promise<void>) | undefined;
 
   /**
    * Fetch a book page the same way the GitBook panel navigates:
@@ -991,7 +991,8 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     },
     onToggleSourceMode: () => {
       void (async () => {
-        if (!viewerAssembler) {
+        const assembler = viewerAssembler;
+        if (!assembler) {
           return;
         }
         const scrollLine = getCurrentScrollLine();
@@ -1000,7 +1001,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           scrollLine,
           before: getViewerSnapshot(),
         });
-        await viewerAssembler.reportCurrentLine(scrollLine);
+        await assembler.reportCurrentLine(scrollLine);
         const reportEndedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
         logViewerDebug('toggleSource.reportCurrentLine.done', {
           scrollLine,
@@ -1009,7 +1010,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         });
         await executeViewerCommand(
           'toggleSource.failed',
-          () => viewerAssembler.toggleModeIntent(),
+          () => assembler.toggleModeIntent(),
           { scrollLine },
         );
       })();
