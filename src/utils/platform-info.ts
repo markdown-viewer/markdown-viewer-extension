@@ -71,6 +71,7 @@ type StorageOnChangedListener = (
 
 type WebExtensionApiLike = {
   runtime: {
+    id?: string;
     sendMessage: (message: unknown) => Promise<unknown>;
     getURL: (path: string) => string;
     onMessage: {
@@ -96,6 +97,13 @@ type WebExtensionApiLike = {
   };
   downloads?: {
     download: (options: { url: string; filename?: string; saveAs?: boolean }) => Promise<number | string | undefined>;
+  };
+  extension?: {
+    /** Firefox 153+/Chrome: true when file:// access is granted to this extension. */
+    isAllowedFileSchemeAccess?: () => Promise<boolean>;
+  };
+  tabs?: {
+    create: (options: { url: string }) => Promise<unknown>;
   };
 };
 

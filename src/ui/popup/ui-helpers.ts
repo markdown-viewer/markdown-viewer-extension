@@ -2,7 +2,7 @@
  * UI helpers for popup
  */
 
-import { isPlatform } from '../../utils/platform-info';
+import { getWebExtensionApi, isPlatform } from '../../utils/platform-info';
 import { translate } from './i18n-helpers';
 
 /**
@@ -96,8 +96,12 @@ export function showError(text: string): void {
 }
 
 /**
- * Check file access permission and show warning if disabled
- * Note: Firefox doesn't need this - it allows file:// access by default
+ * Check file access permission and show a warning when disabled.
+ *
+ * Both Chrome (chrome.extension.isAllowedFileSchemeAccess) and Firefox 153+
+ * (browser.extension.isAllowedFileSchemeAccess — reflects the per-extension
+ * "Access local files on your computer" toggle on about:addons) expose the
+ * same check. Browsers/builds without the API hide the warning silently.
  */
 export async function checkFileAccess(): Promise<void> {
   const warningSection = document.getElementById('file-access-warning');
@@ -105,62 +109,70 @@ export async function checkFileAccess(): Promise<void> {
     return;
   }
 
+  let extensionApi: { isAllowedFileSchemeAccess?: () => Promise<boolean> } | undefined;
+  let runtimeId = '';
+  let tabsApi: { create: (options: { url: string }) => Promise<unknown> } | undefined;
   try {
-    // Firefox allows file:// access by default with <all_urls> permission
-    if (isPlatform('firefox')) {
-      warningSection.style.display = 'none';
-      return;
-    }
-
-    // Check if file:// access is allowed (Chrome only)
-    const extensionApi = chrome.extension;
-    if (!extensionApi || typeof extensionApi.isAllowedFileSchemeAccess !== 'function') {
-      warningSection.style.display = 'none';
-      return;
-    }
-
-    const isAllowed = await extensionApi.isAllowedFileSchemeAccess();
-
-    // Only show warning when permission is disabled
-    if (!isAllowed) {
-      // Get extension ID and create clickable link
-      const extensionId = chrome.runtime.id;
-      const extensionUrl = `chrome://extensions/?id=${extensionId}`;
-
-      const descEl = document.getElementById('file-access-warning-desc');
-      if (descEl) {
-        const baseText = translate('file_access_disabled_desc_short') ||
-          '要查看本地文件，请访问';
-        const linkText = translate('file_access_settings_link') || '扩展设置页面';
-        const suffixText = translate('file_access_disabled_suffix') ||
-          '并启用「允许访问文件网址」选项';
-
-        descEl.innerHTML = `${baseText} <a href="${extensionUrl}" style="color: var(--color-warning); text-decoration: underline; cursor: pointer;">${linkText}</a> ${suffixText}`;
-
-        // Add click handler
-        const link = descEl.querySelector('a');
-        if (link) {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            // Use chrome.tabs.create() to open chrome:// URLs
-            // window.open() cannot open chrome:// protocol URLs
-            if (chrome.tabs && chrome.tabs.create) {
-              chrome.tabs.create({ url: extensionUrl });
-            } else {
-              // Fallback for environments where tabs API is not available
-              window.open(extensionUrl, '_blank');
-            }
-          });
-        }
-      }
-
-      warningSection.style.display = 'block';
-    } else {
-      warningSection.style.display = 'none';
-    }
-  } catch (error) {
-    // Hide warning on error (Firefox may throw when API doesn't exist)
-    console.error('Failed to check file access:', error);
-    warningSection.style.display = 'none';
+    const api = getWebExtensionApi();
+    extensionApi = api.extension;
+    runtimeId = api.runtime?.id ?? '';
+    tabsApi = api.tabs;
+  } catch {
+    // Platform identity unavailable — do not surface a warning we cannot verify.
   }
+
+  if (!extensionApi || typeof extensionApi.isAllowedFileSchemeAccess !== 'function') {
+    warningSection.style.display = 'none';
+    return;
+  }
+
+  let isAllowed: boolean;
+  try {
+    isAllowed = await extensionApi.isAllowedFileSchemeAccess();
+  } catch {
+    // API rejected — keep the warning hidden rather than mislead.
+    warningSection.style.display = 'none';
+    return;
+  }
+
+  // Only show the warning when permission is disabled.
+  if (isAllowed) {
+    warningSection.style.display = 'none';
+    return;
+  }
+
+  // Firefox has no deep link into the per-extension toggle; about:addons is
+  // where the user finds the "Access local files on your computer" permission
+  // for docu.md.
+  const settingsUrl = isPlatform('firefox')
+    ? 'about:addons'
+    : `chrome://extensions/?id=${encodeURIComponent(runtimeId)}`;
+
+  const descEl = document.getElementById('file-access-warning-desc');
+  if (descEl) {
+    const baseText = translate('file_access_disabled_desc_short') ||
+      '要查看本地文件，请访问';
+    const linkText = translate('file_access_settings_link') || '扩展设置页面';
+    const suffixText = translate('file_access_disabled_suffix') ||
+      '并启用「允许访问文件网址」选项';
+
+    descEl.innerHTML = `${baseText} <a href="${settingsUrl}" style="color: var(--color-warning); text-decoration: underline; cursor: pointer;">${linkText}</a> ${suffixText}`;
+
+    // Add click handler
+    const link = descEl.querySelector('a');
+    if (link) {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        // chrome:// and about: URLs cannot be opened with window.open() —
+        // route them through the tabs API.
+        if (tabsApi) {
+          void tabsApi.create({ url: settingsUrl });
+        } else {
+          window.open(settingsUrl, '_blank');
+        }
+      });
+    }
+  }
+
+  warningSection.style.display = 'block';
 }
