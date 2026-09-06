@@ -167,6 +167,32 @@ async function injectContentScript(): Promise<void> {
     }
   }
 
+  // ── Clear the raw document immediately ─────────────────────────────────
+  // The raw markdown text has served its purpose (decoded + stashed). Wipe
+  // the body NOW and lift the opacity:0 hide so the page becomes visible
+  // right away; every later paint — the toolbar shell, the streamed content
+  // blocks — then shows immediately instead of waiting for the viewer to
+  // finish initializing before the hide is removed. The text is stashed on
+  // the isolated-world window (content scripts and the injected main.js
+  // share that world) for the viewer to pick up.
+  const stashedText = document.body?.textContent || '';
+  if (stashedText) {
+    try {
+      (window as unknown as { __mvStashedRawContent?: string }).__mvStashedRawContent = stashedText;
+    } catch { /* non-extensible window — keep body text as fallback */ }
+  }
+  document.body.innerHTML = '';
+  // Lift the hide but KEEP the color-scheme/background declarations so the
+  // empty page paints the UA canvas color (dark in dark mode) instead of
+  // flashing a bright white rectangle before the theme CSS arrives.
+  const preloadStyle = document.getElementById('markdown-viewer-preload');
+  if (preloadStyle) {
+    preloadStyle.textContent = `
+      :root { color-scheme: light dark; }
+      html, body { background: Canvas; }
+    `;
+  }
+
   const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   const request = {

@@ -602,8 +602,13 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // When the page is a rendered HTML document the html-to-markdown content
   // script will have already extracted and converted the article content;
   // fall back to document.body.textContent for plain-text / raw files.
+  // content-detector clears the raw body early (so the page paints
+  // immediately) and stashes the text on the isolated-world window — content
+  // scripts and the injected main.js share that world — so prefer the stash
+  // when present.
   const htmlConverted = window.__mvHtmlConvertedMarkdown;
-  const rawContent = htmlConverted?.markdown ?? document.body.textContent ?? '';
+  const stashedRawContent = (window as unknown as { __mvStashedRawContent?: string }).__mvStashedRawContent;
+  const rawContent = htmlConverted?.markdown ?? stashedRawContent ?? document.body.textContent ?? '';
   if (htmlConverted?.title) {
     document.title = htmlConverted.title;
   }
