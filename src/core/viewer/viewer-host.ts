@@ -778,18 +778,23 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       applyZoomToElement(container, zoomLevel);
     }
 
-    // Get frontmatter display setting
-    const frontmatterDisplay = await getFrontmatterDisplay(platform);
-
-    // Get table merge empty setting
-    const tableMergeEmpty = await getTableMergeEmpty(platform);
-
-    // Get table layout setting
-    const tableLayout = await getTableLayout(platform);
-
-    // Get image / diagram layout settings
-    const imageLayout = await getImageLayout(platform);
-    const diagramLayout = await getDiagramLayout(platform);
+    // Get frontmatter/table/image/diagram settings in ONE read. Each
+    // settings.get() on Chrome is a chrome.runtime.sendMessage round trip to
+    // the background service worker (slow on a cold worker), and the render
+    // hot path previously paid five of them sequentially before the first
+    // block could stream in. getAll() collapses that to a single round trip;
+    // the layout keys are normalized exactly like the individual getters.
+    let settingsSnapshot: Record<string, unknown>;
+    try {
+      settingsSnapshot = await platform.settings.getAll() as unknown as Record<string, unknown>;
+    } catch {
+      settingsSnapshot = {};
+    }
+    const frontmatterDisplay = (settingsSnapshot.frontmatterDisplay ?? DEFAULT_SETTINGS.frontmatterDisplay) as FrontmatterDisplay;
+    const tableMergeEmpty = Boolean(settingsSnapshot.tableMergeEmpty ?? DEFAULT_SETTINGS.tableMergeEmpty);
+    const tableLayout = normalizeSetting('tableLayout', settingsSnapshot.tableLayout ?? DEFAULT_SETTINGS.tableLayout);
+    const imageLayout = normalizeSetting('imageLayout', settingsSnapshot.imageLayout ?? DEFAULT_SETTINGS.imageLayout);
+    const diagramLayout = normalizeSetting('diagramLayout', settingsSnapshot.diagramLayout ?? DEFAULT_SETTINGS.diagramLayout);
 
     // Apply table/image/diagram layout classes to the RENDER TARGET only.
     // Hosts either render directly into #markdown-content or into a child

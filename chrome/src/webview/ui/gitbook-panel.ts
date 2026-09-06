@@ -284,7 +284,17 @@ async function loadGitbookNavigation(
 
   let depth = 0;
   while (depth <= 20) {
-    let checkedAtLeastOne = false;
+    // Probe every name × baseUrl at this depth IN PARALLEL: each probe is an
+    // independent file read (background FS / postMessage round trip), so a
+    // sequential walk makes the worst case (no SUMMARY.md anywhere) pay 40+
+    // round trips serially. Parallelizing per depth cuts that to one round
+    // trip per depth. Priority is preserved: results are scanned in the same
+    // order as the old sequential loop (SUMMARY.md before summary.md).
+    const candidates: Array<{
+      relativePath: string;
+      baseUrl: string;
+      summaryUrl: string;
+    }> = [];
 
     for (const summaryName of summaryNames) {
       const relativePath = `${'../'.repeat(depth)}${summaryName}`;
@@ -297,7 +307,7 @@ async function loadGitbookNavigation(
         }
 
         const summaryUrl = summaryParsedUrl.href;
-        
+
         if (visitedUrls.has(summaryUrl)) {
           continue;
         }
@@ -309,9 +319,19 @@ async function loadGitbookNavigation(
           continue;
         }
 
-        checkedAtLeastOne = true;
+        candidates.push({ relativePath, baseUrl, summaryUrl });
+      }
+    }
 
-        const loaded = await readSummaryByRelativePath(relativePath, baseUrl, readRelativeFile);
+    if (candidates.length > 0) {
+      const loadedResults = await Promise.all(
+        candidates.map(({ relativePath, baseUrl }) =>
+          readSummaryByRelativePath(relativePath, baseUrl, readRelativeFile))
+      );
+
+      // First hit wins in the original (sequential) priority order.
+      for (let i = 0; i < candidates.length; i += 1) {
+        const loaded = loadedResults[i];
         if (!loaded) {
           continue;
         }
@@ -327,10 +347,6 @@ async function loadGitbookNavigation(
           };
         }
       }
-    }
-
-    if (!checkedAtLeastOne && depth > 0) {
-      break;
     }
 
     depth += 1;

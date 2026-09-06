@@ -87,7 +87,13 @@ function isProcessableContent(): boolean | null {
 }
 
 /**
- * Hide the page content immediately to prevent flash of unstyled content
+ * Hide the page content immediately to prevent flash of unstyled content.
+ *
+ * The page is kept fully hidden (opacity: 0) until the viewer renders, so the
+ * user never sees the raw markdown source the browser displays for .md files.
+ * Showing the raw text would not make the render finish any sooner — it only
+ * fills the boot window with an unpolished source-code view, which is why the
+ * hide was introduced and stays.
  */
 function hidePageContent(): void {
   // Add inline style to hide content immediately

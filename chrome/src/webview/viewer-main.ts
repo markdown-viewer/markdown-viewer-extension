@@ -1263,6 +1263,18 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       requestAnimationFrame(check);
     });
 
+    // ── Frame-first unveil ────────────────────────────────────────────────
+    // The toolbar/layout shell is already in the DOM after initializeToolbar;
+    // reveal it immediately so the user sees the viewer open right away
+    // (themed background + toolbar), then content streams into the shell.
+    // Skipped when a saved scroll position must be restored — unveiling early
+    // there would show the empty shell and then jump thousands of px once the
+    // tall document mounts (issue #110) — and in embed/workspace mode, where
+    // the parent page controls iframe reveal via the VIEWER_RENDERED message.
+    if (window.parent === window && !hasScrollTarget) {
+      unveilOnce();
+    }
+
     try {
       const renderPromise = renderMarkdown(liveRawContent, savedScrollLine, pendingAnchor ?? undefined);
 
@@ -1272,18 +1284,31 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       await waitForNextFrame(); // Let the restored scroll / first paint settle.
       unveilOnce();
 
-      // Wait for render to fully complete before post-render setup.
+      // Chrome-side boot that only needs the STREAMED text — all content
+      // blocks are in the DOM once unveil fires. Async diagrams (mermaid,
+      // plantuml, infographic, ...) may take seconds and must NOT delay
+      // history/TOC/keyboard/GitBook setup: the user can read and navigate
+      // while diagrams finish rendering in placeholders.
+      await saveToHistory(platform);
+      setupTocToggle();
+      toolbarManager.setupKeyboardShortcuts();
+      await setupResponsiveToc();
+      await setupResponsivePanel();
+
+      // GitBook SUMMARY.md discovery runs in the BACKGROUND: it may probe up
+      // to 20 directory levels (each a file read round trip), and it must
+      // never delay the boot sequence — the panel (plus export menus that
+      // read its results) can pop in whenever it finishes. Any failure is
+      // logged, never thrown.
+      void generateGitbookPanel().catch((error) => {
+        console.error('[GitBook] panel generation failed:', error);
+      });
+
+      // Wait for render to fully complete (async diagrams) before finishing.
       await renderPromise;
     } finally {
       unveilOnce();
     }
-
-    await saveToHistory(platform);
-    setupTocToggle();
-    toolbarManager.setupKeyboardShortcuts();
-    await setupResponsiveToc();
-    await setupResponsivePanel();
-    await generateGitbookPanel();
   };
 
   void (async () => {
