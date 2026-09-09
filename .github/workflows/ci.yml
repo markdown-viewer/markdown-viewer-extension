@@ -50,9 +50,17 @@ jobs:
 
       # Playwright Chromium for the installed-extension e2e (channel:'chromium',
       # needed because branded Chrome refuses --load-extension on macOS/Windows)
+      # Playwright Chromium for the installed-extension e2e (channel:'chromium',
+      # needed because branded Chrome refuses --load-extension on macOS/Windows).
+      # The range must float together with the top-level playwright-core
+      # dependency (package-lock.json is gitignored, so `npm install` resolves
+      # the caret range to the newest release): playwright pins its
+      # playwright-core exactly, so a caret range here dedupes to the same
+      # version and downloads the Chromium revision that version expects —
+      # e.g. playwright-core 1.63.0 needs chromium-1243, 1.62.1 shipped 1234.
       - name: Install Playwright Chromium
         run: |
-          npm install --no-save playwright@1.62.1
+          npm install --no-save playwright@^1.62.1
           npx playwright install chromium --with-deps
 
       # Browser/export contract suites read dist/cli assets; the extension
