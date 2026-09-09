@@ -147,7 +147,13 @@ export function convertPluginResultToDOCX(renderResult: UnifiedRenderResult, plu
     return new Paragraph({
       children: [imageRun],
       alignment: alignmentMap[alignment || 'center'] || AlignmentType.CENTER,
-      spacing: { before: 240, after: 240 },
+      // line 240 auto: keep the image paragraph on an auto line rule so it is
+      // NOT constrained by a document-wide fixed line height (lineRule exact,
+      // e.g. 公文 28pt baseline in docDefaults). Under an exact baseline an
+      // inline image taller than the fixed line box would overflow and overlap
+      // the surrounding paragraphs; an auto rule lets the line expand to the
+      // image height (Word/WPS behaviour for inline pictures).
+      spacing: { before: 240, after: 240, line: 240, lineRule: 'auto' },
     });
   }
 

@@ -56,9 +56,17 @@ export interface DOCXRunStyle {
 /**
  * Internal paragraph spacing for theme configuration
  * Values are in twips (twentieth of a point, 1440 twips = 1 inch)
+ *
+ * lineRule semantics (mirrors OOXML w:spacing/@w:lineRule):
+ *  - 'auto'   (default): line is a multiple of single spacing (240 = 1.0x)
+ *  - 'exact'  : line is a FIXED height in twips (e.g. 560 = 28pt). Lines are
+ *               NOT expanded for tall inline content (images!), so paragraphs
+ *               that may contain inline images MUST override this.
+ *  - 'atLeast': line is a minimum height in twips, content can expand it.
  */
 export interface DOCXParagraphSpacing {
   line?: number;
+  lineRule?: 'auto' | 'atLeast' | 'exact';
   before?: number;
   after?: number;
 }

@@ -902,11 +902,21 @@ class DocxExporter {
         : isSingleImageParagraph
           ? (this.imageLayout === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT)
           : undefined;
+      // Image/diagram paragraphs (and any paragraph whose runs contain an
+      // inline picture) must self-declare an AUTO line rule: they would
+      // otherwise inherit the docDefaults baseline, and a fixed baseline
+      // (lineRule exact, e.g. 公文 28pt global spacing from the theme layout)
+      // clips/overlaps tall inline images. Auto lets the line expand to the
+      // image height in Word/WPS.
+      const containsImageRun = children.some((child) => child instanceof ImageRun);
       return new Paragraph({
         children: children.length > 0 ? children : undefined,
         text: children.length === 0 ? '' : undefined,
         ...(paragraphAlignment ? { alignment: paragraphAlignment } : {}),
         ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+        ...(containsImageRun
+          ? { spacing: { line: 240, lineRule: 'auto' as const } }
+          : {}),
       });
     }
 
@@ -928,8 +938,13 @@ class DocxExporter {
           children: children.length > 0 ? children : undefined,
           text: children.length === 0 ? '' : undefined,
           ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
-          // Suppress spacing between sub-segments; last segment keeps default spacing
+          // Suppress spacing between sub-segments; last segment keeps default spacing.
+          // Segments carrying inline images additionally self-declare an auto
+          // line rule so a fixed docDefaults baseline cannot clip the picture.
           ...(isLast ? {} : { spacing: { after: 0 } }),
+          ...(children.some((child) => child instanceof ImageRun)
+            ? { spacing: { line: 240, lineRule: 'auto' as const } }
+            : {}),
         }));
       }
       segmentStart = breakIdx + 1;
@@ -946,6 +961,9 @@ class DocxExporter {
         children: children.length > 0 ? children : undefined,
         text: children.length === 0 ? '' : undefined,
         ...(indentTwips > 0 ? { indent: { firstLine: indentTwips } } : {}),
+        ...(children.some((child) => child instanceof ImageRun)
+          ? { spacing: { line: 240, lineRule: 'auto' as const } }
+          : {}),
       }));
     }
 
@@ -1063,6 +1081,18 @@ class DocxExporter {
     return values.includes(normalized as any) ? (normalized as any) : undefined;
   }
 
+  /**
+   * Document-wide defaults (docDefaults). These become the global baseline
+   * that every paragraph WITHOUT an explicit style/spacing inherits — i.e.
+   * the "global line spacing" of the document, driven by the active theme's
+   * layout scheme (body.lineHeight / body.lineRule / body.fixedLineHeight).
+   *
+   * Named styles (headings, tables, lists, blockquotes, code, ...) declare
+   * their own spacing on top of this baseline, and image/diagram paragraphs
+   * always self-declare an auto line rule (see convertParagraph and
+   * convertPluginResultToDOCX) so fixed-height baselines (lineRule exact,
+   * e.g. 公文 28pt) never clip or overlap tall inline charts/images.
+   */
   private toDocumentDefaults(defaults: DOCXThemeStyles['default']): IDocumentDefaultsOptions {
     const paragraph: IParagraphStylePropertiesOptions | undefined = defaults.paragraph
       ? {
