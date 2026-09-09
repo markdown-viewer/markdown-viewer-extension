@@ -25,8 +25,10 @@
  * - `buildXlsxBytes` — minimal .xlsx package (STORE-only zip writer, no
  *   external dependencies; browsers, fibjs and node all have TextEncoder).
  *
- * Excel limits are enforced (1_048_576 rows × 16_384 columns); merged
- * ranges and numeric cells use the standard OOXML parts.
+ * Excel limits are enforced (1_048_576 rows × 16_384 columns); numeric
+ * cells use raw `<v>` values, merges use the standard mergeCell parts and
+ * merged-cell origins get VERTICAL CENTERING (Excel's default bottom
+ * alignment reads wrong across a multi-row merge).
  */
 
 // ============================================================================
@@ -327,14 +329,30 @@ function toArgb(hex: string): string {
   return `FF${hex.slice(1)}`.toUpperCase();
 }
 
+// cellXfs index layout — shared by styles.xml and every worksheet `s`
+// reference. A merged region keeps its text on the origin (top-left) cell
+// and Excel renders the whole region with THAT cell's alignment; its
+// default vertical alignment is bottom, so merged origins use the centered
+// variants below (matching how the rendered table displays them).
+const XF_BASE = 0; // plain data cell (Excel default alignment)
+const XF_HEADER = 1; // header: bold (+ header fill when present)
+const XF_MERGE = 2; // merged origin: vertically centered
+const XF_HEADER_MERGE = 3; // merged header origin: bold (+ fill) + centered
+
 function buildStylesXml(headerBg: string | null): string {
   const hasBg = Boolean(headerBg);
   const fillXml = hasBg
     ? `<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="${toArgb(headerBg!)}"/><bgColor indexed="64"/></patternFill></fill>`
     : `<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>`;
-  const xfXml = hasBg
-    ? `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>`
-    : `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>`;
+  const xfBase = '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>';
+  const xfHeader = hasBg
+    ? '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+    : '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>';
+  const xfMerge =
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>';
+  const xfHeaderMerge = hasBg
+    ? '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>'
+    : '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>';
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
@@ -343,13 +361,14 @@ function buildStylesXml(headerBg: string | null): string {
     `<fills count="${hasBg ? 3 : 2}">${fillXml}</fills>` +
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    `<cellXfs count="${hasBg ? 3 : 2}">${xfXml}</cellXfs>` +
+    `<cellXfs count="4">${xfBase}${xfHeader}${xfMerge}${xfHeaderMerge}</cellXfs>` +
     '</styleSheet>'
   );
 }
 
-function buildWorksheetXml(data: TableData, headerBg: string | null): string {
-  const headerStyle = headerBg ? 2 : 1;
+function buildWorksheetXml(data: TableData): string {
+  // Anchor cells of merges get the centered xfs (see XF_* layout above).
+  const mergeOrigins = new Set(data.merges.map((m) => `${m.r1}:${m.c1}`));
   const dimension =
     data.colCount > 0 && data.rowCount > 0
       ? `<dimension ref="A1:${excelColumnName(data.colCount - 1)}${data.rowCount}"/>`
@@ -364,7 +383,15 @@ function buildWorksheetXml(data: TableData, headerBg: string | null): string {
       const text = cell.text;
       if (!text) continue;
       const ref = `${excelColumnName(x)}${y + 1}`;
-      const styleAttr = cell.header ? ` s="${headerStyle}"` : '';
+      const isMergeOrigin = mergeOrigins.has(`${y}:${x}`);
+      const styleId = cell.header
+        ? isMergeOrigin
+          ? XF_HEADER_MERGE
+          : XF_HEADER
+        : isMergeOrigin
+          ? XF_MERGE
+          : XF_BASE;
+      const styleAttr = styleId === XF_BASE ? '' : ` s="${styleId}"`;
       if (cell.isNumber) {
         cellXml.push(`<c r="${ref}"${styleAttr}><v>${text}</v></c>`);
       } else {
@@ -450,7 +477,7 @@ export function buildXlsxBytes(data: TableData, style?: TableVisualStyle): Uint8
     { name: 'xl/styles.xml', data: encoder.encode(buildStylesXml(headerBg)) },
     {
       name: 'xl/worksheets/sheet1.xml',
-      data: encoder.encode(buildWorksheetXml(data, headerBg)),
+      data: encoder.encode(buildWorksheetXml(data)),
     },
   ]);
 }

@@ -240,7 +240,32 @@ describe('table-xlsx: .xlsx package', () => {
     })();
     assert.ok(styles.includes('applyFont="1" applyFill="1"'), 'styled header xf must be referenced');
     assert.ok(styles.includes('patternType="solid"'), 'header fill must be solid');
-    assert.ok(sheet.includes('<c r="A1" s="2"'), 'merged header origin must use the styled xf');
+    assert.ok(sheet.includes('<c r="A1" s="3"'), 'merged header origin must use the centered header xf');
+    assert.ok(sheet.includes('<c r="B1" s="1"'), 'plain header cell must keep the header xf');
+    assert.ok(!sheet.includes('<c r="A3" s='), 'non-merged data cells must stay unstyled');
+  });
+
+  it('vertically centers merged-cell origins (Excel defaults to bottom)', async () => {
+    const cells: TableSpanCell[][] = [
+      [{ text: 'Dept', rowspan: 2 }, { text: 'Team' }],
+      [{ text: 'FE' }],
+      [{ text: 'Facts' }, { text: 'ok' }],
+    ];
+    const bytes = buildXlsxBytes(flattenTableCells(cells));
+    const zip = await JSZip.loadAsync(Buffer.from(bytes));
+    const sheet = await zip.files['xl/worksheets/sheet1.xml'].async('string');
+    const styles = await zip.files['xl/styles.xml'].async('string');
+    assert.ok(sheet.includes('<c r="A1" s="2"'), 'merged data origin must carry the centered xf');
+    assert.ok(!/<c r="[A-Z]+[0-9]+" s="[01]"/.test(sheet), 'single cells must not carry base/header xfs');
+    assert.ok(styles.includes('<cellXfs count="4">'), 'styles.xml must define the 4-xf layout');
+    const centered = (styles.match(/vertical="center"/g) || []).length;
+    assert.equal(centered, 2, 'both merged xfs (data + header) must be vertically centered');
+    assert.ok(
+      styles.includes(
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>',
+      ),
+      'data merge xf must keep fontId 0 (no bold)',
+    );
   });
 
   it('escapes XML specials inside string cells', async () => {
