@@ -290,11 +290,19 @@ function generateBlockSpacing(layoutScheme: LayoutScheme): DOCXBlockSpacing {
   const tableBlock = layoutScheme.blocks.table;
   const horizontalRuleBlock = layoutScheme.blocks.horizontalRule;
 
-  const blockquoteSpacing = compensateParagraphSpacing(
-    parsePtValue(blockquoteBlock.spacingBefore),
-    parsePtValue(blockquoteBlock.spacingAfter),
-    bodyLineSpacing
-  );
+  const blockquoteSpacing = {
+    // Document-wide body lines now use an EXACT baseline (derived from
+    // fontSize × lineHeight, see generateDefaultStyle), so there is no
+    // auto "extra leading" below the last line any more — the auto-era
+    // compensateParagraphSpacing redistribution (and its lineExtra book-
+    // keeping) no longer applies. Declare the theme's blockquote spacing
+    // verbatim; the container's inner top/bottom whitespace is handled by
+    // symmetric cell padding (see docx-blockquote-converter).
+    before: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.spacingBefore)}pt`),
+    after: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.spacingAfter)}pt`),
+    paddingVertical: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingVertical, 4)}pt`),
+    paddingHorizontal: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingHorizontal, 10)}pt`),
+  };
 
   return {
     list: compensateParagraphSpacing(
@@ -309,23 +317,13 @@ function generateBlockSpacing(layoutScheme: LayoutScheme): DOCXBlockSpacing {
     ),
     blockquote: {
       ...blockquoteSpacing,
-      // Line leading below the last paragraph line: ACTUAL auto line height
-      // minus the character height (twips). Word's auto line height is
-      // single-line × multiplier, where single-line ≈ 1.2 × font size — NOT
-      // the 240-based bodyLineSpacing (that is only the multiplier × 240
-      // base, which is smaller than the real rendered height; exact line
-      // rules sized to it clip glyphs). The blockquote converter splits this
-      // leading in half — added to the first inner paragraph's spacing-before
-      // and absorbed from the cell's bottom padding — so top/bottom
-      // whitespace stays equal without negative spacing (Word renders
-      // negative paragraph spacing inside table cells with huge blank areas).
-      lineExtra: Math.max(
-        0,
-        Math.round(parseFloat(layoutScheme.body.fontSize) * 1.2 * layoutScheme.body.lineHeight * 20)
-          - themeManager.ptToTwips(layoutScheme.body.fontSize)
-      ),
-      paddingVertical: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingVertical, 4)}pt`),
-      paddingHorizontal: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingHorizontal, 10)}pt`),
+      // Auto-era note (kept for reference): Word's auto line height is
+      // single-line × multiplier where single-line ≈ 1.2 × font size; the
+      // old code split that extra leading between the first inner
+      // paragraph's spacing-before and the cell bottom padding to keep
+      // top/bottom whitespace equal. With the exact global baseline there is
+      // no line-leading compensation to make, so lineExtra is no longer
+      // computed — cell padding stays symmetric inside the converter.
     },
     codeBlock: compensateParagraphSpacing(
       parsePtValue(codeBlock.spacingBefore, parsePtValue(codeBlock.spacingAfter)),

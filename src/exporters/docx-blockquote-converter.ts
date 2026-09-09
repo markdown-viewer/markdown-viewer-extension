@@ -94,23 +94,17 @@ function blendAlertBackground(alertColor: string, pageBg: string): string {
  */
 export function createBlockquoteConverter({ themeStyles, convertInlineNodes, convertChildNode: initialConvertChildNode }: BlockquoteConverterOptions): BlockquoteConverter {
   const blockquoteSpacing = themeStyles.blockSpacing?.blockquote;
-  
-  // Cell padding for the blockquote container stays symmetric: the line-extra
-  // compensation (Word's extra leading below the last line) is carried by the
-  // first inner paragraph's spacing-before (see BlockquoteText style), so we
-  // don't rely on cell top margins which are unreliable in some render paths.
+
+  // Symmetric cell padding for the blockquote container. The global body
+  // baseline is an EXACT line height (derived from fontSize × lineHeight), so
+  // lines carry no auto "extra leading" and there is no half-line
+  // compensation to absorb at the container bottom: top and bottom whitespace
+  // are both just the theme's paddingVertical.
   const basePadding = blockquoteSpacing?.paddingVertical ?? 80;
   const horizontalPadding = blockquoteSpacing?.paddingHorizontal ?? 200;
-  // Half of the line leading (line height minus char height). The FIRST inner
-  // paragraph gets this added to its spacing-before, and the cell BOTTOM
-  // padding absorbs the same amount — the equivalent of a "negative trailing
-  // gap" on the last paragraph (which Word renders badly inside table cells:
-  // it produces huge blank areas). The last line therefore sits closer to /
-  // visually past the container bottom while top/bottom whitespace balances.
-  const halfExtra = Math.max(0, Math.round((blockquoteSpacing?.lineExtra ?? 0) / 2));
   const cellPadding = {
     top: basePadding,
-    bottom: Math.max(0, basePadding - halfExtra),
+    bottom: basePadding,
     left: horizontalPadding,
     right: Math.round(horizontalPadding / 2),
   };
@@ -129,29 +123,21 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
    * Convert a paragraph node inside blockquote.
    * When the blockquote is an alert, the title paragraph gets the alert colour.
    */
-  async function convertBlockquoteParagraph(child: DOCXASTNode, isFirst: boolean, alertColor?: string, isLast = false): Promise<Paragraph> {
+  async function convertBlockquoteParagraph(child: DOCXASTNode, alertColor?: string): Promise<Paragraph> {
     const isTitle = isAlertTitle(child);
     const inlineColor = (alertColor && isTitle) ? alertColor : undefined;
     const children = await convertInlineNodes(child.children as InlineNode[], inlineColor ? { color: inlineColor } : undefined);
-    
-    // Use the BlockquoteText style spacing as-is. It is globally compensated
-    // (before/after balanced around the line leading), so each paragraph is
-    // self-balanced and the container's symmetric cell padding keeps the
-    // top/bottom gaps equal — no per-paragraph spacing override needed.
-    // FIRST paragraph: add half of the line leading (line height minus char
-    // height) to the spacing-before — the "extra top space" that keeps the
-    // text vertically centered in the container. The bottom half is absorbed
-    // by the reduced cell bottom padding (see cellPadding above), so no
-    // negative paragraph spacing is emitted (Word renders negative spacing
-    // inside table cells with huge blank areas). Auto line spacing is kept
-    // (exact rules clip glyph tops).
-    const styleBefore = themeStyles.paragraphStyles['BlockquoteText']?.paragraph?.spacing?.before ?? 0;
+
+    // BlockquoteText inherits the document-wide EXACT baseline (no own line
+    // rule) and keeps only its spacing before/after, so inner paragraphs are
+    // already on the same rhythm as body text. The container's top/bottom
+    // whitespace comes entirely from the symmetric cell padding — no
+    // half-line-leading spacing tweaks are needed with an exact baseline.
     const paragraphConfig: IParagraphOptions = {
       children: children as ParagraphChild[],
       style: 'BlockquoteText',
-      ...(isFirst ? { spacing: { before: styleBefore + halfExtra } } : {}),
     };
-    
+
     return new Paragraph(paragraphConfig);
   }
 
@@ -173,26 +159,14 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
 
     const cellChildren: FileChild[] = [];
 
-    // Locate the LAST paragraph child so its trailing spacing-after can be
-    // dropped (bottom whitespace must stay symmetric with the top padding).
-    let lastParagraphIndex = -1;
-    node.children.forEach((child, index) => {
-      if (child.type === 'paragraph') {
-        lastParagraphIndex = index;
-      }
-    });
-
-    let isFirst = true;
     for (let i = 0; i < node.children.length; i++) {
       const child = node.children[i];
       if (child.type === 'paragraph') {
-        cellChildren.push(await convertBlockquoteParagraph(child, isFirst, alertColor, i === lastParagraphIndex));
-        isFirst = false;
+        cellChildren.push(await convertBlockquoteParagraph(child, alertColor));
       } else if (child.type === 'blockquote') {
         // Nested blockquote: recursively create another table (keep same listLevel, increment nestLevel)
         const nestedTable = await convertBlockquote(child as DOCXBlockquoteNode, listLevel, nestLevel + 1);
         cellChildren.push(nestedTable);
-        isFirst = false;
       } else if (convertChildNode) {
         // Use generic converter for other node types (code, table, etc.)
         // Pass blockquote nest level + 1 for proper right margin compensation
@@ -204,7 +178,6 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
             cellChildren.push(converted);
           }
         }
-        isFirst = false;
       }
     }
 

@@ -657,6 +657,58 @@ class DocxExporter {
     let lastNodeType: string | null = null;
     this.listInstanceCounter = 0;
 
+    const isContainerNode = (type: string | null | undefined): type is 'table' | 'blockquote' =>
+      type === 'table' || type === 'blockquote';
+
+    const getLegacyBodyBoundaryGaps = (): { beforeContainer: number; afterContainer: number } => {
+      const bodySpacing = this.themeStyles?.default.paragraph?.spacing;
+      const bodyFontTwips = (this.themeStyles?.default.run.size ?? 28) * 10;
+      const bodyLineTwips = bodySpacing?.line ?? bodyFontTwips;
+      const bodyBefore = bodySpacing?.before ?? 0;
+      const bodyAfter = bodySpacing?.after ?? 0;
+
+      // Old docDefaults used Word's AUTO line rule (line = 240 * multiplier)
+      // plus compensateParagraphSpacing(). The visible air around a body
+      // paragraph therefore came from:
+      //   - trailing gap before a following non-paragraph object:
+      //       oldAfter + extra, where extra = lineMultiple - 240
+      //   - leading gap before the NEXT body paragraph:
+      //       oldBefore
+      //
+      // We now use an EXACT line height derived from the same body metrics,
+      // so that incidental gap disappeared. Recreate just the old boundary
+      // values explicitly at text/container edges.
+      const lineMultiple = bodyFontTwips > 0 ? (bodyLineTwips / bodyFontTwips) : 1;
+      const legacyAutoLine = Math.round(lineMultiple * 240);
+      const legacyExtra = Math.max(0, legacyAutoLine - 240);
+      const totalBudget = bodyBefore + bodyAfter;
+      const legacyBefore = Math.max(0, Math.round((totalBudget + legacyExtra) / 2));
+      const legacyAfter = Math.max(0, Math.round((totalBudget - legacyExtra) / 2));
+
+      return {
+        beforeContainer: legacyAfter + legacyExtra,
+        afterContainer: legacyBefore,
+      };
+    };
+
+    const bodyBoundaryGaps = getLegacyBodyBoundaryGaps();
+
+    const getContainerGap = (type: 'table' | 'blockquote', side: 'before' | 'after'): number => {
+      const spacing = type === 'table'
+        ? this.themeStyles?.blockSpacing?.table
+        : this.themeStyles?.blockSpacing?.blockquote;
+      return spacing?.[side] ?? 120;
+    };
+
+    const pushBlockSpacer = (gapTwips: number): void => {
+      if (gapTwips <= 0) return;
+      elements.push(new Paragraph({
+        text: '',
+        spacing: { before: 0, after: gapTwips, line: 1, lineRule: 'exact' },
+        alignment: AlignmentType.LEFT,
+      }));
+    };
+
     // Add frontmatter at the beginning if present and not hidden
     const frontmatterElements = await this.convertFrontmatterToDocx();
     elements.push(...frontmatterElements);
@@ -666,7 +718,9 @@ class DocxExporter {
 
     if (!ast.children) return elements;
 
-    for (const node of ast.children) {
+    for (let index = 0; index < ast.children.length; index++) {
+      const node = ast.children[index];
+      const nextNodeType = ast.children[index + 1]?.type ?? null;
       // Check if this is a [toc] marker - insert TableOfContents only when detected
       if (this.isTocMarker(node)) {
         // Insert a table of contents at this position
@@ -707,37 +761,19 @@ class DocxExporter {
         }));
       }
 
-      if (node.type === 'table' && lastNodeType === 'table') {
-        const tableGap = this.themeStyles?.blockSpacing?.table;
-        const tableAfter = tableGap?.after ?? 120;
-        elements.push(new Paragraph({
-          text: '',
-          spacing: { before: tableAfter, after: tableAfter, line: 240 },
-        }));
-      }
-
-      if (node.type === 'blockquote' && lastNodeType === 'blockquote') {
-        const blockquoteGap = this.themeStyles?.blockSpacing?.blockquote;
-        const blockquoteAfter = blockquoteGap?.after ?? 120;
-        elements.push(new Paragraph({
-          text: '',
-          spacing: { before: blockquoteAfter, after: blockquoteAfter, line: 240 },
-        }));
-      }
-
-      // Handle cross-type gap: both table and blockquote produce DOCX Table objects,
-      // so consecutive different types need a spacer paragraph between them.
-      if ((node.type === 'blockquote' && lastNodeType === 'table') ||
-          (node.type === 'table' && lastNodeType === 'blockquote')) {
-        // Use the previous element's "after" spacing
-        const prevGap = lastNodeType === 'table'
-          ? this.themeStyles?.blockSpacing?.table
-          : this.themeStyles?.blockSpacing?.blockquote;
-        const prevAfter = prevGap?.after ?? 120;
-        elements.push(new Paragraph({
-          text: '',
-          spacing: { before: prevAfter, after: prevAfter, line: 240 },
-        }));
+      // Under the old auto-line-height model, body paragraphs happened to leave
+      // visible air around table/blockquote containers via inherited line
+      // leading. With the document-wide exact baseline that incidental gap is
+      // gone, so container boundaries must be expressed explicitly.
+      if (isContainerNode(node.type)) {
+        if (isContainerNode(lastNodeType)) {
+          pushBlockSpacer(Math.max(
+            getContainerGap(lastNodeType, 'after'),
+            getContainerGap(node.type, 'before')
+          ));
+        } else if (lastNodeType && lastNodeType !== 'pagebreak' && lastNodeType !== 'toc') {
+          pushBlockSpacer(bodyBoundaryGaps.beforeContainer);
+        }
       }
 
       const converted = await this.convertNode(node);
@@ -748,6 +784,11 @@ class DocxExporter {
           elements.push(converted);
         }
       }
+
+      if (isContainerNode(node.type) && nextNodeType && !isContainerNode(nextNodeType) && nextNodeType !== 'pagebreak') {
+        pushBlockSpacer(bodyBoundaryGaps.afterContainer);
+      }
+
       lastNodeType = node.type;
     }
 
