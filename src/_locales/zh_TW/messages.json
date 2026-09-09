@@ -199,6 +199,10 @@
     "message": "複製為 PNG",
     "description": "Context menu item for copying a diagram as PNG"
   },
+  "copy_table": {
+    "message": "複製表格",
+    "description": "Context menu item for copying a rendered table as spreadsheet cells"
+  },
   "delete": {
     "message": "刪除",
     "description": "Delete button text"
@@ -538,6 +542,10 @@
   "save_image_as": {
     "message": "圖片另存為…",
     "description": "Context menu item for saving an image"
+  },
+  "save_table_as_xlsx": {
+    "message": "另存為 Excel (.xlsx)",
+    "description": "Context menu item for saving a rendered table as an Excel (.xlsx) file"
   },
   "search_case_sensitive": {
     "message": "區分大小寫",

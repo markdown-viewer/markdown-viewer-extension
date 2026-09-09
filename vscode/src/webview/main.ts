@@ -36,6 +36,7 @@ import { createSettingsPanel, type SettingsPanel, type ThemeOption, type LocaleO
 import { createSearchPanel, type SearchPanel, type HighlightMatch, type SearchOptions } from './search-panel';
 import { createTocPanel, type TocPanel } from '../../../src/ui/toc-panel';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
+import { setupTableContextMenu } from '../../../src/ui/table-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
 import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { createExportMenu, type ExportMenu } from '../../../src/ui/export-menu';
@@ -927,6 +928,15 @@ function initializeUI(): void {
   // Setup image context menu for saving images (shared cross-platform implementation)
   if (contentContainer) {
     setupImageContextMenu({
+      container: contentContainer,
+      onDownload: ({ filename, data, mimeType }) => {
+        vscodeBridge.sendRequest('DOWNLOAD_FILE', { filename, data, mimeType });
+      },
+      translate: (key) => Localization.translate(key),
+    });
+
+    // Setup table context menu for copy/Excel export (shared cross-platform)
+    setupTableContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
         vscodeBridge.sendRequest('DOWNLOAD_FILE', { filename, data, mimeType });

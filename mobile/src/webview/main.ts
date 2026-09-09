@@ -24,6 +24,7 @@ import {
   exportHtmlFlow,
 } from '../../../src/core/viewer/viewer-host';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
+import { setupTableContextMenu } from '../../../src/ui/table-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
 import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
@@ -204,6 +205,15 @@ async function initialize(): Promise<void> {
     const contentContainer = document.getElementById('markdown-content');
     if (contentContainer) {
       setupImageContextMenu({
+        container: contentContainer,
+        onDownload: ({ filename, data, mimeType }) => {
+          bridge.sendRequest('DOWNLOAD_FILE', { filename, data, mimeType });
+        },
+        translate: (key) => Localization.translate(key),
+      });
+
+      // Setup table context menu for copy/Excel export (shared cross-platform)
+      setupTableContextMenu({
         container: contentContainer,
         onDownload: ({ filename, data, mimeType }) => {
           bridge.sendRequest('DOWNLOAD_FILE', { filename, data, mimeType });

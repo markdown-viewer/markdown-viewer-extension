@@ -19,6 +19,7 @@
 
 import './suites/core-markdown/index.js';
 import './suites/document-helpers/index.js';
+import './suites/table-export/index.js';
 import './suites/plugin-rewrites/index.js';
 import './suites/renderers-theme/index.js';
 import './suites/charset-recovery/index.js';

@@ -53,6 +53,7 @@ import { resolveDefaultTocVisibility } from '../../../src/core/viewer/viewer-ses
 import { createViewerSurfacePort } from '../../../src/core/viewer/viewer-surface-port';
 import type { ViewerDisplayMode } from '../../../src/core/viewer/viewer-host-adapter';
 import { setupImageContextMenu } from '../../../src/ui/image-context-menu';
+import { setupTableContextMenu } from '../../../src/ui/table-context-menu';
 import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
 import { setupCodeBlockCopy, applyCodeBlockCopyLocale } from '../../../src/ui/code-block-copy';
 
@@ -1899,6 +1900,30 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const contentContainer = document.getElementById('markdown-content');
   if (contentContainer) {
     setupImageContextMenu({
+      container: contentContainer,
+      onDownload: ({ filename, data, mimeType }) => {
+        // Use <a download> for browser-based download
+        const blob = new Blob(
+          [Uint8Array.from(atob(data), c => c.charCodeAt(0))],
+          { type: mimeType }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      },
+      translate: (key) => Localization.translate(key),
+    });
+
+    // Setup table context menu for copy/Excel export (shared cross-platform)
+    setupTableContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
         // Use <a download> for browser-based download
