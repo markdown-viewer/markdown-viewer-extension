@@ -169,6 +169,7 @@ export const createBuildConfig = (overrides = {}) => {
                 { src: 'chrome/src/workspace/workspace.html', dest: `${options.outdir}/ui/workspace/workspace.html` },
                 { src: 'chrome/src/workspace/workspace.css', dest: `${options.outdir}/ui/workspace/workspace.css` },
                 { src: 'chrome/src/workspace/viewer-embed.html', dest: `${options.outdir}/ui/workspace/viewer-embed.html` },
+                { src: 'chrome/src/workspace/html-preview-sandbox.html', dest: `${options.outdir}/ui/workspace/html-preview-sandbox.html` },
                 { src: 'chrome/src/workspace/dark-preload.js', dest: `${options.outdir}/ui/workspace/dark-preload.js` },
                 { src: 'chrome/src/webview/offscreen-render.html', dest: `${options.outdir}/ui/offscreen-render.html` }
               ];

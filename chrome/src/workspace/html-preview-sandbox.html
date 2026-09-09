@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+  HTML 文件预览沙箱页(workspace 模式)
+  ------------------------------------------------------------------
+  MV3 的 extension_pages CSP 不允许 'unsafe-inline',blob 文档继承该 CSP,
+  因此本地 .html(单文件交互式 deck)的内联脚本在普通 iframe 里永远无法执行。
+  本页是 manifest "sandbox" 声明的沙箱页:它有独立的 content_security_policy
+  (放行 unsafe-inline + unpkg/jsdelivr),可安全承载用户本地 HTML 的脚本。
+
+  协议(postMessage,双向):
+    沙箱页 → 父窗口 : { type: 'MV_HTML_PREVIEW_READY' }        (加载完成)
+    父窗口 → 沙箱页 : { type: 'MV_HTML_PREVIEW', html }        (改写后的 HTML)
+    沙箱页 → 父窗口 : { type: 'MV_HTML_PREVIEW_RENDERED' }     (渲染完成,可选)
+
+  注意:
+    - 沙箱页 origin 为 null,无法访问 chrome.* API 与 File System Access
+      句柄 —— 资源改写(相对路径 → blob: URL)在父窗口完成
+    - 父窗口重写后的 <script> 元素需在此重新创建插入才会执行
+      (DOMParser 解析出的脚本不会执行)
+    - 无 allow-same-origin:页面与扩展 origin 隔离,deck 内的本地文件读取、
+      chrome API 均不可用 —— 这是预览的安全边界
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML Preview</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+  body { background: #fafaf8; }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  'use strict';
+
+  /** DOMParser 解析出的 script 不会执行,必须重建后插入 */
+  function rebuildScript(source) {
+    const s = document.createElement('script');
+    if (source.src) s.src = source.src;
+    else s.textContent = source.textContent;
+    if (source.type) s.type = source.type;
+    if (source.crossOrigin) s.crossOrigin = source.crossOrigin;
+    if (source.referrerPolicy) s.referrerPolicy = source.referrerPolicy;
+    if (source.nonce) s.nonce = source.nonce;
+    return s;
+  }
+
+  function isExternalScript(node) {
+    return node.nodeType === 1 && node.tagName === 'SCRIPT' && !!node.src;
+  }
+
+  /**
+   * 按文档语义挂载子节点:
+   *   1. 先挂元素/样式/外部脚本(动态插入的 src 脚本是异步加载的,必须等它
+   *      加载完才能执行后面的内联脚本 —— 浏览器原生解析遇 src 脚本会阻塞)
+   *   2. 再按原顺序执行全部内联脚本
+   * 单个脚本失败不阻断后续(沙箱缺 allow-same-origin,部分 API 受限)。
+   */
+  async function appendChildren(target, nodes) {
+    // 先快照:children 是动态集合,appendChild 搬走元素后索引整体前移,
+    // 边遍历边搬会隔一个跳一个
+    const items = Array.from(nodes);
+    const inlines = [];
+    const externals = [];
+
+    for (const node of items) {
+      if (node.nodeType !== 1) continue;
+      if (isExternalScript(node)) {
+        const s = rebuildScript(node);
+        s.async = false; // 参与顺序队列
+        externals.push(s);
+        try { target.appendChild(s); } catch { /* 忽略 */ }
+      } else if (node.tagName === 'SCRIPT') {
+        inlines.push(node);
+      } else {
+        try { target.appendChild(node); } catch { /* 忽略 */ }
+      }
+    }
+
+    await Promise.all(externals.map((s) => new Promise((resolve) => {
+      const done = () => resolve();
+      s.addEventListener('load', done, { once: true });
+      s.addEventListener('error', done, { once: true });
+      if (s.readyState === 'complete' || s.readyState === 'loaded') done();
+    })));
+
+    for (const node of inlines) {
+      try { target.appendChild(rebuildScript(node)); } catch { /* 忽略 */ }
+    }
+  }
+
+  async function render(html) {
+    const parsed = new DOMParser().parseFromString(String(html), 'text/html');
+    if (parsed.querySelector('parsererror')) {
+      // 解析失败:原样写入,尽量保留内容
+      document.open();
+      document.write(String(html));
+      document.close();
+      parent.postMessage({ type: 'MV_HTML_PREVIEW_RENDERED' }, '*');
+      return;
+    }
+    document.head.replaceChildren();
+    document.body.replaceChildren();
+    // 移植文档级属性,与浏览器直接打开文件保持一致(body class 决定
+    // deck 的 canvas-mode/主题分支,title 显示文档标题)
+    document.title = parsed.title || document.title;
+    document.body.className = parsed.body.className;
+    document.documentElement.lang = parsed.documentElement.lang || document.documentElement.lang;
+    // 沙箱无 allow-same-origin,localStorage 访问即抛 SecurityError,会把
+    // 依赖它的脚本块打断(同块后续监听器全部失效)。前置内存垫片接管。
+    document.body.appendChild(createLocalStorageShim());
+    await appendChildren(document.head, parsed.head.children);
+    await appendChildren(document.body, parsed.body.children);
+    parent.postMessage({ type: 'MV_HTML_PREVIEW_RENDERED' }, '*');
+  }
+
+  /** localStorage 内存垫片:沙箱里访问原生实现会抛 SecurityError */
+  function createLocalStorageShim() {
+    const s = document.createElement('script');
+    s.textContent = `(function(){
+      var ok = true;
+      try { void window.localStorage; } catch (e) { ok = false; }
+      if (ok) return;
+      var store = {};
+      var shim = {
+        getItem: function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+        setItem: function (k, v) { store[k] = String(v); },
+        removeItem: function (k) { delete store[k]; },
+        clear: function () { store = {}; },
+        key: function (i) { return Object.keys(store)[i] || null; },
+        get length() { return Object.keys(store).length; }
+      };
+      try { Object.defineProperty(window, 'localStorage', { value: shim, configurable: true, writable: true }); }
+      catch (e) { try { window.localStorage = shim; } catch (e2) {} }
+    })();`;
+    return s;
+  }
+
+  window.addEventListener('message', function (event) {
+    const data = event.data;
+    if (!data || typeof data !== 'object' || data.type !== 'MV_HTML_PREVIEW') return;
+    render(data.html);
+  });
+
+  parent.postMessage({ type: 'MV_HTML_PREVIEW_READY' }, '*');
+})();
+</script>
+</body>
+</html>
