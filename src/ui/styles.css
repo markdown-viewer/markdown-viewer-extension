@@ -1394,6 +1394,14 @@ html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::bef
     display: none !important;
   }
 
+  /* Interactive-only heading anchors (hover-revealed "#" links): never print them.
+     If print starts while the pointer rests on a heading (e.g. the export menu item
+     that covered it was just removed), the hover reveal would otherwise be captured
+     as a stray "#" in the PDF at that heading. */
+  #markdown-content .heading-anchor {
+    display: none !important;
+  }
+
   /* Ensure proper page breaks */
   #markdown-content h1,
   #markdown-content h2,

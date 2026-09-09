@@ -84,6 +84,15 @@ export function buildPrintCssRules(pageBackgroundColor: string, extraCss = ''): 
       #toolbar {
         display: none !important;
       }
+      /* Hover-revealed heading anchors ("#" links) are interactive-only UI and must never
+         print. Export is triggered from a menu that is removed right before window.print():
+         the pointer ends up over whatever content was underneath the menu item (often a
+         heading), and Chromium's print snapshot carries the resulting :hover reveal into the
+         PDF — leaving a stray "#" next to the heading under the cursor. */
+      #markdown-content .heading-anchor,
+      #book-print-root .heading-anchor {
+        display: none !important;
+      }
       /* Diagram images: wrapper <div> sets the design width; <img> is fully auto (max-width:100% +
          max-height clamp). Both dims auto on <img> so replaced-element algorithm preserves
          aspect ratio when max-height triggers on tall diagrams. */

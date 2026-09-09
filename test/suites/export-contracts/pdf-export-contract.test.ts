@@ -65,6 +65,20 @@ describe('PDF export contract (headless Chrome print)', () => {
     );
   });
 
+  it('never prints interactive-only heading anchors', () => {
+    // Heading "#" anchors are hover-revealed (opacity 0 until :hover/:focus). When
+    // export is triggered the menu is removed just before window.print(), so the
+    // pointer lands on the content underneath (often a heading) and Chromium can
+    // carry that :hover reveal into the print snapshot. The injected print CSS must
+    // therefore force the anchors out of the PDF.
+    const css = buildPrintCssRules('#ffffff');
+    assert.match(
+      css,
+      /heading-anchor[^{}]*\{[^}]*display: none !important/s,
+      'print CSS must hide heading anchors',
+    );
+  });
+
   it('strips the card chrome from #markdown-page in print CSS', () => {
     // The shared screen rule gives #markdown-page a card padding + shadow
     // + surface background. With page.pdf(printBackground: true) that would
