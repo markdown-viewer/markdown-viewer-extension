@@ -2,7 +2,7 @@
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | push to `main`, pull requests | Full test suite (`npm test` → `test/all.test.js`) on the fibjs runtime, plus the Chrome/CLI builds the suites need |
+| `ci.yml` | push to `main`, pull requests | Unit/contract tests via `npm run test:unit`, plus installed-extension E2E via `npm run test:e2e` on Node.js + Playwright |
 | `release.yml` | push of a `v<version>` tag, manual run | Builds every platform and attaches the installers to the GitHub Release |
 
 ## Cutting a release

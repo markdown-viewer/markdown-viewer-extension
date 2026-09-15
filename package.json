@@ -34,7 +34,9 @@
     "app:init": "cd mobile && flutter pub get",
     "check:homepage-i18n": "node scripts/check-homepage-i18n.cjs",
     "typecheck": "node scripts/typecheck.cjs",
-    "test": "fibjs test/all.test.js"
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "fibjs test/all.test.js",
+    "test:e2e": "node --import tsx/esm --test test/e2e/index.test.ts"
   },
   "keywords": [
     "markdown",

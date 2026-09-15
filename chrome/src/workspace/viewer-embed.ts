@@ -284,12 +284,11 @@ async function ensureViewerInitialized(initialContent: string): Promise<{
 
   if (!initialized) {
     document.body.textContent = initialContent;
-    await initializeViewerBase(platform).then((pluginRenderer) => {
-      startViewer({
-        platform,
-        pluginRenderer,
-        themeConfigRenderer: platform.renderer,
-      });
+    await initializeViewerBase(platform).then((pluginRenderer) => startViewer({
+      platform,
+      pluginRenderer,
+      themeConfigRenderer: platform.renderer,
+    })).then(() => {
       initialized = true;
       hostUiController.attachWrapperInteractionFixes();
     }).catch((error) => {
@@ -463,4 +462,8 @@ document.addEventListener('click', (event) => {
 // `_baseUrl` is an empty file:// URL in workspace mode.
 workspaceEmbedBridge.ensureConnected();
 
+// Expose a deterministic readiness signal for hosts and automated browser
+// tests. VIEWER_READY is still sent to the parent for workspace coordination;
+// this attribute also lets same-page callers wait without guessing a delay.
+document.documentElement.dataset.viewerEmbedReady = '1';
 parentBridge.notifyViewerReady();

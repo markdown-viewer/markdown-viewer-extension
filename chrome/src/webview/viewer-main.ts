@@ -1973,6 +1973,6 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
  * Initialize and start the viewer
  * Call this after the shared viewer base initialization completes
  */
-export function startViewer(options: ViewerMainOptions): void {
-  void initializeViewerMain(options);
+export function startViewer(options: ViewerMainOptions): Promise<void> {
+  return initializeViewerMain(options);
 }

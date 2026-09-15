@@ -29,28 +29,32 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { chromium, type BrowserContext, type Page, type Frame } from 'playwright-core';
+import { type Page, type Frame } from 'playwright-core';
+
+import {
+  FIXED_SETTINGS,
+  POST_OPEN_DOCUMENT_JS,
+  SET_STORAGE_JS,
+  WAIT_RENDERED_JS,
+  WAIT_STANDALONE_READY_JS,
+  VIEWER_EMBED_READY_JS,
+  evalJs,
+  installPageDiagnostics,
+  launchExtensionContext,
+  waitFor,
+  waitForFrame,
+  waitForStable,
+  waitImagesJs,
+  type E2ETarget as Target,
+  type ExtensionContextHarness,
+} from '../../helpers/extension-e2e.ts';
 
 const SKIP_EXT = process.env.MV_SKIP_EXT_TESTS === '1';
 
-const EXT_DIR = path.resolve('dist/chrome');
 const LAYOUT_DIR = path.resolve('test/fixtures/layout');
-
-const FIXED_SETTINGS = {
-  themeId: 'default',
-  language: 'en',
-  frontmatterDisplay: 'hide',
-  tableMergeEmpty: false,
-  tableLayout: 'center',
-  imageLayout: 'center',
-  diagramLayout: 'center',
-} as const;
-
-type Target = Page | Frame;
 
 function px(value: string): number {
   return parseFloat(value);
@@ -61,32 +65,6 @@ function firstOf(measurements: Array<{ selector: string; elements: any[] }>, sel
   assert.ok(item, `No measurement for selector "${selector}"`);
   assert.ok(item.elements.length > 0, `Selector "${selector}" matched no elements`);
   return item.elements[0];
-}
-
-/**
- * Evaluate a JS function BODY string. Playwright treats an evaluate string
- * as a function BODY, so `() => {}` would just create a function object and
- * serialize to undefined — always invoke the body explicitly (IIFE form).
- */
-async function evalJs<T>(target: Target, jsBody: string, arg?: unknown): Promise<T> {
-  const src = arg === undefined ? `(${jsBody})()` : `(${jsBody})(${JSON.stringify(arg)})`;
-  return target.evaluate(src) as Promise<T>;
-}
-
-/**
- * Poll-wait for a JS BODY string to return truthy. Uses evaluate() (function
- * body semantics) instead of waitForFunction — the latter evaluates strings
- * via eval, which extension pages block with CSP (unsafe-eval).
- */
-async function waitFor(target: Target, jsBody: string, timeoutMs = 30000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    if (await evalJs<boolean>(target, jsBody)) return;
-    if (Date.now() >= deadline) {
-      throw new Error(`waitFor timed out (${timeoutMs}ms): ${jsBody.slice(0, 80)}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
 }
 
 const MEASURE_JS = `(selectors) => selectors.map((selector) => {
@@ -136,24 +114,6 @@ const COLLECT_CSS_JS = `() => {
   return chunks.join('\\n');
 }`;
 
-const waitImagesJs = (rootSel: string) => `() => {
-  const images = Array.from(document.querySelectorAll('${rootSel} img'));
-  return Promise.all(images.map((img) => {
-    if (typeof img.decode === 'function') return img.decode().catch(() => undefined);
-    return new Promise((resolve) => {
-      if (img.complete) { resolve(); return; }
-      img.addEventListener('load', () => resolve(), { once: true });
-      img.addEventListener('error', () => resolve(), { once: true });
-    });
-  })).then(() => true);
-}`;
-const WAIT_IMAGES_JS = waitImagesJs('#markdown-content');
-
-const WAIT_RENDERED_JS = `() => {
-  const c = document.getElementById('markdown-content');
-  return Boolean(c && c.children.length > 0);
-}`;
-
 /**
  * Sample the theme background coverage contract in the LIVE page:
  *  - `expected`  — the theme's page background resolved from its CSS variable
@@ -186,35 +146,6 @@ const READ_BG_COVERAGE_JS = `() => {
   };
 }`;
 
-// standalone: content render + the async style injection (inject-styles
-// fetches ui/styles.css) must BOTH be complete before collection.
-const WAIT_STANDALONE_READY_JS = `() => {
-  const c = document.getElementById('markdown-content');
-  return Boolean(c && c.children.length > 0 && document.getElementById('mv-content-styles'));
-}`;
-
-const SET_STORAGE_JS = `(settings) => chrome.storage.local.set({ markdownViewerSettings: settings })`;
-
-const POST_OPEN_DOCUMENT_JS = `(msg) => window.postMessage(msg, '*')`;
-
-/**
- * Resolve the extension id from the background service worker. Polling is
- * more reliable than waitForEvent('serviceworker') — on cold starts the
- * worker registration event can be missed while the profile is being
- * created.
- */
-async function waitForExtensionId(context: BrowserContext): Promise<string> {
-  const deadline = Date.now() + 40000;
-  for (;;) {
-    const id = context.serviceWorkers().map((w) => w.url().split('/')[2]).find(Boolean);
-    if (id) return id;
-    if (Date.now() >= deadline) {
-      throw new Error('extension service worker not registered (timeout)');
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-}
-
 const MOCK_PICKER_JS = `(fixtures) => {
   const handles = {};
   for (const [name, content] of Object.entries(fixtures)) {
@@ -237,45 +168,33 @@ const MOCK_PICKER_JS = `(fixtures) => {
 }`;
 
 describe('installed Chrome extension (three open modes × full fixture matrix)', { skip: SKIP_EXT }, () => {
-  let context: BrowserContext;
+  let harness: ExtensionContextHarness | undefined;
   let extensionId = '';
-  let userDataDir = '';
   let standalonePage: Page;
   let embedPage: Page;
   let workspacePage: Page;
   let inlinePage: Page;
 
   before(async () => {
-    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
-      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
-    });
+    harness = await launchExtensionContext('mv-installed-');
+    extensionId = harness.extensionId;
 
-    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-installed-'));
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: true,
-      viewport: { width: 1440, height: 900 },
-      args: [
-        `--disable-extensions-except=${EXT_DIR}`,
-        `--load-extension=${EXT_DIR}`,
-        '--no-first-run',
-        '--disable-default-apps',
-        // Let content scripts fetch file:// resources (fixture images).
-        '--allow-file-access-from-files',
-      ],
-    });
-
-    extensionId = await waitForExtensionId(context);
-
-    standalonePage = await context.newPage();
-    embedPage = await context.newPage();
+    standalonePage = await harness.context.newPage();
+    embedPage = await harness.context.newPage();
 
     // Inline <markdown-viewer> element mode: the demo page hosts the element;
     // the background injects the element runtime after content detection.
-    inlinePage = await context.newPage();
+    inlinePage = await harness.context.newPage();
+    for (const [label, page] of [
+      ['standalone', standalonePage],
+      ['embed', embedPage],
+      ['inline', inlinePage],
+    ] as const) {
+      installPageDiagnostics(page, `installed:${label}`);
+    }
     await inlinePage.goto('file://' + path.resolve('demo/demo.html'), { waitUntil: 'load' });
     await waitFor(inlinePage, `() => Boolean(customElements.get('markdown-viewer'))`);
-    await inlinePage.waitForTimeout(800);
+    await waitFor(inlinePage, `() => Boolean(document.querySelector('#viewer[data-mv-ready]'))`);
 
     // Workspace page: mock the directory picker with ALL layout fixtures so
     // the tree contains every fixture and tests switch files by clicking.
@@ -285,32 +204,19 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
         fixtureContents[name] = fs.readFileSync(path.join(LAYOUT_DIR, name), 'utf8');
       }
     }
-    workspacePage = await context.newPage();
+    workspacePage = await harness.context.newPage();
+    installPageDiagnostics(workspacePage, 'installed:workspace');
     await workspacePage.addInitScript(`(${MOCK_PICKER_JS})(${JSON.stringify(fixtureContents)})`);
 
     // Pin the settings used by every render.
     await embedPage.goto(`chrome-extension://${extensionId}/ui/workspace/viewer-embed.html?embed=1`);
+    await waitFor(embedPage, VIEWER_EMBED_READY_JS);
     await evalJs(embedPage, SET_STORAGE_JS, { ...FIXED_SETTINGS });
 
-    // Diagnose render failures on CI: page console errors/warnings and
-    // uncaught exceptions are printed to the test output immediately.
-    for (const page of [standalonePage, embedPage, inlinePage, workspacePage]) {
-      page.on('console', (msg) => {
-        if (msg.type() === 'error' || msg.type() === 'warning') {
-          // eslint-disable-next-line no-console
-          console.log(`[page ${msg.type()}]`, msg.text().slice(0, 500));
-        }
-      });
-      page.on('pageerror', (err) => {
-        // eslint-disable-next-line no-console
-        console.log('[pageerror]', String(err).slice(0, 500));
-      });
-    }
   });
 
   after(async () => {
-    await context?.close();
-    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+    await harness?.close();
   });
 
   // ── Mode plumbing ────────────────────────────────────────────────────────
@@ -322,13 +228,13 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
   const openStandalone = async (fixtureName: string) => {
     await standalonePage.goto('file://' + path.join(LAYOUT_DIR, fixtureName), { waitUntil: 'load' });
     await waitFor(standalonePage, WAIT_STANDALONE_READY_JS);
-    await evalJs(standalonePage, WAIT_IMAGES_JS);
+    await evalJs(standalonePage, waitImagesJs('#markdown-content'));
   };
 
   const openEmbed = async (fixtureName: string) => {
     const content = fs.readFileSync(path.join(LAYOUT_DIR, fixtureName), 'utf8');
     await embedPage.goto(`chrome-extension://${extensionId}/ui/workspace/viewer-embed.html?embed=1`, { waitUntil: 'load' });
-    await embedPage.waitForTimeout(600); // viewer runtime bootstrap
+    await waitFor(embedPage, VIEWER_EMBED_READY_JS);
     await evalJs(embedPage, POST_OPEN_DOCUMENT_JS, {
       type: 'OPEN_DOCUMENT',
       content,
@@ -336,7 +242,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       fileDir: '',
     });
     await waitFor(embedPage, WAIT_RENDERED_JS);
-    await evalJs(embedPage, WAIT_IMAGES_JS);
+    await evalJs(embedPage, waitImagesJs('#markdown-content'));
   };
 
   const workspaceFrame = (): Frame => {
@@ -346,17 +252,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
   };
 
   /** Wait until the preview iframe finishes navigating (frame list is Node-side). */
-  const waitForWorkspaceFrame = async (): Promise<Frame> => {
-    const deadline = Date.now() + 30000;
-    for (;;) {
-      const frame = workspacePage.frames().find((f) => f.url().includes('viewer-embed'));
-      if (frame) return frame;
-      if (Date.now() >= deadline) {
-        throw new Error('workspace preview iframe not found (timeout)');
-      }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  };
+  const waitForWorkspaceFrame = (): Promise<Frame> => waitForFrame(workspacePage, 'viewer-embed');
 
   const openWorkspace = async (fixtureName: string) => {
     const treeVisible = await evalJs<boolean>(workspacePage, `() => Boolean(document.querySelector('.tree-item'))`);
@@ -365,20 +261,22 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       await evalJs(workspacePage, `() => { (document.querySelector('#pick-directory')).click(); return true; }`);
       await workspacePage.waitForSelector('.tree-item', { timeout: 30000 });
     }
-    await evalJs(workspacePage, `(name) => {
+    const clicked = await evalJs<boolean>(workspacePage, `(name) => {
       const item = Array.from(document.querySelectorAll('.tree-item')).find((el) => el.textContent.includes(name));
       if (item) item.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       return Boolean(item);
     }`, fixtureName);
+    assert.ok(clicked, `workspace fixture tree item not found: ${fixtureName}`);
     // The preview iframe is created lazily by the workspace bridge.
     const frame = await waitForWorkspaceFrame();
     // Ensure the click actually switched the preview to the requested file
     // before waiting for render signals — otherwise a stale render of the
     // PREVIOUS fixture can satisfy WAIT_RENDERED_JS (its content is still in
     // the DOM until the next render pass clears it).
+    await waitFor(frame, VIEWER_EMBED_READY_JS);
     await waitFor(frame, `() => document.documentElement.dataset.viewerFilename === ${JSON.stringify(fixtureName)}`, 30000);
     await waitFor(frame, WAIT_RENDERED_JS);
-    await evalJs(frame, WAIT_IMAGES_JS);
+    await evalJs(frame, waitImagesJs('#markdown-content'));
   };
 
   const modeTarget = (mode: string): Target => {
@@ -429,18 +327,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
   const waitForContent = async (mode: string, selector: string): Promise<void> => {
     const target = modeTarget(mode);
     const js = `() => Boolean(document.querySelector('${contentSel(mode)} ${selector}'))`;
-    const deadline = Date.now() + 60000;
-    for (;;) {
-      await waitFor(target, js, Math.max(1000, deadline - Date.now()));
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      if (await evalJs<boolean>(target, js)) {
-        return;
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(`waitForContent stable timeout: ${js.slice(0, 80)}`);
-      }
-      // Selector vanished again (re-render in progress) — wait for the next pass.
-    }
+    await waitForStable(target, js, 250, 60000);
   };
 
   const collectCss = (mode: string) => evalJs<string>(modeTarget(mode), COLLECT_CSS_JS);
@@ -587,6 +474,10 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       run: async (mode) => {
         const ctx = (n: string) => `[${mode}] headings: ${n}`;
         await waitForContent(mode, 'h1');
+        // The renderer streams block groups asynchronously. The h1 is an
+        // early signal, so wait for the second heading explicitly before
+        // taking the shared measurement snapshot.
+        await waitFor(modeTarget(mode), `() => Boolean(document.querySelector('${contentSel(mode)} h2'))`, 60000);
         const m = await measure(mode, [`${contentSel(mode)} h1`, `${contentSel(mode)} h2`]);
         const h1 = firstOf(m, `${contentSel(mode)} h1`);
         const h2 = firstOf(m, `${contentSel(mode)} h2`);
@@ -879,7 +770,10 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
       // The attach-time theme switch can re-render (clear + rebuild) right
       // after the first render finishes — let the container settle before
       // sampling so a mid-rebuild snapshot is not mistaken for a bug.
-      await inlinePage.waitForTimeout(800);
+      await waitForStable(inlinePage, `() => {
+        const c = document.querySelector('#mv-race-probe .markdown-viewer-content');
+        return Boolean(c && c.querySelectorAll('.md-block').length > 1);
+      }`, 500, 20000);
       const state = await evalJs<{ body: number; foot: number; blocks: number }>(inlinePage, `() => {
         const c = document.querySelector('#mv-race-probe .markdown-viewer-content');
         const blocks = Array.from(c.children).filter((n) => n.classList && n.classList.contains('md-block'));
@@ -962,31 +856,13 @@ const NESTED_PICKER_JS = `(fixtures) => {
 }`;
 
 describe('installed Chrome extension — workspace preview of nested-directory files', { skip: SKIP_EXT }, () => {
-  let context: BrowserContext;
+  let harness: ExtensionContextHarness | undefined;
   let extensionId = '';
-  let userDataDir = '';
   let workspacePage: Page;
 
   before(async () => {
-    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
-      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
-    });
-
-    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-nested-workspace-'));
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: true,
-      viewport: { width: 1440, height: 900 },
-      args: [
-        `--disable-extensions-except=${EXT_DIR}`,
-        `--load-extension=${EXT_DIR}`,
-        '--no-first-run',
-        '--disable-default-apps',
-        '--allow-file-access-from-files',
-      ],
-    });
-
-    extensionId = await waitForExtensionId(context);
+    harness = await launchExtensionContext('mv-nested-workspace-');
+    extensionId = harness.extensionId;
 
     const nestedFixture = {
       'SUMMARY.md': { text: fs.readFileSync(path.join(NESTED_BOOK_DIR, 'SUMMARY.md'), 'utf8') },
@@ -1014,7 +890,8 @@ describe('installed Chrome extension — workspace preview of nested-directory f
       },
     };
 
-    workspacePage = await context.newPage();
+    workspacePage = await harness.context.newPage();
+    installPageDiagnostics(workspacePage, 'nested-workspace');
     await workspacePage.addInitScript(`(${NESTED_PICKER_JS})(${JSON.stringify(nestedFixture)})`);
     await workspacePage.goto(`chrome-extension://${extensionId}/ui/workspace/workspace.html`, { waitUntil: 'load' });
     await evalJs(workspacePage, `() => { (document.querySelector('#pick-directory')).click(); return true; }`);
@@ -1022,24 +899,29 @@ describe('installed Chrome extension — workspace preview of nested-directory f
   });
 
   after(async () => {
-    await context?.close();
-    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+    await harness?.close();
   });
 
   const clickTreeItem = async (name: string) => {
-    await evalJs(workspacePage, `(name) => {
+    const clicked = await evalJs<boolean>(workspacePage, `(name) => {
       const item = Array.from(document.querySelectorAll('.tree-item')).find((el) => el.textContent.trim().startsWith(name));
       if (item) item.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       return Boolean(item);
     }`, name);
+    assert.ok(clicked, `workspace tree item not found: ${name}`);
   };
+
+  const waitForTreeItem = (name: string) => waitFor(
+    workspacePage,
+    `() => Array.from(document.querySelectorAll('.tree-item')).some((el) => (el.textContent || '').trim().startsWith(${JSON.stringify(name)}))`,
+  );
 
   it('previews images in a nested-directory file (incl. non-ASCII names)', async () => {
     // Expand chapters → reference
     await clickTreeItem('chapters');
-    await workspacePage.waitForTimeout(300);
+    await waitForTreeItem('reference');
     await clickTreeItem('reference');
-    await workspacePage.waitForTimeout(300);
+    await waitForTreeItem('06-identity.md');
     // Open the chapter file in the subdirectory
     await evalJs(workspacePage, `(name) => {
       const item = Array.from(document.querySelectorAll('.tree-item')).find((el) => el.textContent.includes(name));
@@ -1047,16 +929,9 @@ describe('installed Chrome extension — workspace preview of nested-directory f
       return Boolean(item);
     }`, '06-identity.md');
 
-    const frame = await (async () => {
-      const deadline = Date.now() + 30000;
-      for (;;) {
-        const f = workspacePage.frames().find((fr) => fr.url().includes('viewer-embed'));
-        if (f) return f;
-        if (Date.now() >= deadline) throw new Error('workspace preview iframe not found (timeout)');
-        await new Promise((r) => setTimeout(r, 250));
-      }
-    })();
+    const frame = await waitForFrame(workspacePage, 'viewer-embed');
 
+    await waitFor(frame, VIEWER_EMBED_READY_JS);
     await waitFor(frame, WAIT_RENDERED_JS);
     // Wait until the image resolution round-trip replaced src with a blob URL.
     await waitFor(frame, `() => {
@@ -1082,39 +957,18 @@ describe('installed Chrome extension — workspace preview of nested-directory f
     // `![alt text](<./中文图片(测试).png>)` in a top-level workspace file must
     // resolve through the File System Access API like any ASCII-named image.
     await clickTreeItem('issue-123.md');
-    await workspacePage.waitForTimeout(300);
+    const frame = await waitForFrame(workspacePage, 'viewer-embed');
 
-    const frame = await (async () => {
-      const deadline = Date.now() + 30000;
-      for (;;) {
-        const f = workspacePage.frames().find((fr) => fr.url().includes('viewer-embed'));
-        if (f) return f;
-        if (Date.now() >= deadline) throw new Error('workspace preview iframe not found (timeout)');
-        await new Promise((r) => setTimeout(r, 250));
-      }
-    })();
-
+    await waitFor(frame, VIEWER_EMBED_READY_JS);
     await waitFor(frame, WAIT_RENDERED_JS);
 
     // Wait for the RESOLVE_IMAGE round-trip to swap in a blob URL. When the
     // bug reproduces, the img keeps its unresolved relative src (or stays
     // broken) and this times out.
-    let observedSrc = '';
-    const resolved = await (async () => {
-      const deadline = Date.now() + 15000;
-      for (;;) {
-        const state = await evalJs<{ src: string; naturalWidth: number }>(frame, `() => {
-          const img = document.querySelector('#markdown-content img');
-          return img ? { src: img.getAttribute('src') || '', naturalWidth: img.naturalWidth } : { src: '', naturalWidth: -1 };
-        }`);
-        observedSrc = state.src;
-        if (state.src.startsWith('blob:')) return true;
-        if (Date.now() >= deadline) return false;
-        await new Promise((r) => setTimeout(r, 250));
-      }
-    })();
-
-    assert.ok(resolved, `image with CJK+paren filename must resolve to a blob URL (last src="${observedSrc.slice(0, 120)}")`);
+    await waitFor(frame, `() => {
+      const img = document.querySelector('#markdown-content img');
+      return Boolean(img && img.getAttribute('src')?.startsWith('blob:'));
+    }`, 15000);
     const state = await evalJs<{ src: string; naturalWidth: number }>(frame, `() => {
       const img = document.querySelector('#markdown-content img');
       return img ? { src: img.getAttribute('src') || '', naturalWidth: img.naturalWidth } : { src: '', naturalWidth: 0 };
@@ -1134,33 +988,16 @@ describe('installed Chrome extension — workspace preview of nested-directory f
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('installed Chrome extension — SUMMARY panel preview of nested chapters', { skip: SKIP_EXT }, () => {
-  let context: BrowserContext;
+  let harness: ExtensionContextHarness | undefined;
   let extensionId = '';
-  let userDataDir = '';
   let summaryPage: Page;
 
   before(async () => {
-    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
-      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
-    });
+    harness = await launchExtensionContext('mv-nested-summary-');
+    extensionId = harness.extensionId;
 
-    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-nested-summary-'));
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: true,
-      viewport: { width: 1440, height: 900 },
-      args: [
-        `--disable-extensions-except=${EXT_DIR}`,
-        `--load-extension=${EXT_DIR}`,
-        '--no-first-run',
-        '--disable-default-apps',
-        '--allow-file-access-from-files',
-      ],
-    });
-
-    extensionId = await waitForExtensionId(context);
-
-    summaryPage = await context.newPage();
+    summaryPage = await harness.context.newPage();
+    installPageDiagnostics(summaryPage, 'nested-summary');
     await summaryPage.goto('file://' + path.join(NESTED_BOOK_DIR, 'SUMMARY.md'), { waitUntil: 'load' });
     // Wait for the viewer takeover AND the gitbook panel with chapter links.
     await waitFor(summaryPage, WAIT_STANDALONE_READY_JS);
@@ -1168,8 +1005,7 @@ describe('installed Chrome extension — SUMMARY panel preview of nested chapter
   });
 
   after(async () => {
-    await context?.close();
-    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+    await harness?.close();
   });
 
   it('loads relative images of a subdirectory chapter clicked in the panel', async () => {
@@ -1250,34 +1086,15 @@ describe('installed Chrome extension — SUMMARY panel preview of nested chapter
     // can land between the render clear and fill passes and miss the link.
     // Wait until the link is present AND stable across a re-render window,
     // then dispatch the click.
-    const clicked = await (async () => {
-      const deadline = Date.now() + 20000;
-      let seen = false;
-      for (;;) {
-        const found = await evalJs<boolean>(summaryPage, `() => {
-          return Array.from(document.querySelectorAll('#markdown-content a'))
-            .some((a) => (a.getAttribute('href') || '').includes('t01-tutorial'));
-        }`);
-        if (found) {
-          if (seen) {
-            await evalJs(summaryPage, `() => {
-              const link = Array.from(document.querySelectorAll('#markdown-content a')).find(
-                (a) => (a.getAttribute('href') || '').includes('t01-tutorial'),
-              );
-              if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-              return Boolean(link);
-            }`);
-            return true;
-          }
-          seen = true;
-          await new Promise((resolve) => setTimeout(resolve, 350));
-          continue;
-        }
-        seen = false;
-        if (Date.now() >= deadline) return false;
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-    })();
+    await waitForStable(summaryPage, `() => Array.from(document.querySelectorAll('#markdown-content a'))
+      .some((a) => (a.getAttribute('href') || '').includes('t01-tutorial'))`, 350, 20000);
+    const clicked = await evalJs<boolean>(summaryPage, `() => {
+      const link = Array.from(document.querySelectorAll('#markdown-content a')).find(
+        (a) => (a.getAttribute('href') || '').includes('t01-tutorial'),
+      );
+      if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return Boolean(link);
+    }`);
     assert.ok(clicked, 'rendered chapter must contain the cross-chapter link');
 
     await waitFor(summaryPage, `() => {
@@ -1307,33 +1124,16 @@ describe('installed Chrome extension — SUMMARY panel preview of nested chapter
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('installed Chrome extension — SUMMARY panel started from a chapter file', { skip: SKIP_EXT }, () => {
-  let context: BrowserContext;
+  let harness: ExtensionContextHarness | undefined;
   let extensionId = '';
-  let userDataDir = '';
   let chapterPage: Page;
 
   before(async () => {
-    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
-      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
-    });
+    harness = await launchExtensionContext('mv-chapter-start-');
+    extensionId = harness.extensionId;
 
-    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-chapter-start-'));
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: true,
-      viewport: { width: 1440, height: 900 },
-      args: [
-        `--disable-extensions-except=${EXT_DIR}`,
-        `--load-extension=${EXT_DIR}`,
-        '--no-first-run',
-        '--disable-default-apps',
-        '--allow-file-access-from-files',
-      ],
-    });
-
-    extensionId = await waitForExtensionId(context);
-
-    chapterPage = await context.newPage();
+    chapterPage = await harness.context.newPage();
+    installPageDiagnostics(chapterPage, 'chapter-start');
     chapterPage.on('console', (msg) => {
       if (msg.text().includes('Invalid base URL')) {
         console.log('[chapter-start] console:', msg.text().slice(0, 200));
@@ -1350,8 +1150,7 @@ describe('installed Chrome extension — SUMMARY panel started from a chapter fi
   });
 
   after(async () => {
-    await context?.close();
-    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+    await harness?.close();
   });
 
   it('keeps navigating in place on the SECOND panel click (no Invalid base URL)', async () => {

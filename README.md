@@ -134,6 +134,23 @@ Document processing is local. docu.md does not require uploading your Markdown f
 - [FAQ](https://github.com/markdown-viewer/docs/blob/main/faq.md)
 - [Privacy Policy](PRIVACY.md)
 
+## Development Testing
+
+See [Testing Architecture and E2E Requirements](TESTING.md) for the
+project's test-layer boundaries, E2E rules, CI workflow, and review checklist.
+
+After installing dependencies and building the CLI and Chrome extension, run
+the compatibility tests and the installed-extension E2E tests separately:
+
+```bash
+npm run test:unit
+npm run test:e2e
+```
+
+`npm test` runs both suites. The extension E2E suite uses Node.js and
+Playwright directly, with no model-backed browser agent involved in test
+execution.
+
 ## Open Source
 
 docu.md Markdown Viewer is open source under GPLv3.

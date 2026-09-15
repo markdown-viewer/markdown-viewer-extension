@@ -40,12 +40,12 @@ if (window.__markdownViewerInjected) {
   chrome.runtime.onMessage.addListener(handleMessage);
 
   void initializeViewerBase(platform).then((pluginRenderer) => {
-    startViewer({
+    return startViewer({
       platform,
       pluginRenderer,
       themeConfigRenderer: platform.renderer,
     });
   }).catch((error) => {
-    console.error('[main] viewer base init failed', error);
+    console.error('[main] viewer init failed', error);
   });
 }

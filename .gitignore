@@ -41,6 +41,7 @@ dist
 .pub-cache/
 .pub/
 /coverage/
+test-results/
 **/doc/api/
 
 # Certificates and private keys

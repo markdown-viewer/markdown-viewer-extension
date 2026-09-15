@@ -47,27 +47,27 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { chromium, type BrowserContext, type Page } from 'playwright-core';
+import { type Page } from 'playwright-core';
 import JSZip from 'jszip';
 
-const SKIP_EXT = process.env.MV_SKIP_EXT_TESTS === '1';
-const EXT_DIR = path.resolve('dist/chrome');
+import {
+  FIXED_SETTINGS,
+  POST_OPEN_DOCUMENT_JS,
+  SET_STORAGE_JS,
+  WAIT_RENDERED_JS,
+  VIEWER_EMBED_READY_JS,
+  evalJs,
+  installPageDiagnostics,
+  launchExtensionContext,
+  waitFor,
+  waitForStable,
+  waitImagesJs,
+  type ExtensionContextHarness,
+} from '../../helpers/extension-e2e.ts';
 
+const SKIP_EXT = process.env.MV_SKIP_EXT_TESTS === '1';
 // 1×1 red PNG so data-URI images are decodable without file access.
 const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-const FIXED_SETTINGS = {
-  themeId: 'default',
-  language: 'en',
-  frontmatterDisplay: 'hide',
-  tableMergeEmpty: false,
-  tableLayout: 'center',
-  imageLayout: 'center',
-  diagramLayout: 'center',
-} as const;
-
-const SET_STORAGE_JS = `(settings) => chrome.storage.local.set({ markdownViewerSettings: settings })`;
-const POST_OPEN_DOCUMENT_JS = `(msg) => window.postMessage(msg, '*')`;
 
 /**
  * In-page instrumentation (installed at test time via evaluate — NOT via
@@ -151,97 +151,22 @@ const INSTALL_INSTRUMENT_JS = `() => {
   window.__mvPatchAnchor();
 }`;
 
-const WAIT_RENDERED_JS = `() => {
-  const c = document.getElementById('markdown-content');
-  return Boolean(c && c.children.length > 0);
-}`;
-
-const WAIT_IMAGES_JS = `() => {
-  const images = Array.from(document.querySelectorAll('#markdown-content img'));
-  return Promise.all(images.map((img) => {
-    if (typeof img.decode === 'function') return img.decode().catch(() => undefined);
-    return new Promise((resolve) => {
-      if (img.complete) { resolve(); return; }
-      img.addEventListener('load', () => resolve(), { once: true });
-      img.addEventListener('error', () => resolve(), { once: true });
-    });
-  })).then(() => true);
-}`;
-
-async function evalJs<T>(page: Page, jsBody: string, arg?: unknown): Promise<T> {
-  const src = arg === undefined ? `(${jsBody})()` : `(${jsBody})(${JSON.stringify(arg)})`;
-  return page.evaluate(src) as Promise<T>;
-}
-
-async function waitFor(page: Page, jsBody: string, timeoutMs = 30000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    if (await evalJs<boolean>(page, jsBody)) return;
-    if (Date.now() >= deadline) {
-      throw new Error(`waitFor timed out (${timeoutMs}ms): ${jsBody.slice(0, 80)}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-}
-
-async function waitForExtensionId(context: BrowserContext): Promise<string> {
-  const deadline = Date.now() + 40000;
-  for (;;) {
-    const id = context.serviceWorkers().map((w) => w.url().split('/')[2]).find(Boolean);
-    if (id) return id;
-    if (Date.now() >= deadline) {
-      throw new Error('extension service worker not registered (timeout)');
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-}
-
 describe('installed Chrome extension — table & image/diagram context menus', { skip: SKIP_EXT }, () => {
-  let context: BrowserContext;
+  let harness: ExtensionContextHarness | undefined;
   let page: Page;
   let extensionId = '';
-  let userDataDir = '';
   let downloadsDir = '';
 
   before(async () => {
-    await fs.promises.access(path.join(EXT_DIR, 'manifest.json')).catch(() => {
-      throw new Error('dist/chrome missing — run "node chrome/build.js" first');
-    });
-
-    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-context-menu-'));
     downloadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-context-menu-dl-'));
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: true,
-      acceptDownloads: true,
-      viewport: { width: 1440, height: 900 },
-      args: [
-        `--disable-extensions-except=${EXT_DIR}`,
-        `--load-extension=${EXT_DIR}`,
-        '--no-first-run',
-        '--disable-default-apps',
-        '--allow-file-access-from-files',
-      ],
-    });
-    extensionId = await waitForExtensionId(context);
-
-    page = await context.newPage();
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        // eslint-disable-next-line no-console
-        console.log('[page error]', msg.text().slice(0, 400));
-      }
-    });
-    page.on('pageerror', (err) => {
-      const text = process.env.MV_DEBUG_PAGEERR ? (err.stack || String(err)) : String(err).slice(0, 400);
-      // eslint-disable-next-line no-console
-      console.log('[pageerror]', text.split('\n').slice(0, 6).join('\n  '));
-    });
+    harness = await launchExtensionContext('mv-context-menu-', { acceptDownloads: true });
+    extensionId = harness.extensionId;
+    page = await harness.context.newPage();
+    installPageDiagnostics(page, 'context-menu');
   });
 
   after(async () => {
-    await context?.close();
-    if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+    await harness?.close();
     if (downloadsDir) fs.rmSync(downloadsDir, { recursive: true, force: true });
   });
 
@@ -254,10 +179,11 @@ describe('installed Chrome extension — table & image/diagram context menus', {
     if (!page.url().startsWith('chrome-extension://')) {
       await page.goto(url, { waitUntil: 'load' });
     }
+    await waitFor(page, VIEWER_EMBED_READY_JS);
     await evalJs(page, SET_STORAGE_JS, { ...FIXED_SETTINGS, ...settings });
     // Reload so the viewer bootstraps with the just-written settings.
     await page.goto(url, { waitUntil: 'load' });
-    await page.waitForTimeout(600); // viewer runtime bootstrap
+    await waitFor(page, VIEWER_EMBED_READY_JS);
     await evalJs(page, POST_OPEN_DOCUMENT_JS, {
       type: 'OPEN_DOCUMENT',
       content: markdown,
@@ -265,8 +191,8 @@ describe('installed Chrome extension — table & image/diagram context menus', {
       fileDir: '',
     });
     await waitFor(page, WAIT_RENDERED_JS);
-    await evalJs(page, WAIT_IMAGES_JS);
-    await page.waitForTimeout(350); // let async re-render passes settle
+    await evalJs(page, waitImagesJs('#markdown-content'));
+    await waitForStable(page, WAIT_RENDERED_JS, 250);
     await evalJs(page, INSTALL_INSTRUMENT_JS);
   };
 
