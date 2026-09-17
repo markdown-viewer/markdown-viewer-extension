@@ -1,0 +1,6 @@
+version: 1
+name: markdown-viewer-extension
+type: application
+purpose: Browser extension that renders Markdown files
+status: active
+validation: ./scripts/repository-check

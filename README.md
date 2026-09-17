@@ -137,3 +137,11 @@ Document processing is local. docu.md does not require uploading your Markdown f
 ## Open Source
 
 docu.md Markdown Viewer is open source under GPLv3.
+
+## Validation
+
+Run the repository baseline check locally:
+
+```sh
+./scripts/repository-check
+```

@@ -1,0 +1,19 @@
+# Generated and vendored content is never formatted.
+/artifacts/
+/dist/
+/build/
+/coverage/
+/node_modules/
+/output/
+*.min.js
+*.min.css
+
+# Lock files are managed by their package manager.
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
+
+# Generated Cloudflare Worker type declarations
+worker-configuration.d.ts

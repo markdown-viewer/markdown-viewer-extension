@@ -27,7 +27,7 @@ jobs:
     name: fibjs test (all.test.js)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Extract fibjs (dev build incl. CSSOM) from the fibjs/dev image
       - name: Extract fibjs from fibjs/dev image
@@ -40,7 +40,7 @@ jobs:
           sudo mv ./fibjs /usr/local/bin/fibjs
           fibjs --version
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
@@ -49,7 +49,7 @@ jobs:
 
       # Google Chrome for suites that launch channel:'chrome'
       - name: Setup Google Chrome
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce
 
       # Playwright Chromium for the installed-extension e2e (channel:'chromium',
       # needed because branded Chrome refuses --load-extension on macOS/Windows)
