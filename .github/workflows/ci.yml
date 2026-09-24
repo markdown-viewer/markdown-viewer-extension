@@ -165,3 +165,70 @@ jobs:
           echo "oldest version in the list: $1"
           MV_TEST_RUNNER=node node scripts/chrome-test-matrix.js --strict \
             --test test/suites/extension-e2e/index.js "$1"
+
+  # VS Code extension E2E.
+  #
+  # VS Code is an Electron app with no headless mode, so the suite runs behind a
+  # virtual display (xvfb is preinstalled on the Ubuntu image; xauth is what
+  # Debian's xvfb-run needs and is only a Recommends of xvfb). The editor under
+  # test is a PINNED download rather than whatever the runner image ships, for
+  # the same reason the Chrome matrix pins its builds: a UI-driven suite must not
+  # go red because the image moved.
+  #
+  # This is a gate: commands are invoked by ID (labels reorder under "recently
+  # used"), cases start from a reset workbench, and any command a `when` clause
+  # excludes fails fast instead of scrolling. Local runs are 10/10 across
+  # repeated runs; the xvfb runner is the less hostile environment (nothing
+  # occludes the window).
+  vscode:
+    name: VS Code extension E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VSCODE_VERSION: 1.139.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      # The suite loads dist/vscode through --extensionDevelopmentPath.
+      - name: Build VS Code extension
+        run: npm run build:vscode
+
+      - name: Cache VS Code (pinned)
+        uses: actions/cache@v4
+        with:
+          path: .cache/vscode-e2e
+          key: vscode-${{ env.VSCODE_VERSION }}-linux-x64
+
+      - name: Install VS Code (pinned) and a virtual display
+        run: |
+          dir=".cache/vscode-e2e/${VSCODE_VERSION}-linux-x64"
+          if [ ! -x "$dir/code" ]; then
+            mkdir -p "$dir"
+            curl -fsSL -o /tmp/vscode.tar.gz \
+              "https://update.code.visualstudio.com/${VSCODE_VERSION}/linux-x64/stable"
+            tar -xzf /tmp/vscode.tar.gz -C "$dir" --strip-components=1
+          fi
+          echo "MV_VSCODE_EXECUTABLE=$PWD/$dir/code" >> "$GITHUB_ENV"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xauth
+
+      - name: Run VS Code E2E (xvfb)
+        run: xvfb-run -a npm run test:e2e:vscode
+        env:
+          MV_VSCODE_EXTRA_ARGS: --no-sandbox
+          MV_E2E_ARTIFACT_DIR: test-results/vscode-e2e
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-e2e-diagnostics
+          path: test-results/vscode-e2e
+          if-no-files-found: ignore

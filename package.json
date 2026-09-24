@@ -35,6 +35,7 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "fibjs test/all.test.js",
     "test:e2e": "node --import tsx/esm --test --test-concurrency=1 test/e2e/index.test.ts",
+    "test:e2e:vscode": "node --import tsx/esm --test --test-concurrency=1 --test-timeout=300000 test/e2e/vscode.test.ts",
     "test:chrome-matrix": "node scripts/chrome-test-matrix.js"
   },
   "keywords": [

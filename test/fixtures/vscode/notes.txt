@@ -1,0 +1,2 @@
+Plain text fixture: this file exists so the suite can prove that the preview
+commands are NOT offered for a document the extension does not support.
