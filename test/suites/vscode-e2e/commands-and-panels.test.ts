@@ -143,6 +143,18 @@ describe('VS Code extension: commands and panels', { skip: reason ?? false }, ()
     await runExtensionCommand(page, 'openSettings');
     await waitFor(frame, `() => Boolean((${SETTINGS_PANEL_JS})())`, 30000);
 
+    // "The panel is visible" is not "the registry has landed": the theme list
+    // arrives through one fetch for registry.json plus one per preset, all
+    // after the panel opens. A slow runner read the selector while it still
+    // held only the template's placeholder option (measured on CI: 1 option),
+    // so the populated state is waited for — the assertion below still pins the
+    // contract, it just no longer races the fetch.
+    await waitFor(
+      frame,
+      `() => ((${SETTINGS_PANEL_JS})()?.themeValues.length || 0) >= 25`,
+      30000,
+    );
+
     const panel = await evalJs<{ themeValues: string[] }>(frame, SETTINGS_PANEL_JS);
     assert.ok(
       panel.themeValues.length >= 25,

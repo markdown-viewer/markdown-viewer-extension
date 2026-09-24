@@ -347,6 +347,12 @@ The following rules apply to new and modified E2E tests:
   similarity.
 - Capture console errors and uncaught page errors so browser failures are
   visible in CI output.
+- **Wait for the state under test, not for a proxy for it.** A blob URL is not a
+  loaded image, a visible panel is not a populated selector, the first service
+  worker is not the extension's worker, a focused window is not a focused
+  editor. Each of those proxies has produced a CI red that reads like a product
+  bug: the fix is always to wait for the real condition and leave the assertion
+  as the contract, so a genuine failure still fails.
 - Only introduce parallel execution after confirming that browser profiles,
   downloads, extension storage, and fixture state are isolated.
 
