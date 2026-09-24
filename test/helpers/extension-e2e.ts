@@ -51,6 +51,20 @@ export interface ExtensionLaunchOptions {
   headless?: boolean;
 }
 
+// The driver mechanics live in ./page-driver.ts so the VS Code harness uses the
+// same ones. Re-exported here because the installed-extension suites import them
+// from this module.
+export {
+  describeFrames,
+  evalJs,
+  installPageDiagnostics,
+  retryInteraction,
+  trace,
+  waitFor,
+  waitForFrame,
+  waitForStable,
+} from './page-driver.ts';
+
 export function waitImagesJs(rootSelector: string): string {
   const selector = JSON.stringify(`${rootSelector} img`);
   return `() => {
@@ -66,102 +80,11 @@ export function waitImagesJs(rootSelector: string): string {
   }`;
 }
 
-/**
- * Evaluate a JavaScript function BODY. Extension pages block unsafe-eval, so
- * this deliberately uses Playwright's function-body string semantics and
- * invokes the body explicitly.
- */
-export async function evalJs<T>(target: E2ETarget, jsBody: string, arg?: unknown): Promise<T> {
-  const source = arg === undefined
-    ? `(${jsBody})()`
-    : `(${jsBody})(${JSON.stringify(arg)})`;
-  return target.evaluate(source) as Promise<T>;
-}
-
+/** The launched browser context plus the extension id under test. */
 export interface ExtensionContextHarness {
   context: BrowserContext;
   extensionId: string;
   close(): Promise<void>;
-}
-
-/**
- * Poll a browser-side readiness condition without relying on arbitrary sleeps.
- * Transient evaluation failures are tolerated while a frame is navigating.
- */
-export async function waitFor(
-  target: E2ETarget,
-  jsBody: string,
-  timeoutMs = 30000,
-  pollMs = 100,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
-
-  for (;;) {
-    try {
-      if (await evalJs<boolean>(target, jsBody)) return;
-    } catch (error) {
-      lastError = error;
-    }
-
-    if (Date.now() >= deadline) {
-      const suffix = lastError instanceof Error ? ` (${lastError.message})` : '';
-      throw new Error(`waitFor timed out after ${timeoutMs}ms: ${jsBody.slice(0, 120)}${suffix}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
-  }
-}
-
-/** Wait until a condition remains true for the requested stability window. */
-export async function waitForStable(
-  target: E2ETarget,
-  jsBody: string,
-  stableMs = 250,
-  timeoutMs = 30000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let stableSince: number | null = null;
-
-  for (;;) {
-    const ready = await evalJs<boolean>(target, jsBody).catch(() => false);
-    const now = Date.now();
-    if (ready) {
-      stableSince ??= now;
-      if (now - stableSince >= stableMs) return;
-    } else {
-      stableSince = null;
-    }
-
-    if (now >= deadline) {
-      throw new Error(`waitForStable timed out after ${timeoutMs}ms: ${jsBody.slice(0, 120)}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, Math.min(100, stableMs)));
-  }
-}
-
-export async function waitForFrame(page: Page, urlFragment: string, timeoutMs = 30000): Promise<Frame> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const frame = page.frames().find((candidate) => candidate.url().includes(urlFragment));
-    if (frame) return frame;
-    if (Date.now() >= deadline) {
-      throw new Error(`frame containing "${urlFragment}" not found after ${timeoutMs}ms`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
-export function installPageDiagnostics(page: Page, label: string): void {
-  page.on('console', (message) => {
-    if (message.type() !== 'error' && message.type() !== 'warning') return;
-    // eslint-disable-next-line no-console
-    console.log(`[${label} ${message.type()}]`, message.text().slice(0, 500));
-  });
-  page.on('pageerror', (error) => {
-    const text = process.env.MV_DEBUG_PAGEERR ? (error.stack || String(error)) : String(error).slice(0, 500);
-    // eslint-disable-next-line no-console
-    console.log(`[${label} pageerror]`, text.split('\n').slice(0, 6).join('\n  '));
-  });
 }
 
 export async function launchExtensionContext(
