@@ -981,6 +981,12 @@ describe('installed Chrome extension — workspace preview of nested-directory f
       const img = document.querySelector('#markdown-content img');
       return Boolean(img && img.getAttribute('src') && img.getAttribute('src').startsWith('blob:'));
     }`, 15000);
+    // A blob URL is not a loaded image: the bytes still have to arrive and
+    // decode. Without this wait the decodability assertion below races the
+    // load (measured on Chrome 120 in CI: naturalWidth=0 on a slow runner).
+    // The helper resolves once every image has settled, so a real load failure
+    // still fails the assertion instead of being waited away.
+    await evalJs(frame, waitImagesJs('#markdown-content'));
 
     const report = await evalJs<Array<{ src: string; naturalWidth: number }>>(frame, `() => {
       return Array.from(document.querySelectorAll('#markdown-content img')).map((img) => ({
@@ -1012,6 +1018,9 @@ describe('installed Chrome extension — workspace preview of nested-directory f
       const img = document.querySelector('#markdown-content img');
       return Boolean(img && img.getAttribute('src')?.startsWith('blob:'));
     }`, 15000);
+    // Same as above: the blob must also have loaded and decoded before the
+    // assertion, otherwise a slow runner fails a healthy render.
+    await evalJs(frame, waitImagesJs('#markdown-content'));
     const state = await evalJs<{ src: string; naturalWidth: number }>(frame, `() => {
       const img = document.querySelector('#markdown-content img');
       return img ? { src: img.getAttribute('src') || '', naturalWidth: img.naturalWidth } : { src: '', naturalWidth: 0 };
