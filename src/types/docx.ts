@@ -205,6 +205,8 @@ export interface DOCXThemeStyles {
   tableStyles: DOCXTableStyle;
   codeColors: DOCXCodeColors;
   linkColor: string;  // Link color from colorScheme (hex without #)
+  /** Body text colour (hex without #) — the ink the task-box outline is mixed from */
+  textColor: string;
   blockquoteColor: string;  // Blockquote left border color from colorScheme (hex without #)
   /** Page background color (hex without #), omitted when theme does not define one */
   pageBackground?: string;

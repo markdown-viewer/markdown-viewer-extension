@@ -23,6 +23,7 @@
  */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 import path from 'node:path';
 import JSZip from 'jszip';
@@ -419,5 +420,138 @@ describe('Task-list marker contract (web preview)', () => {
       nested!.boxLeft! < nested!.textLeft! && nested!.boxRight! <= nested!.textLeft! + 1.5,
       'nested box must hang left of its label text',
     );
+  });
+});
+
+/**
+ * Task-list marker contract (docx export).
+ *
+ * Word has no stylesheet to reach into: the box is a text symbol (▣/☐) in a
+ * paragraph. Two things must therefore hold, mirroring the web preview:
+ *  - the paragraph carries NO numbering reference — otherwise Word paints a
+ *    bullet next to the box, where the web shows the box alone (GitHub
+ *    convention: the box replaces the marker);
+ *  - the symbol takes the theme colours — the accent when checked, and the body
+ *    ink mixed 28% into the page colour when unchecked, the same tone the
+ *    stylesheet paints the box outline with.
+ * The box hangs in the marker gutter: the first line starts at the bullet
+ * marker's indent, wrapped lines land on the list's text edge, and the whole
+ * block follows the body first-line indent — the same grid as the numbering
+ * levels.
+ */
+describe('Task-list marker contract (docx export)', () => {
+  let harness: BrowserRenderHarness;
+
+  before(async () => {
+    harness = await createBrowserRenderHarness({ inputPath: TASK_LIST_FIXTURE });
+  });
+
+  after(async () => {
+    await harness.dispose();
+  });
+
+  /** Body ink mixed `weightPercent` into the page colour (the stylesheet's mix). */
+  function mixInk(ink: string, weightPercent: number, page: string): string {
+    const channels = (hex: string): number[] => [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const [r, g, b] = channels(ink);
+    const [pageR, pageG, pageB] = channels(page);
+    const weight = weightPercent / 100;
+    const mix = (top: number, bottom: number): string =>
+      Math.round(top * weight + bottom * (1 - weight))
+        .toString(16)
+        .padStart(2, '0');
+    return `${mix(r, pageR)}${mix(g, pageG)}${mix(b, pageB)}`;
+  }
+
+  /** The colour scheme the `default` theme binds to, as hex without '#'. */
+  function defaultScheme(): { accent: string; ink: string; page: string } {
+    const theme = JSON.parse(
+      fs.readFileSync(path.resolve('src/themes/presets/default.json'), 'utf8'),
+    ) as { colorScheme: string };
+    const scheme = JSON.parse(
+      fs.readFileSync(path.resolve(`src/themes/color-schemes/${theme.colorScheme}.json`), 'utf8'),
+    ) as { accent: { link: string }; text: { primary: string }; background: { page: string } };
+    const hex = (value: string): string => value.replace('#', '').toLowerCase();
+    return {
+      accent: hex(scheme.accent.link),
+      ink: hex(scheme.text.primary),
+      page: hex(scheme.background.page),
+    };
+  }
+
+  /** Paragraph XML of a rendered DOCX (one render per call). */
+  async function paragraphs(firstLineIndent: number): Promise<string[]> {
+    const { base64 } = await harness.renderDocx(TASK_LIST_FIXTURE, { ...FIXED_PARAMS, firstLineIndent });
+    const zip = await JSZip.loadAsync(Buffer.from(base64, 'base64'));
+    const xml = await zip.files['word/document.xml'].async('string');
+    return xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? [];
+  }
+
+  /** Task-item paragraphs: marker, indent and box colour (the only coloured run). */
+  function taskItems(all: string[]) {
+    return all
+      .filter((paragraph) => paragraph.includes('☐') || paragraph.includes('▣'))
+      .map((paragraph) => ({
+        checked: paragraph.includes('▣'),
+        numbered: paragraph.includes('<w:numPr>'),
+        left: Number(paragraph.match(/<w:ind[^>]*w:left="(\d+)"/)?.[1]),
+        hanging: Number(paragraph.match(/<w:ind[^>]*w:hanging="(\d+)"/)?.[1]),
+        color: (paragraph.match(/<w:color w:val="([0-9A-Fa-f]{6})"/)?.[1] ?? '').toLowerCase(),
+      }));
+  }
+
+  it('drops the bullet and hangs the box on the theme list grid', async () => {
+    // The default theme's body is 14pt: 2em per level = 560 twips, and the
+    // 1em marker gutter = 280 twips.
+    const step = 2 * 14 * 20;
+    const gutter = 14 * 20;
+
+    for (const [firstLineIndent, blockOffset] of [
+      [0, 0],
+      [2, 2 * 14 * 20],
+    ] as const) {
+      const all = await paragraphs(firstLineIndent);
+      const items = taskItems(all);
+      assert.ok(items.length >= 2, `fixture must render task items (got ${items.length})`);
+
+      assert.deepEqual(
+        items.filter((item) => item.numbered).length,
+        0,
+        'a task item must carry no numbering reference — Word would draw a bullet next to the box',
+      );
+      assert.deepEqual(
+        [...new Set(items.map((item) => item.hanging))],
+        [gutter],
+        'the box must hang by exactly the 1em marker gutter',
+      );
+      // Level 0 sits at half a step (the bullet marker's indent) plus the gutter
+      // the box occupies, plus the block offset when the body is indented; the
+      // nested level keeps the constant 2em step.
+      assert.deepEqual(
+        [...new Set(items.map((item) => item.left))].sort((a, b) => a - b),
+        [gutter + gutter + blockOffset, step + gutter + gutter + blockOffset],
+        'task items must land on the same grid as the numbering levels',
+      );
+
+      const bullet = all.find((paragraph) => paragraph.includes('Plain bullet item'));
+      assert.ok(bullet?.includes('<w:numPr>'), 'a plain bullet item must keep its numbering');
+    }
+  });
+
+  it('paints the box from the theme: accent when checked, ink mix when unchecked', async () => {
+    const scheme = defaultScheme();
+    const box = mixInk(scheme.ink, 28, scheme.page);
+    const items = taskItems(await paragraphs(0));
+
+    assert.ok(items.some((item) => item.checked), 'fixture must render a checked task item');
+    assert.ok(items.some((item) => !item.checked), 'fixture must render an unchecked task item');
+    for (const item of items) {
+      assert.equal(
+        item.color,
+        item.checked ? scheme.accent : box,
+        `a ${item.checked ? 'checked' : 'unchecked'} box must take the theme colour`,
+      );
+    }
+    assert.notEqual(box, scheme.accent, 'the two states must not collapse onto one colour');
   });
 });

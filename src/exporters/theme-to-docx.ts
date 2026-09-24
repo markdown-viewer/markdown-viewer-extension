@@ -203,6 +203,7 @@ export function themeToDOCXStyles(
     tableStyles: generateTableStyles(tableStyle, colorScheme, tableTextSpacing),
     codeColors: generateCodeColors(codeTheme, colorScheme),
     linkColor: colorScheme.accent.link.replace('#', ''),
+    textColor: colorScheme.text.primary.replace('#', ''),
     blockquoteColor: colorScheme.blockquote.border.replace('#', ''),
     pageBackground,
     blockquoteBackground,

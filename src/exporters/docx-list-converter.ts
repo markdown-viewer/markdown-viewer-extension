@@ -24,9 +24,28 @@ interface ListItemNode {
 type ConvertInlineNodesFunction = (children: InlineNode[], options?: Record<string, unknown>) => Promise<InlineResult[]>;
 type ConvertChildNodeFunction = (node: DOCXASTNode, listLevel?: number) => Promise<FileChild | FileChild[] | null>;
 
+/**
+ * Task-item styling handed over by the exporter: the list grid the box hangs on
+ * plus the colours the box itself is drawn in.
+ */
+interface TaskListStyle {
+  /** Left indent per nesting level in twips (the bullet numbering levels' step). */
+  indentStepTwips: number;
+  /** Constant offset added to every level (body first-line indent). */
+  blockOffsetTwips: number;
+  /** Checked box colour (theme accent, hex without #). */
+  checkedColor: string;
+  /** Body ink (hex without #) — the unchecked outline is mixed from it. */
+  textColor: string;
+  /** Page colour (hex without #) — the mix target for the unchecked outline. */
+  pageBackground: string;
+}
+
 interface ListConverterOptions {
   convertInlineNodes: ConvertInlineNodesFunction;
   incrementListInstanceCounter: () => number;
+  /** Task-list box styling (see TaskListStyle). */
+  taskList: TaskListStyle;
 }
 
 interface NumberingLevel {
@@ -134,11 +153,35 @@ export interface ListConverter {
  */
 export function createListConverter({ 
   convertInlineNodes, 
-  incrementListInstanceCounter
+  incrementListInstanceCounter,
+  taskList
 }: ListConverterOptions): ListConverter {
 
   // Mutable reference to convertChildNode (set later to avoid circular dependency)
   let convertChildNode: ConvertChildNodeFunction | undefined;
+
+  /**
+   * Unchecked box outline: the body ink mixed 28% into the page colour — the
+   * same tone `generateTaskListCSS()` paints the box with in the web preview,
+   * and therefore in the EPUB and PDF exports that carry the same stylesheet.
+   */
+  function taskBoxColor(): string {
+    return mixHex(taskList.textColor, 28, taskList.pageBackground);
+  }
+
+  /**
+   * Task-item indent: the box hangs in the marker gutter. The first line starts
+   * where a bullet marker would (level × step + half step, the numbering
+   * levels' `left`) and wrapped lines land on the list's text edge — the DOCX
+   * mirror of the web preview's `margin-left: -1em` pull. A blockquote-internal
+   * list keeps the flush indent its numbering definitions use.
+   */
+  function taskListIndent(level: number, insideBlockquote: boolean): { left: number; hanging: number } {
+    const gutter = Math.round(taskList.indentStepTwips / 2);
+    const markerLeft =
+      level * taskList.indentStepTwips + gutter + (insideBlockquote ? 0 : taskList.blockOffsetTwips);
+    return { left: markerLeft + gutter, hanging: gutter };
+  }
 
   /**
    * Set the convertChildNode function (called after all converters are initialized)
@@ -184,9 +227,12 @@ export function createListConverter({
         const children = await convertInlineNodes(paragraphChild.children || []);
 
         if (isTaskList) {
-          const checkboxSymbol = node.checked ? '▣' : '☐';
+          // The box is a text symbol, so it follows the theme through its
+          // colour: a checked box takes the accent, an unchecked one the ink
+          // mix (mirroring the web preview's accent fill / neutral outline).
           children.unshift(new TextRun({
-            text: checkboxSymbol + ' ',
+            text: (node.checked ? '▣' : '☐') + ' ',
+            color: node.checked ? taskList.checkedColor : taskBoxColor(),
           }));
         }
 
@@ -207,7 +253,10 @@ export function createListConverter({
           : isTaskList
             ? new Paragraph({
                 ...baseParagraphConfig,
-                bullet: { level: level },
+                // GitHub convention: a task item shows its box instead of a
+                // bullet/number, so no numbering reference at all — Word draws
+                // no marker, only the hanging indent.
+                indent: taskListIndent(level, insideBlockquote),
               })
             : new Paragraph({
                 ...baseParagraphConfig,
@@ -242,4 +291,23 @@ export function createListConverter({
   }
 
   return { convertList, convertListItem, setConvertChildNode };
+}
+
+/**
+ * Mix `color` into `base` at `weightPercent` (both hex without #).
+ */
+function mixHex(color: string, weightPercent: number, base: string): string {
+  const channels = (hex: string): number[] => {
+    // Tolerate the 3-digit shorthand (#abc) the theme files may use.
+    const full = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
+    return [0, 2, 4].map((offset) => parseInt(full.slice(offset, offset + 2), 16));
+  };
+  const [r, g, b] = channels(color);
+  const [baseR, baseG, baseB] = channels(base);
+  const weight = weightPercent / 100;
+  const mix = (top: number, bottom: number): string =>
+    Math.round(top * weight + bottom * (1 - weight))
+      .toString(16)
+      .padStart(2, '0');
+  return `${mix(r, baseR)}${mix(g, baseG)}${mix(b, baseB)}`;
 }
