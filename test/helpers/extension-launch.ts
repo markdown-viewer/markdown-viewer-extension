@@ -106,17 +106,63 @@ export async function launchExtensionContext(
 }
 
 /**
+ * Service workers that belong to an extension (`chrome-extension://…`).
+ *
+ * Selection must not be positional: a run can register other workers first
+ * (component extensions, page workers), and `serviceWorkers()[0]` then
+ * evaluates inside the wrong context — where `chrome.contextMenus` and
+ * `chrome.storage` simply do not exist. Measured on Chrome for Testing 122 in
+ * CI: the contextMenus probe failed with "Cannot read properties of undefined
+ * (reading 'update')" while Chrome 123 passed in the same run with identical
+ * harness code.
+ */
+function extensionWorkers(context: BrowserContext): Worker[] {
+  return context
+    .serviceWorkers()
+    .filter((worker) => worker.url().startsWith('chrome-extension://'));
+}
+
+/**
  * Resolve the extension id from the background service worker. Polling is more
  * reliable than waitForEvent('serviceworker') — on cold starts the worker
  * registration event can be missed while the profile is being created.
+ *
+ * When several extension workers are up, the one that exposes the APIs under
+ * test (`chrome.contextMenus` — the extension under test always has it) wins,
+ * so a component-extension worker cannot be mistaken for ours.
  */
 export async function waitForExtensionId(context: BrowserContext): Promise<string> {
   const deadline = Date.now() + 40000;
+  let seen: string[] = [];
+
   for (;;) {
-    const id = context.serviceWorkers().map((w) => w.url().split('/')[2]).find(Boolean);
-    if (id) return id;
+    const workers = extensionWorkers(context);
+    seen = workers.map((worker) => worker.url().slice(0, 60));
+
+    for (const worker of workers) {
+      const id = worker.url().split('/')[2];
+      if (!id) continue;
+      if (workers.length === 1) return id;
+
+      const exposesApis = await worker
+        .evaluate('typeof chrome !== "undefined" && typeof chrome.contextMenus !== "undefined"')
+        .catch(() => false);
+      if (exposesApis) return id;
+    }
+
+    if (workers.length > 0 && Date.now() >= deadline) {
+      // Fall back to the first extension worker rather than failing: an
+      // extension without the probed API is still identifiable by its URL.
+      const id = workers[0].url().split('/')[2];
+      if (id) return id;
+    }
+
     if (Date.now() >= deadline) {
-      throw new Error('extension service worker not registered (timeout)');
+      const all = context.serviceWorkers().map((worker) => worker.url().slice(0, 60));
+      throw new Error(
+        `extension service worker not registered (timeout)` +
+          ` | extension workers: ${seen.join(', ') || 'none'} | all workers: ${all.join(', ') || 'none'}`,
+      );
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }

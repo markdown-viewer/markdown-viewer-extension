@@ -70,6 +70,7 @@ function browserLabel(): string {
 describe(`installed Chrome extension — browser context menu [${browserLabel()}]`, { skip: SKIP_EXT }, () => {
   let context: BrowserContext;
   let userDataDir = '';
+  let extensionId = '';
   let logs: string[] = [];
   const attached = new WeakSet<Worker>();
 
@@ -89,10 +90,26 @@ describe(`installed Chrome extension — browser context menu [${browserLabel()}
     });
   };
 
+  /**
+   * The worker under test, addressed by identity.
+   *
+   * `serviceWorkers()[0]` is not that worker: other workers (component
+   * extensions, pages) can be registered first, and evaluating inside one of
+   * those reports `chrome.contextMenus` / `chrome.storage` as undefined — a
+   * failure that looks like a product bug and is a harness mistake. Measured on
+   * Chrome for Testing 122 in CI; Chrome 123 passed in the same run.
+   */
   const currentWorker = (): Worker => {
-    const worker = context.serviceWorkers()[0];
-    assert.ok(worker, 'no extension service worker');
-    return worker;
+    const workers = context.serviceWorkers();
+    const mine = workers.find((worker) =>
+      worker.url().startsWith(`chrome-extension://${extensionId}/`),
+    );
+    assert.ok(
+      mine,
+      `no service worker for extension ${extensionId}` +
+        ` | workers seen: ${workers.map((w) => w.url().slice(0, 60)).join(', ') || 'none'}`,
+    );
+    return mine;
   };
 
   /** Poll until `predicate` holds (worker console events are asynchronous). */
@@ -109,6 +126,31 @@ describe(`installed Chrome extension — browser context menu [${browserLabel()}
   const swEval = async <T>(jsBody: string, arg?: unknown): Promise<T> => {
     const src = arg === undefined ? `(${jsBody})()` : `(${jsBody})(${JSON.stringify(arg)})`;
     return currentWorker().evaluate(src) as Promise<T>;
+  };
+
+  /**
+   * The worker can be reachable before its API namespaces are usable, and on
+   * some builds they appear a moment later. Every assertion below evaluates
+   * inside that worker, so the wait happens once here: a startup race must not
+   * surface as `Cannot read properties of undefined (reading 'update')`, which
+   * reads like a product bug and is really the harness arriving too early.
+   */
+  const waitForWorkerApis = async (timeoutMs = 15000): Promise<void> => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const ready = await currentWorker()
+        .evaluate('typeof chrome !== "undefined" && !!chrome.contextMenus && !!chrome.storage')
+        .catch(() => false);
+      if (ready) return;
+      if (Date.now() >= deadline) {
+        const workers = context.serviceWorkers().map((worker) => worker.url().slice(0, 60));
+        throw new Error(
+          `extension service worker never exposed contextMenus/storage` +
+            ` (extension ${extensionId}) | workers seen: ${workers.join(', ') || 'none'}`,
+        );
+      }
+      await sleep(250);
+    }
   };
 
   /** Non-destructive existence probe: update(id, {}) reports a missing item. */
@@ -151,8 +193,14 @@ describe(`installed Chrome extension — browser context menu [${browserLabel()}
     userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-browser-menu-'));
     context = await launchExtensionContext(userDataDir);
     context.on('serviceworker', (worker: Worker) => attachConsole(worker));
-    await waitForExtensionId(context);
-    context.serviceWorkers().forEach(attachConsole);
+    extensionId = await waitForExtensionId(context);
+    // Only our workers: another extension's console noise must not be able to
+    // trip the "no unchecked errors" assertions.
+    context
+      .serviceWorkers()
+      .filter((worker) => worker.url().startsWith(`chrome-extension://${extensionId}/`))
+      .forEach(attachConsole);
+    await waitForWorkerApis();
   });
 
   after(async () => {
