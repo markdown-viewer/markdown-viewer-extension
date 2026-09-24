@@ -18,6 +18,7 @@ import './epub-reader-environments.test.ts';
 import './theme-to-css-content-root.test.ts';
 import './theme-table-css.test.ts';
 import './theme-task-list-css.test.ts';
+import './theme-checkbox-render.test.ts';
 import './theme-color-scheme-contract.test.ts';
 import './font-config.test.ts';
 import './element-contract.test.ts';

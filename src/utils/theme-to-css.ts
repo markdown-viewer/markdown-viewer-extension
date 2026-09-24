@@ -981,6 +981,11 @@ const TASK_BOX_GUTTER_EM = 1;
  * HTML, EPUB). The check mark is an inline SVG so no font or image file is
  * needed.
  *
+ * Scope: the GFM task item is the only checkbox the pipeline leaves in the
+ * document DOM — an inline `<input>` is dropped by remark-inline-html, and a raw
+ * HTML *block* is rasterized into a figure by the html plugin (HtmlRenderer),
+ * out of this stylesheet's reach.
+ *
  * @param colorScheme - Color scheme configuration (page/accent/text colours)
  * @returns CSS string for task-list checkbox styling
  */
