@@ -1,7 +1,7 @@
 {
   "name": "markdown-viewer-extension",
   "displayName": "docu.md Markdown Viewer",
-  "version": "5.3.1",
+  "version": "5.3.2",
   "description": "Open Markdown files in the browser and export polished Word documents with diagrams, editable math, code highlighting, and local processing.",
   "type": "module",
   "bin": {
