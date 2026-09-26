@@ -1,7 +1,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 
-import { getCurrentDocumentUrl, toMarkdownFilename } from '../../../src/core/document-utils.ts';
+import { getCurrentDocumentUrl, toMarkdownFilename, toSaveFilename } from '../../../src/core/document-utils.ts';
 
 function createDocumentStub() {
   return {
@@ -57,5 +57,23 @@ describe('toMarkdownFilename', () => {
   it('should append .md when filename has no extension', () => {
     assert.strictEqual(toMarkdownFilename('article'), 'article.md');
     assert.strictEqual(toMarkdownFilename(''), 'document.md');
+  });
+});
+
+describe('toSaveFilename', () => {
+  it('should keep the document name when the content is not markdown', () => {
+    // The saved bytes are the file's own source: a .txt log renamed to .md
+    // would claim a conversion that never happened.
+    assert.strictEqual(toSaveFilename('job-logs.txt', false), 'job-logs.txt');
+    assert.strictEqual(toSaveFilename('config.json', false), 'config.json');
+    assert.strictEqual(toSaveFilename('flow.mermaid', false), 'flow.mermaid');
+  });
+
+  it('should use markdown naming when the content is markdown', () => {
+    assert.strictEqual(toSaveFilename('readme.md', true), 'readme.md');
+    assert.strictEqual(toSaveFilename('deck.slides.md', true), 'deck.slides.md');
+    assert.strictEqual(toSaveFilename('notes.markdown', true), 'notes.md');
+    // An HTML page converted by "View as Markdown" saves as markdown.
+    assert.strictEqual(toSaveFilename('page.html', true), 'page.md');
   });
 });

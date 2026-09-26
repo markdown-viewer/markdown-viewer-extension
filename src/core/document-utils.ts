@@ -123,6 +123,22 @@ export function toMarkdownFilename(filename: string): string {
 }
 
 /**
+ * Filename for the toolbar's "Save File" action.
+ *
+ * The bytes that action writes are the document's own source: markdown for a
+ * markdown file (and for an HTML page converted by "View as Markdown"), the
+ * raw text for a code/diagram file. Renaming a `.txt`/`.json`/`.mermaid`
+ * document to `.md` would claim a conversion that never happened — the file is
+ * byte-identical to the original, only its extension lied about the format.
+ *
+ * @param filename - Current document filename (query string already stripped)
+ * @param contentIsMarkdown - Whether the saved content is markdown
+ */
+export function toSaveFilename(filename: string, contentIsMarkdown: boolean): string {
+  return contentIsMarkdown ? toMarkdownFilename(filename) : filename;
+}
+
+/**
  * Get document filename for export (DOCX)
  * @returns Document filename with .docx extension
  */

@@ -54,6 +54,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     isMobile,
     rawMarkdown,
     getRawContent,
+    getSaveTarget,
     docxExporter,
     cancelScrollRestore,
     updateActiveTocItem,
@@ -800,13 +801,21 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   }
 
   function triggerSaveFile(): void {
-    const filename = toMarkdownFilename(getFilenameFromURL());
+    // The saved bytes are the document's own source, so the name has to follow
+    // the document: a `.txt`/`.mermaid` file saved as `.md` would claim a
+    // conversion that never happened. Hosts that can tell markdown content
+    // from raw source pass `getSaveTarget`; the fallback keeps the long-standing
+    // markdown naming for callers that only view markdown.
+    const target = getSaveTarget?.() ?? {
+      filename: toMarkdownFilename(getFilenameFromURL()),
+      mimeType: 'text/markdown;charset=utf-8',
+    };
     const fileContent = getRawContent ? getRawContent() : rawMarkdown;
-    const blob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
+    const blob = new Blob([fileContent], { type: target.mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = target.filename;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();

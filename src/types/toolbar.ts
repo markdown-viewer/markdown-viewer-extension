@@ -25,6 +25,14 @@ export interface LayoutConfig {
 // =============================================================================
 
 /**
+ * Where the "Save File" action writes the document, and as what type.
+ */
+export interface SaveFileTarget {
+  filename: string;
+  mimeType: string;
+}
+
+/**
  * Toolbar manager options
  */
 export interface ToolbarManagerOptions {
@@ -36,6 +44,12 @@ export interface ToolbarManagerOptions {
   rawMarkdown: string;
   /** Get latest original/raw file content for save-file action */
   getRawContent?: () => string;
+  /**
+   * Resolve the name/type for the save-file action. Defaults to markdown
+   * naming; hosts that can view non-markdown files (code preview, diagrams)
+   * pass the document's own name so the saved file keeps its format.
+   */
+  getSaveTarget?: () => SaveFileTarget;
   docxExporter: DocxExporter;
   cancelScrollRestore: () => void;
   updateActiveTocItem: () => void;

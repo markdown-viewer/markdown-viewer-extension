@@ -24,7 +24,13 @@ import type { ViewerExportFormat } from '../../../src/core/viewer/viewer-host';
 import type { PluginRenderer, RendererThemeConfig, PlatformAPI } from '../../../src/types/index';
 
 import { escapeHtml } from '../../../src/core/markdown-utils';
-import { getCurrentDocumentUrl, saveToHistory, getDocumentFilename } from '../../../src/core/document-utils';
+import {
+  getCurrentDocumentUrl,
+  getDocumentFilename,
+  getFilenameFromURL,
+  saveToHistory,
+  toSaveFilename,
+} from '../../../src/core/document-utils';
 import type { FileState } from '../../../src/types/core';
 import { showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator';
 import { createTocManager } from './ui/toc-manager';
@@ -934,6 +940,18 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     isMobile,
     rawMarkdown: initialToolbarMarkdown,
     getRawContent: () => liveRawContent,
+    // "Save File" writes the document's own source, so the name follows the
+    // document: markdown keeps the markdown spelling, a code/diagram file keeps
+    // its own extension (a .txt log saved as .md is a format lie). Converted
+    // HTML pages are markdown content, so they save as .md.
+    getSaveTarget: () => {
+      const contentIsMarkdown = Boolean(htmlConverted)
+        || /\.(md|markdown)$/i.test(getViewerDocumentLocation());
+      return {
+        filename: toSaveFilename(getFilenameFromURL(), contentIsMarkdown),
+        mimeType: contentIsMarkdown ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8',
+      };
+    },
     docxExporter,
     cancelScrollRestore: () => {
       // Scroll restoration is handled by markdown-viewer state.
