@@ -11,7 +11,7 @@
  *     only the content;
  *   - cross extension (`.md` ⇄ code/text) — the resolved mode flips between
  *     `rendered` and `code-reading`, which also flips the card chrome
- *     (full-bleed code surface vs 820px reading card) and the toolbar buttons.
+ *     (full-bleed code surface vs 1360px reading card) and the toolbar buttons.
  *
  * The source-view variants are the ones that used to look wrong: leaving a file
  * in source view and opening another one must render the *new* file in its own
@@ -42,8 +42,8 @@ import {
 
 const SKIP_EXT = process.env.MV_SKIP_EXT_TESTS === '1';
 
-/** Reading measure owned by READING_MAX_WIDTH_PX (src/ui/layout-presets.ts). */
-const READING_MAX_WIDTH = 820;
+/** Reading card width owned by READING_MAX_WIDTH_PX (src/ui/layout-presets.ts). */
+const READING_MAX_WIDTH = 1360;
 
 const FILES: Record<string, string | Record<string, string>> = {
   'alpha.md': '# Alpha doc\n\nAlpha body.\n',

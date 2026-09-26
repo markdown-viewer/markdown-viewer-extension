@@ -143,6 +143,10 @@ describe('HTML export layout contract (single CSS source)', () => {
       !/@media[^{]*\((?:min|max)-width/.test(styles),
       'Exported HTML must not contain responsive width media queries',
     );
+    assert.ok(
+      !styles.includes('data-code-view'),
+      'Exported HTML must not carry live-viewer state rules (html[data-code-view])',
+    );
   });
 
   it('exports the content root without exporter-side chrome overrides', async () => {

@@ -159,6 +159,14 @@ describe('EPUB stylesheet contract (shared content CSS, no rewriting)', () => {
       !css.includes('EPUB layout overrides'),
       'EPUB stylesheet must not carry an exporter-specific layout appendix',
     );
+    // Live-viewer state must not leak either: `html[data-code-view]` rules
+    // (card chrome stripped, code surface full-bleed) only exist while the
+    // viewer shows source view — the card rule carries `max-width: none
+    // !important`, which is exactly the override this contract forbids.
+    assert.ok(
+      !css.includes('data-code-view'),
+      'EPUB stylesheet must not carry live-viewer state rules (html[data-code-view])',
+    );
   });
 
   it('layout rules cover both content-root selectors (dual root)', async () => {

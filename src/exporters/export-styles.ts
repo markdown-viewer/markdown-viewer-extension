@@ -31,14 +31,20 @@ const CONTENT_SELECTOR_TOKENS = [
   '.diagram',
 ];
 
+const HOST_STATE_TOKENS = [
+  // Host-environment modes (<markdown-viewer> elements, iframe embeds, editor
+  // panels — .mv-panel only ever rides on .mv-embed) and live-viewer state
+  // attributes. Exported documents are always plain Web documents with no such
+  // host and no such state, so those rules must not leak into HTML / EPUB
+  // stylesheets: the embed card-strip would zero out the EPUB content gutter,
+  // and the code-view rules would strip the exported card's max-width.
+  '.mv-embed',
+  'html[data-code-view]',
+];
+
 function shouldKeepSelector(selector: string): boolean {
   const lower = selector.toLowerCase();
-  // .mv-embed / .mv-panel are host-environment modes (<markdown-viewer>
-  // elements, iframe embeds, editor panels). Exported documents are always
-  // plain Web documents with no such host, so those rules must not leak
-  // into HTML / EPUB stylesheets (e.g. the embed card-strip would zero out
-  // the EPUB content gutter).
-  if (lower.includes('.mv-embed')) return false;
+  if (HOST_STATE_TOKENS.some((token) => lower.includes(token))) return false;
   return CONTENT_SELECTOR_TOKENS.some((token) => lower.includes(token));
 }
 

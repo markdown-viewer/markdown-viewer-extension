@@ -15,9 +15,9 @@
  *      source toggle. The icon/title also used to stay stale after clicking
  *      (the mode switch is async).
  *
- * It also pins the reading measure end to end (820px card), the number the
- * toolbar writes inline and test/suites/project-gates/reading-measure.test.ts
- * guards against drift.
+ * It also pins the reading card end to end (1360px), the number the toolbar
+ * writes inline and test/suites/project-gates/reading-measure.test.ts guards
+ * against drift.
  *
  * Needs `npm run build:chrome` + Playwright Chromium. Skip with
  * MV_SKIP_EXT_TESTS=1.
@@ -48,8 +48,8 @@ import {
 
 const SKIP_EXT = process.env.MV_SKIP_EXT_TESTS === '1';
 
-/** Reading measure owned by READING_MAX_WIDTH_PX (src/ui/layout-presets.ts). */
-const READING_MAX_WIDTH = 820;
+/** Reading card width owned by READING_MAX_WIDTH_PX (src/ui/layout-presets.ts). */
+const READING_MAX_WIDTH = 1360;
 
 const TEXT_LINES = [
   'plain text line 1',
@@ -85,11 +85,14 @@ const TOOLBAR_STATE_JS = `() => {
   };
   const sourceBtn = document.getElementById('toggle-source-view-btn');
   const card = document.getElementById('markdown-page');
+  const wrapper = document.getElementById('markdown-wrapper');
   return {
     sourceToggleVisible: visible('toggle-source-view-btn'),
     sourceToggleTitle: sourceBtn ? sourceBtn.title : null,
     layoutVisible: visible('layout-toggle-btn'),
     cardWidth: card ? Math.round(card.getBoundingClientRect().width) : null,
+    cardMaxWidth: card ? getComputedStyle(card).maxWidth : null,
+    readingAreaWidth: wrapper ? Math.round(wrapper.getBoundingClientRect().width) : null,
     codeView: document.documentElement.dataset.codeView,
   };
 }`;
@@ -188,13 +191,22 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
 
     const rendered = await evalJs<{
       cardWidth: number | null;
+      cardMaxWidth: string | null;
+      readingAreaWidth: number | null;
       sourceToggleVisible: boolean;
       sourceToggleTitle: string | null;
       layoutVisible: boolean;
       codeView: string | undefined;
     }>(page, TOOLBAR_STATE_JS);
 
-    assert.equal(rendered.cardWidth, READING_MAX_WIDTH, 'markdown keeps the reading measure');
+    // The card asks for the reading measure; the docked TOC leaves less room,
+    // so the rendered width is the measure capped by the reading area.
+    assert.equal(rendered.cardMaxWidth, `${READING_MAX_WIDTH}px`, 'markdown keeps the reading measure');
+    assert.equal(
+      rendered.cardWidth,
+      Math.min(READING_MAX_WIDTH, rendered.readingAreaWidth ?? 0),
+      'the card fills the reading measure without overflowing the reading area',
+    );
     assert.equal(rendered.layoutVisible, true, 'the width control is available while reading');
     assert.equal(rendered.sourceToggleVisible, true, 'markdown offers the source toggle');
     assert.equal(rendered.sourceToggleTitle, 'Source Mode');

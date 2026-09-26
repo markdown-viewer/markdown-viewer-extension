@@ -9,7 +9,7 @@
  *   D4 hue coherence         tinted surfaces share one hue family
  *   D5 heading ladder        h1..h6 monotonic, h1 above body size
  *   D6 name/token match      palette + font must match what the theme name claims
- *   D7 reading measure       characters per line for the reading column
+ *   D7 reading measure       characters per line for the focus column
  *
  * Consumed by test/suites/project-gates/theme-design.test.ts.
  */
@@ -74,11 +74,13 @@ const presets = new Map(registry.themes.map((t) => [t.id, { ...readJSON(path.joi
 
 // ---------------------------------------------------------------- design spec
 const ALERTS = { note: '#0969da', tip: '#1a7f37', warning: '#9a6700', important: '#8250df', caution: '#cf222e' };
-// Reading measure: mirrors #markdown-page in src/ui/styles.css, which in turn
-// mirrors READING_MAX_WIDTH_PX in src/ui/layout-presets.ts. Exported so the
-// drift guard (test/suites/project-gates/reading-measure.test.ts) can compare
-// the three copies; keep them in sync.
-export const READING_MAX_WIDTH = 820;
+// Card width / focus column / gutter: mirror #markdown-page in src/ui/styles.css,
+// which in turn mirrors READING_MAX_WIDTH_PX / FOCUS_MAX_WIDTH_PX in
+// src/ui/layout-presets.ts. Exported so the drift guard
+// (test/suites/project-gates/reading-measure.test.ts) can compare the copies;
+// keep them in sync.
+export const READING_MAX_WIDTH = 1360;
+export const FOCUS_MAX_WIDTH = 680;
 export const READING_GUTTER = 48;
 // Categories where a plain blockquote must stay neutral (a quote must not read
 // as an alert). Expressive categories may carry an identity tint.
@@ -173,11 +175,14 @@ function evalTheme(id, preset) {
   for (let i = 1; i < ladder.length; i++) if (ladder[i] != null && ladder[i - 1] != null && ladder[i] > ladder[i - 1]) add('ERROR', 'D5', `标题阶梯倒挂: h${i + 1}(${ladder[i]}) > h${i}(${ladder[i - 1]})`);
   if (ladder[0] != null && bodySz != null && ladder[0] <= bodySz) add('WARN', 'D5', `h1(${ladder[0]}pt) 不大于正文(${bodySz}pt)`);
 
-  // ---- D7 reading measure (styles.css column width × this theme's font size) ----
+  // ---- D7 reading measure (focus column × this theme's font size) ----
+  // The wide card is a spread — its line length is the reader's window, not a
+  // measure — so the band is audited on the 窄屏布局 focus column, the layout
+  // whose whole purpose is a measured reading line.
   // Reference: Butterick 45–90 / Tailwind prose 65ch. One em ≈ 0.5 latin chars.
   if (bodySz != null) {
     const bodyPx = bodySz * 96 / 72;
-    const content = READING_MAX_WIDTH - 2 * READING_GUTTER;
+    const content = FOCUS_MAX_WIDTH - 2 * READING_GUTTER;
     const cpl = content / (bodyPx * 0.5);
     if (cpl > 105) add('WARN', 'D7', `行长≈${cpl.toFixed(0)} 拉丁字符/行 (>105，超出舒适上限，宜收窄版心或增大字号)`);
     else if (cpl < 42) add('WARN', 'D7', `行长≈${cpl.toFixed(0)} 拉丁字符/行 (<42，过窄)`);

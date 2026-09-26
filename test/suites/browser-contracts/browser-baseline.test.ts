@@ -177,7 +177,7 @@ describe('Baseline: fixed theme "default"', () => {
       );
       const table = firstOf(m, '#markdown-content table');
       assert.equal(table.display, 'table', 'Full-width table should be a real table layout box');
-      assert.ok(table.width > 680, `Full-width table should span the content width (got ${table.width}px)`);
+      assert.ok(table.width > 800, `Full-width table should span the content width (got ${table.width}px)`);
       assert.equal(table.marginLeft, '0px', 'Full-width table must not have centering margins');
     });
   });

@@ -726,12 +726,12 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
 
 /* Page container carries the card chrome (background/shadow). The content
    root itself stays pure content so Web / HTML / EPUB consume the exact same
-   content styles — the card is a page-level concept. max-width caps the line
-   length: at 820px minus the 48px gutters the text measure lands ~68–90 Latin
-   chars (CJK ~34–45) across the reading themes — Butterick's 45–90 range and
-   close to Tailwind prose's 65ch. The wide 48px gutter also keeps the hover
-   "#" heading anchor (offset left of each heading) inside the card instead of
-   clipped against the window edge.
+   content styles — the card is a page-level concept. max-width is the wide
+   reading card (1360px): a spread, so on a narrower window the window is the
+   cap — the measured column is the focus layout (窄屏布局, 680px), which is
+   where the reading band (Butterick 45–90) applies. The 48px gutter also keeps
+   the hover "#" heading anchor (offset left of each heading) inside the card
+   instead of clipped against the window edge.
    The value is owned by READING_MAX_WIDTH_PX (src/ui/layout-presets.ts): the
    toolbar writes the same number inline for its `normal` layout, and
    test/suites/project-gates/reading-measure.test.ts pins stylesheet, preset and
@@ -739,14 +739,14 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
    for surfaces without the toolbar.
    The card background follows the theme's page color (--md-page-bg is set on
    :root by the theme stylesheet whenever the theme defines a page
-   background): with a tinted theme the whole sheet — including the 20px
+   background): with a tinted theme the whole sheet — including the 48px
    gutter between the content strip and the card edge — keeps the themed
    background instead of showing the frame surface (pure white in light
    mode). Themes without a page background fall back to the frame surface,
    which matches the card of the default theme. Print and .mv-embed override
    this rule (transparent) further down. */
 #markdown-page {
-  max-width: 820px;
+  max-width: 1360px;
   margin: 0 auto;
   background: var(--md-page-bg, var(--color-bg-surface, #ffffff));
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
