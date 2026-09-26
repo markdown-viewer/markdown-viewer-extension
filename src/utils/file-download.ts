@@ -9,11 +9,22 @@ export interface FileDelivery {
   encoding?: 'text' | 'base64';
 }
 
-function toBlob(file: FileDelivery): Blob {
-  if (file.encoding === 'base64') {
-    return new Blob([Uint8Array.from(atob(file.content), (c) => c.charCodeAt(0))], { type: file.mimeType });
-  }
-  return new Blob([file.content], { type: file.mimeType });
+/**
+ * Type declared for a platform download.
+ *
+ * Chrome rewrites the extension of a download whose declared type disagrees
+ * with the name: a `text/plain` document called `notes.ts` is saved as
+ * `notes.txt` (`.ts` belongs to video/mp2t, and text/plain's preferred
+ * extension is `.txt`). A generic type owns no extension, so the document's
+ * own name survives — which is the whole point of saving it under its name.
+ */
+const GENERIC_DOWNLOAD_MIME = 'application/octet-stream';
+
+function toBlob(file: FileDelivery, mimeType: string = file.mimeType): Blob {
+  const bytes: BlobPart = file.encoding === 'base64'
+    ? Uint8Array.from(atob(file.content), (c) => c.charCodeAt(0))
+    : file.content;
+  return new Blob([bytes], { type: mimeType });
 }
 
 /**
@@ -88,7 +99,11 @@ export async function deliverFile(file: FileDelivery): Promise<void> {
   if (documentCannotDownload() && platform?.file?.download) {
     try {
       await platform.file.requestDownloadPermission?.();
-      await platform.file.download(toBlob(file), file.filename, { mimeType: file.mimeType });
+      // The blob type matters as much as the option: FileService lets the blob
+      // win over `mimeType` (src/services/file-service.ts).
+      await platform.file.download(toBlob(file, GENERIC_DOWNLOAD_MIME), file.filename, {
+        mimeType: GENERIC_DOWNLOAD_MIME,
+      });
       return;
     } catch (error) {
       console.warn('[deliverFile] platform download failed:', error);

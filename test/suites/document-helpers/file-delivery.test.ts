@@ -36,6 +36,7 @@ function createPlatformStub(): { calls: Call[]; platform: unknown } {
             type: 'download',
             filename,
             mimeType: options?.mimeType,
+            blobType: blob.type,
             body: typeof blob.text === 'function' ? await blob.text() : '',
           });
         },
@@ -97,8 +98,12 @@ describe('deliverFile', () => {
 
     assert.deepEqual(stub.calls.map((call) => call.type), ['permission', 'download']);
     assert.strictEqual(stub.calls[1].filename, 'footnote-postprocessor.ts');
-    assert.strictEqual(stub.calls[1].mimeType, 'text/plain;charset=utf-8');
     assert.strictEqual(stub.calls[1].body, 'export const x = 1;\n');
+    // Chrome rewrites the extension of a download whose declared type disagrees
+    // with the name (text/plain `.ts` → `.txt`), so the platform path declares
+    // a type that owns no extension.
+    assert.strictEqual(stub.calls[1].mimeType, 'application/octet-stream');
+    assert.strictEqual(stub.calls[1].blobType, 'application/octet-stream');
   });
 
   it('keeps base64 payloads byte-exact on the platform path', async () => {
