@@ -8,7 +8,8 @@ import { applyI18nText } from '../../../src/ui/popup/i18n-helpers';
 import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
 import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, arrowLeft, arrowRight, getFileIcon } from './file-icons';
 import { rewriteHtmlForPreview, type HtmlPreviewRewriteResult } from './html-preview-rewrite';
-import type { ViewerIframeDocumentSyncInput } from '../../../src/integration/iframe-viewer-host';
+import type { ViewerIframeDocumentSyncInput, ViewerSaveFileMessage } from '../../../src/integration/iframe-viewer-host';
+import { anchorDownloadFile } from '../../../src/utils/file-download';
 import themeManager from '../../../src/utils/theme-manager';
 import { createViewerIframeHostBridge } from '../../../src/integration/iframe-viewer-host';
 import type { ViewerIframeMessage } from '../../../src/integration/iframe-viewer-host';
@@ -303,6 +304,33 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== $previewFrame.contentWindow) return;
   if (event.data?.type !== 'VIEWER_RENDERED') return;
   confirmPendingDocumentSync();
+});
+
+/**
+ * Write a file the embedded viewer handed over.
+ *
+ * Chrome refuses `<a download>` inside an extension-page iframe, so the viewer
+ * cannot save anything itself (the click runs, nothing downloads). The
+ * top-level workspace page can, so it does — for the save-file action and for
+ * the image/table "save as" menus alike.
+ */
+function saveViewerFile(message: ViewerSaveFileMessage): void {
+  if (typeof message.filename !== 'string' || !message.filename) return;
+  if (typeof message.content !== 'string') return;
+
+  anchorDownloadFile({
+    filename: message.filename,
+    mimeType: message.mimeType || 'text/plain;charset=utf-8',
+    content: message.content,
+    encoding: message.encoding === 'base64' ? 'base64' : 'text',
+  });
+}
+
+window.addEventListener('message', (event: MessageEvent) => {
+  if (event.source !== $previewFrame.contentWindow) return;
+  const message = event.data as ViewerSaveFileMessage | undefined;
+  if (message?.type !== 'SAVE_FILE') return;
+  saveViewerFile(message);
 });
 
 async function getStoredSidebarWidth(): Promise<number | null> {

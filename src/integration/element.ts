@@ -17,6 +17,7 @@ import { getWebExtensionApi } from '../utils/platform-info';
 import { createTocManager } from '../../chrome/src/webview/ui/toc-manager';
 import type { PluginRenderer, PlatformAPI } from '../types';
 import { createViewerIframeHostBridge } from './iframe-viewer-host';
+import { anchorDownloadFile } from '../utils/file-download';
 
 const OBSERVED_ATTRIBUTES = ['value', 'scroll-line', 'mode'] as const;
 const RENDER_REQUEST_EVENT = 'mv:render-request';
@@ -354,6 +355,20 @@ export function attachMarkdownViewerElementRuntime(
           bubbles: true,
           composed: true,
         }));
+        return;
+      }
+      // The framed viewer cannot download from inside its own frame, so it
+      // hands the file over and this page writes it.
+      if (data.type === 'SAVE_FILE') {
+        const detail = data as { filename?: unknown; mimeType?: unknown; content?: unknown; encoding?: unknown };
+        if (typeof detail.filename !== 'string' || !detail.filename) return;
+        if (typeof detail.content !== 'string') return;
+        anchorDownloadFile({
+          filename: detail.filename,
+          mimeType: typeof detail.mimeType === 'string' && detail.mimeType ? detail.mimeType : 'text/plain;charset=utf-8',
+          content: detail.content,
+          encoding: detail.encoding === 'base64' ? 'base64' : 'text',
+        });
       }
     };
     window.addEventListener('message', onFrameMessage);

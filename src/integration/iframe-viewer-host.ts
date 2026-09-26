@@ -56,13 +56,30 @@ export interface ViewerExportResultMessage {
   filename?: string;
 }
 
+/**
+ * Viewer → host: hand this file over, I cannot deliver it myself.
+ *
+ * Chrome refuses an `<a download>` inside the extension-page iframe that hosts
+ * the workspace viewer, so the embedded viewer asks the top-level workspace
+ * page to write the file (downloads work there). See `deliverFile`.
+ */
+export interface ViewerSaveFileMessage {
+  type: 'SAVE_FILE';
+  filename: string;
+  mimeType: string;
+  /** File content: text, or base64 bytes when `encoding` is 'base64'. */
+  content: string;
+  encoding?: 'text' | 'base64';
+}
+
 export type ViewerIframeMessage =
   | ViewerOpenDocumentMessage
   | ViewerUpdateContentMessage
   | ViewerSyncHostUiMessage
   | ViewerSyncHostNavigationMessage
   | ViewerExportRequestMessage
-  | ViewerExportResultMessage;
+  | ViewerExportResultMessage
+  | ViewerSaveFileMessage;
 
 export interface ViewerIframeDocumentSyncInput {
   documentKey: string;

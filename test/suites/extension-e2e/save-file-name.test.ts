@@ -25,16 +25,20 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import { type Page, type Worker } from 'playwright-core';
+import { type Frame, type Page, type Worker } from 'playwright-core';
 
 import {
   FIXED_SETTINGS,
+  MOCK_DIRECTORY_PICKER_JS,
   SET_STORAGE_JS,
   VIEWER_EMBED_READY_JS,
+  WAIT_RENDERED_JS,
   WAIT_STANDALONE_READY_JS,
   evalJs,
   launchExtensionContext,
+  retryInteraction,
   waitFor,
+  waitForFrame,
   type ExtensionContextHarness,
 } from '../../helpers/extension-e2e.ts';
 
@@ -80,6 +84,48 @@ const FIXTURES: Fixture[] = [
     saveName: 'flow.mermaid',
   },
   {
+    route: '/src/app.ts',
+    contentType: 'text/plain; charset=utf-8',
+    body: 'export const answer: number = 42;\n',
+    saveName: 'app.ts',
+  },
+  {
+    route: '/src/legacy.js',
+    contentType: 'text/plain; charset=utf-8',
+    body: 'module.exports = { answer: 42 };\n',
+    saveName: 'legacy.js',
+  },
+  {
+    route: '/scripts/build.py',
+    contentType: 'text/plain; charset=utf-8',
+    body: 'def main():\n    return 0\n',
+    saveName: 'build.py',
+  },
+  {
+    route: '/styles/site.css',
+    contentType: 'text/plain; charset=utf-8',
+    body: '.card { color: red; }\n',
+    saveName: 'site.css',
+  },
+  {
+    route: '/data/rows.csv',
+    contentType: 'text/plain; charset=utf-8',
+    body: 'name,count\ndemo,3\n',
+    saveName: 'rows.csv',
+  },
+  {
+    route: '/logs/run.log',
+    contentType: 'text/plain; charset=utf-8',
+    body: 'starting\ndone\n',
+    saveName: 'run.log',
+  },
+  {
+    route: '/scripts/setup.sh',
+    contentType: 'text/plain; charset=utf-8',
+    body: '#!/bin/sh\nset -e\n',
+    saveName: 'setup.sh',
+  },
+  {
     route: '/notes/guide.md',
     contentType: 'text/markdown; charset=utf-8',
     body: '# Guide\n\nBody.\n',
@@ -116,6 +162,7 @@ describe('installed Chrome extension — "Save File" naming', { skip: SKIP_EXT }
   let server: http.Server | undefined;
   let origin = '';
   let downloadsDir = '';
+  let localDir = '';
 
   const urlFor = (fixture: Fixture) => `${origin}${fixture.route}`;
 
@@ -139,6 +186,10 @@ describe('installed Chrome extension — "Save File" naming', { skip: SKIP_EXT }
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     downloadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-save-name-dl-'));
+    // Local files are the other half of the story: a project file opened from
+    // disk (file://) must save under its own name too.
+    localDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mv-save-name-src-'));
+    fs.writeFileSync(path.join(localDir, 'local-app.ts'), 'export const local: number = 1;\n');
     harness = await launchExtensionContext('save-file-name-', { acceptDownloads: true });
     page = await harness.context.newPage();
 
@@ -158,20 +209,35 @@ describe('installed Chrome extension — "Save File" naming', { skip: SKIP_EXT }
     await harness?.close();
     await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
     fs.rmSync(downloadsDir, { recursive: true, force: true });
+    fs.rmSync(localDir, { recursive: true, force: true });
   });
 
   /** Open the export menu and run "Save File", returning the real download. */
-  async function saveFromToolbar(): Promise<{ filename: string; body: string }> {
-    const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-    await page.click('#download-btn');
-    await page.waitForSelector(SAVE_MENU_ITEM, { timeout: 10000 });
-    await page.click(SAVE_MENU_ITEM);
+  async function saveFromToolbar(
+    target: Page | Frame,
+    downloadSource: Page = page,
+  ): Promise<{ filename: string; body: string }> {
+    const downloadPromise = downloadSource.waitForEvent('download', { timeout: 30000 });
+
+    // The toolbar wires its listeners a moment after the viewer renders, so a
+    // click that lands in that window opens nothing. Repeat the interaction
+    // (TESTING.md allows a retry for a race, never for an assertion).
+    await retryInteraction({
+      label: 'save-file: open export menu',
+      attempt: async () => {
+        await target.click('#download-btn');
+      },
+      check: async () => {
+        await target.waitForSelector(SAVE_MENU_ITEM, { timeout: 3000 });
+      },
+    });
+    await target.click(SAVE_MENU_ITEM);
 
     const download = await downloadPromise;
     const filename = download.suggestedFilename();
-    const target = path.join(downloadsDir, filename);
-    await download.saveAs(target);
-    return { filename, body: fs.readFileSync(target, 'utf8') };
+    const dest = path.join(downloadsDir, filename);
+    await download.saveAs(dest);
+    return { filename, body: fs.readFileSync(dest, 'utf8') };
   }
 
   /**
@@ -213,7 +279,7 @@ describe('installed Chrome extension — "Save File" naming', { skip: SKIP_EXT }
       await page.goto(urlFor(fixture), { waitUntil: 'load' });
       await waitFor(page, WAIT_STANDALONE_READY_JS);
 
-      const download = await saveFromToolbar();
+      const download = await saveFromToolbar(page);
 
       assert.strictEqual(
         download.filename,
@@ -229,6 +295,47 @@ describe('installed Chrome extension — "Save File" naming', { skip: SKIP_EXT }
     });
   }
 
+  it('saves a local .ts file under its own name', async () => {
+    await page.goto(`file://${path.join(localDir, 'local-app.ts')}`, { waitUntil: 'load' });
+    await waitFor(page, WAIT_STANDALONE_READY_JS);
+
+    const download = await saveFromToolbar(page);
+
+    assert.strictEqual(download.filename, 'local-app.ts');
+    assert.strictEqual(download.body.trimEnd(), 'export const local: number = 1;');
+  });
+
+  it('saves a .ts file opened in the workspace under its own name', async () => {
+    const workspacePage = await harness.context.newPage();
+    await workspacePage.addInitScript(
+      `(${MOCK_DIRECTORY_PICKER_JS})(${JSON.stringify({ 'app.ts': 'export const app: number = 7;\n' })})`,
+    );
+    await workspacePage.goto(
+      `chrome-extension://${harness.extensionId}/ui/workspace/workspace.html`,
+      { waitUntil: 'load' },
+    );
+    await evalJs(workspacePage, `() => { (document.querySelector('#pick-directory')).click(); return true; }`);
+    await workspacePage.waitForSelector('.tree-item', { timeout: 30000 });
+    const clicked = await evalJs<boolean>(workspacePage, `(name) => {
+      const item = Array.from(document.querySelectorAll('.tree-item')).find((el) => el.textContent.includes(name));
+      if (item) item.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return Boolean(item);
+    }`, 'app.ts');
+    assert.ok(clicked, 'workspace tree item for app.ts not found');
+
+    // The workspace hosts the viewer (and its toolbar) in the preview iframe.
+    const frame = await waitForFrame(workspacePage, 'viewer-embed');
+    await waitFor(frame, VIEWER_EMBED_READY_JS);
+    await waitFor(frame, `() => document.documentElement.dataset.viewerFilename === 'app.ts'`);
+    await waitFor(frame, WAIT_RENDERED_JS);
+
+    const download = await saveFromToolbar(frame, workspacePage);
+
+    assert.strictEqual(download.filename, 'app.ts');
+    assert.strictEqual(download.body.trimEnd(), 'export const app: number = 7;');
+    await workspacePage.close();
+  });
+
   it(`saves a converted HTML page as ${HTML_FIXTURE.saveName}`, async () => {
     await page.goto(urlFor(HTML_FIXTURE), { waitUntil: 'load' });
     await viewAsMarkdown(page);
@@ -238,7 +345,7 @@ describe('installed Chrome extension — "Save File" naming', { skip: SKIP_EXT }
       `() => (document.querySelector('#markdown-content h1')?.textContent || '') === 'Converted page'`,
     );
 
-    const download = await saveFromToolbar();
+    const download = await saveFromToolbar(page);
 
     // Converted markdown content, markdown name — the rule for raw files must
     // not leak into the reading-mode flow.

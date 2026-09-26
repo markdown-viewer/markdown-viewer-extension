@@ -14,6 +14,7 @@ import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { buildCodeReadingRender, applyCodeViewPresentation } from '../../../src/utils/code-preview';
+import { deliverFile } from '../../../src/utils/file-download';
 import { stripUrlQueryAndHash } from '../../../src/utils/document-url';
 import { LAYOUT_MAX_WIDTHS } from '../../../src/ui/layout-presets';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
@@ -1983,22 +1984,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     setupImageContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
-        // Use <a download> for browser-based download
-        const blob = new Blob(
-          [Uint8Array.from(atob(data), c => c.charCodeAt(0))],
-          { type: mimeType }
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 100);
+        deliverFile({ filename, mimeType, content: data, encoding: 'base64' });
       },
       translate: (key) => Localization.translate(key),
     });
@@ -2007,22 +1993,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     setupTableContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
-        // Use <a download> for browser-based download
-        const blob = new Blob(
-          [Uint8Array.from(atob(data), c => c.charCodeAt(0))],
-          { type: mimeType }
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 100);
+        deliverFile({ filename, mimeType, content: data, encoding: 'base64' });
       },
       translate: (key) => Localization.translate(key),
     });

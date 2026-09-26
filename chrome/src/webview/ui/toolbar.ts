@@ -4,6 +4,7 @@
  */
 
 import { getFilenameFromURL, getDocumentFilename, toMarkdownFilename } from '../../../../src/core/document-utils';
+import { deliverFile } from '../../../../src/utils/file-download';
 import { applyZoom as applyZoomCore, exportEpubFlow, exportHtmlFlow } from '../../../../src/core/viewer/viewer-host';
 import { createExportMenu } from '../../../../src/ui/export-menu';
 import { showActionMenu } from '../../../../src/ui/action-menu';
@@ -811,16 +812,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       mimeType: 'text/markdown;charset=utf-8',
     };
     const fileContent = getRawContent ? getRawContent() : rawMarkdown;
-    const blob = new Blob([fileContent], { type: target.mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = target.filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    deliverFile({ filename: target.filename, mimeType: target.mimeType, content: fileContent });
   }
 
   async function triggerPrint(): Promise<void> {
