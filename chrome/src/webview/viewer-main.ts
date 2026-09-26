@@ -643,9 +643,13 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // When taking over an HTML page, strip the original page's stylesheets and
   // inline styles so they don't bleed into the Markdown viewer layout.
   if (htmlConverted) {
-    // Remove external stylesheets and <style> blocks (keep our own preload style)
+    // Remove external stylesheets and <style> blocks, keeping the extension's
+    // own two: the preload style, and ui/styles.css injected by
+    // inject-styles.js — dropping the latter leaves the reading view unstyled
+    // (the injected sheet predates this filter, which only knew the preload).
+    const extensionStyles = new Set(['markdown-viewer-preload', 'mv-content-styles']);
     document.head.querySelectorAll<HTMLElement>('link[rel~="stylesheet"], style').forEach((el) => {
-      if (el.id !== 'markdown-viewer-preload') {
+      if (!el.id || !extensionStyles.has(el.id)) {
         el.remove();
       }
     });
