@@ -74,8 +74,12 @@ const presets = new Map(registry.themes.map((t) => [t.id, { ...readJSON(path.joi
 
 // ---------------------------------------------------------------- design spec
 const ALERTS = { note: '#0969da', tip: '#1a7f37', warning: '#9a6700', important: '#8250df', caution: '#cf222e' };
-// Reading measure: mirrors #markdown-page in src/ui/styles.css (keep in sync).
-const READING_MAX_WIDTH = 820, READING_GUTTER = 48;
+// Reading measure: mirrors #markdown-page in src/ui/styles.css, which in turn
+// mirrors READING_MAX_WIDTH_PX in src/ui/layout-presets.ts. Exported so the
+// drift guard (test/suites/project-gates/reading-measure.test.ts) can compare
+// the three copies; keep them in sync.
+export const READING_MAX_WIDTH = 820;
+export const READING_GUTTER = 48;
 // Categories where a plain blockquote must stay neutral (a quote must not read
 // as an alert). Expressive categories may carry an identity tint.
 const NEUTRAL_QUOTE_CATEGORIES = new Set(['classic', 'reading', 'modern', 'chinese']);

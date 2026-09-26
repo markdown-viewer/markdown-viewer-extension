@@ -732,6 +732,11 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
    close to Tailwind prose's 65ch. The wide 48px gutter also keeps the hover
    "#" heading anchor (offset left of each heading) inside the card instead of
    clipped against the window edge.
+   The value is owned by READING_MAX_WIDTH_PX (src/ui/layout-presets.ts): the
+   toolbar writes the same number inline for its `normal` layout, and
+   test/suites/project-gates/reading-measure.test.ts pins stylesheet, preset and
+   the D7 design check together. Keep them in step — this rule is the fallback
+   for surfaces without the toolbar.
    The card background follows the theme's page color (--md-page-bg is set on
    :root by the theme stylesheet whenever the theme defines a page
    background): with a tinted theme the whole sheet — including the 20px
@@ -1006,7 +1011,23 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
   color: var(--color-danger-text);
 }
 
-/* Code-view mode: code block flush to container edges + line numbers */
+/* Code-view mode: the code surface *is* the page + line numbers.
+   The card chrome (surface background, 20px shadow, 48px gutter) is dropped
+   here: in code view the content is a single code block that already fills the
+   container, so the card only paints a second frame — a page-coloured band
+   (and a paper shadow) wrapping a block that is itself the whole document.
+   The reading measure is dropped as well (and needs !important: the toolbar
+   writes the layout width inline): a line-length cap is a prose rule, code
+   wants the window — which is why the layout control hides while code view is
+   active (viewer-main setLayoutControlVisible).
+   Print and .mv-embed already neutralise the card the same way (with
+   !important, so they keep winning where they apply). */
+html[data-code-view] #markdown-page {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  max-width: none !important;
+}
 html[data-code-view] #markdown-content {
   padding: 0;
 }

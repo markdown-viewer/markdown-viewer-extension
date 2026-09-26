@@ -1,6 +1,7 @@
 import type { DocumentService } from '../types/platform';
 import { ResourceEmbedder } from './resource-embedder';
 import { collectContentCss } from './export-styles';
+import { READING_MAX_WIDTH_PX } from '../ui/layout-presets';
 
 export interface HtmlExportOptions {
   container: HTMLElement;
@@ -32,7 +33,7 @@ html, body {
 
 #markdown-page {
   width: 100%;
-  max-width: 1360px !important;
+  max-width: ${READING_MAX_WIDTH_PX}px !important;
   margin: 0 auto !important;
 }
 `;

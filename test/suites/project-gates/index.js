@@ -8,6 +8,7 @@
 // them.
 import './theme-system.test.ts';
 import './theme-design.test.ts';
+import './reading-measure.test.ts';
 import './settings-schema.test.ts';
 import './i18n-keys.test.ts';
 import './homepage-i18n.test.ts';
