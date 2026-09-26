@@ -4,14 +4,18 @@
  */
 
 import { EXTENSION_TO_FILE_TYPE } from '../types/formats';
+import { stripUrlQueryAndHash } from './document-url';
 
 /**
  * Get the file type from extension
- * @param filePath - The file path
+ * @param filePath - The file path or URL
  * @returns The file type (mermaid, vega, vega-lite, dot, infographic, svg, or markdown)
  */
 export function getFileType(filePath: string): string {
-  const ext = filePath.toLowerCase().split('.').pop() || '';
+  // The extension is the last segment of the *file name*: a remote URL carries
+  // its query (`.../demo.mermaid?sv=…`) after the extension, which would
+  // otherwise be read as part of it and fall back to markdown.
+  const ext = stripUrlQueryAndHash(filePath).toLowerCase().split('.').pop() || '';
   if (ext === 'svg') return 'svg';
   return EXTENSION_TO_FILE_TYPE[ext] || 'markdown';
 }

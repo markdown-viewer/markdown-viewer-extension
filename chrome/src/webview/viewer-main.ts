@@ -14,6 +14,7 @@ import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { buildCodeReadingRender, applyCodeViewPresentation } from '../../../src/utils/code-preview';
+import { stripUrlQueryAndHash } from '../../../src/utils/document-url';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
 import { getTableLayout, getImageLayout, getDiagramLayout, exportViewerDocument } from '../../../src/core/viewer/viewer-host';
@@ -380,10 +381,15 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     });
   };
 
+  // Location used for *format* decisions (code view / markdown / slidev) and
+  // for the toolbar name — never for fetching. Query string and hash are
+  // dropped: a remote URL keeps them after the file name
+  // (`.../job-logs.txt?sv=…`), which would defeat every extension check and
+  // turn the document into a markdown parse of itself.
   const getViewerDocumentLocation = (): string => {
     const workspaceFilePath = document.documentElement.dataset.viewerWorkspaceFilePath;
     const viewerFilename = document.documentElement.dataset.viewerFilename;
-    return workspaceFilePath || viewerFilename || getActiveDocumentUrl();
+    return stripUrlQueryAndHash(workspaceFilePath || viewerFilename || getActiveDocumentUrl());
   };
 
   const toViewerPersistedState = (state: FileState): ViewerPersistedState => {
@@ -631,7 +637,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   }
 
   // ── Slidev mode: .slides.md files render as presentations ────────────
-  const isSlidevFile = (path: string): boolean => /\.slides\.md$/i.test(path);
+  const isSlidevFile = (path: string): boolean => /\.slides\.md$/i.test(stripUrlQueryAndHash(path));
 
   const renderSlidevContent = async (content: string): Promise<void> => {
     // Mark that we're in Slidev mode so the embed layer can detect it and
@@ -690,7 +696,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   const initialUrl = getActiveDocumentUrl();
-  if (isSlidevFile(initialUrl)) {
+  // Extension checks below run on the path: a remote document keeps its query
+  // string after the file name (`.../doc.md?sv=…`), which would otherwise read
+  // as "not markdown" and disable the TOC.
+  const initialPath = stripUrlQueryAndHash(initialUrl);
+  if (isSlidevFile(initialPath)) {
     await renderSlidevContent(rawContent);
     return;
   }
@@ -703,7 +713,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // Note: keep TOC enabled for htmlConverted pages (reading-mode on arbitrary
   // web pages) since their content may still benefit from heading navigation.
   if (document.documentElement.dataset.tocDisabled === undefined && !htmlConverted) {
-    const isMd = /\.(md|markdown)$/i.test(initialUrl) && !/\.slides\.md$/i.test(initialUrl);
+    const isMd = /\.(md|markdown)$/i.test(initialPath) && !/\.slides\.md$/i.test(initialPath);
     if (!isMd) {
       document.documentElement.dataset.tocDisabled = '1';
     }
@@ -1864,7 +1874,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       return;
     }
 
-    const pathname = targetUrl.split('#')[0].toLowerCase();
+    const pathname = stripUrlQueryAndHash(targetUrl).toLowerCase();
     const isMarkdownLink = pathname.endsWith('.md') || pathname.endsWith('.markdown');
     // Intercept same-origin markdown links only (file:// pages count as one
     // origin); external sites keep the browser's native navigation.

@@ -10,6 +10,7 @@ import {
   isSpecialAbsoluteUrl,
   splitPathAndFragment,
   stripLeadingDotSlash,
+  stripUrlQueryAndHash,
 } from '../../../src/utils/document-url.ts';
 
 describe('document-url utilities', () => {
@@ -82,5 +83,24 @@ describe('document-url utilities', () => {
     assert.strictEqual(isAbsoluteFilesystemPath('file:///tmp/a.md'), true);
     assert.strictEqual(isAbsoluteFilesystemPath('./a.md'), false);
     assert.strictEqual(isAbsoluteFilesystemPath('a.md'), false);
+  });
+
+  it('strips query and hash from hierarchical URLs', () => {
+    assert.strictEqual(
+      stripUrlQueryAndHash('https://acct.blob.core.windows.net/results/job/job-logs.txt?sv=2025-11-05&sig=abc%3D'),
+      'https://acct.blob.core.windows.net/results/job/job-logs.txt',
+    );
+    assert.strictEqual(stripUrlQueryAndHash('https://example.com/a.md#intro'), 'https://example.com/a.md');
+    assert.strictEqual(stripUrlQueryAndHash('file:///tmp/notes.md#intro'), 'file:///tmp/notes.md');
+    assert.strictEqual(stripUrlQueryAndHash('//cdn.example.com/a.txt?x=1'), '//cdn.example.com/a.txt');
+  });
+
+  it('leaves paths whose ? or # is part of the name untouched', () => {
+    // '?' and '#' are legal file-name characters, and a data: payload may
+    // contain them verbatim — only hierarchical URLs are cut.
+    assert.strictEqual(stripUrlQueryAndHash('/Users/me/a.mermaid?draft'), '/Users/me/a.mermaid?draft');
+    assert.strictEqual(stripUrlQueryAndHash('./notes.md?x=1'), './notes.md?x=1');
+    assert.strictEqual(stripUrlQueryAndHash('data:text/plain,what?x=1'), 'data:text/plain,what?x=1');
+    assert.strictEqual(stripUrlQueryAndHash(''), '');
   });
 });

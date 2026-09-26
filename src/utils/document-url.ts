@@ -120,3 +120,28 @@ export function stripLeadingDotSlash(path: string): string {
 export function isAbsoluteFilesystemPath(path: string): boolean {
   return path.startsWith('file://') || path.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(path);
 }
+
+/** Schemes whose URLs are hierarchical, so a trailing query/hash is not content. */
+const HIERARCHICAL_URL = /^(?:https?|file):\/\//i;
+
+/**
+ * Drop a URL's query string and hash so callers can match the file name.
+ *
+ * Remote URLs routinely carry a query *after* the file name — a SAS token
+ * (`.../job-logs.txt?sv=2025-11-05&sig=…`), a cache buster, tracking params —
+ * which defeats every `endsWith('.txt')`-style extension check on the full
+ * URL even though the path clearly names a .txt file.
+ *
+ * Only hierarchical URLs (`http:`, `https:`, `file:`, protocol-relative
+ * `//host/...`) are cut: '?' and '#' are legal characters in a plain
+ * filesystem path, and `data:`/`blob:` payloads may contain them verbatim, so
+ * everything else is returned unchanged.
+ */
+export function stripUrlQueryAndHash(url: string): string {
+  if (!url || (!HIERARCHICAL_URL.test(url) && !url.startsWith('//'))) {
+    return url;
+  }
+
+  const cut = url.search(/[?#]/);
+  return cut < 0 ? url : url.slice(0, cut);
+}

@@ -6,9 +6,12 @@
 import hljs from 'highlight.js/lib/common';
 import { renderMarkdownCodeBlockHtml } from '../core/markdown-processor';
 import { EXT_LANG_MAP, CODE_PREVIEW_EXTENSIONS } from './extension-categories';
+import { stripUrlQueryAndHash } from './document-url';
 
 export function getCodePreviewMatchedExtension(path: string): string | null {
-  const lowerPath = path.toLowerCase();
+  // Match on the file name: a remote URL keeps its query (`.../logs.txt?sv=…`)
+  // and hash *after* the extension, which would never match the plain suffix.
+  const lowerPath = stripUrlQueryAndHash(path).toLowerCase();
   for (const ext of CODE_PREVIEW_EXTENSIONS) {
     if (lowerPath.endsWith(ext)) {
       return ext;
