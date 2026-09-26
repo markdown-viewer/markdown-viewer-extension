@@ -1984,7 +1984,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     setupImageContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
-        deliverFile({ filename, mimeType, content: data, encoding: 'base64' });
+        void deliverFile({ filename, mimeType, content: data, encoding: 'base64' });
       },
       translate: (key) => Localization.translate(key),
     });
@@ -1993,7 +1993,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     setupTableContextMenu({
       container: contentContainer,
       onDownload: ({ filename, data, mimeType }) => {
-        deliverFile({ filename, mimeType, content: data, encoding: 'base64' });
+        void deliverFile({ filename, mimeType, content: data, encoding: 'base64' });
       },
       translate: (key) => Localization.translate(key),
     });

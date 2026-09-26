@@ -1,4 +1,5 @@
 import type { ViewerSaveFileMessage } from '../integration/iframe-viewer-host';
+import type { PlatformAPI } from '../types/platform';
 
 export interface FileDelivery {
   filename: string;
@@ -35,16 +36,38 @@ export function anchorDownloadFile(file: FileDelivery): void {
 }
 
 /**
+ * True when this document cannot download at all.
+ *
+ * A document served with `Content-Security-Policy: sandbox`
+ * (raw.githubusercontent.com does exactly that) or framed with a `sandbox`
+ * attribute loses its origin: Chrome blocks `<a download>` outright — the
+ * click runs, the blob is built, and nothing happens, with no error to react
+ * to. The opaque origin is the observable part of that: `window.origin`
+ * serializes it as "null" (`location.origin` still reports the URL's origin,
+ * so it cannot be used here).
+ *
+ * `file://` documents are opaque too, but they do download with an anchor.
+ */
+function documentCannotDownload(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (window.location?.protocol === 'file:') return false;
+  return String(window.origin) === 'null';
+}
+
+/**
  * Deliver a generated file to the user (save-file action, "Save Image As",
  * "Save as Excel", …).
  *
- * Chrome refuses an `<a download>` inside the extension-page iframe that hosts
- * the workspace viewer: the click runs, the blob is built, and no download ever
- * starts. An embedded viewer therefore hands the file to the top-level page,
- * which downloads it; every other host (content-script page on file:// or
- * http, extension page) uses the plain anchor download.
+ * Three hosts, three ways out:
+ *   - embedded viewer → hand the file to the top-level page (Chrome refuses an
+ *     `<a download>` inside the extension-page iframe that hosts it);
+ *   - sandboxed document → the platform file service, i.e. the background
+ *     writing the file with chrome.downloads. That needs the optional
+ *     "downloads" permission, so it is requested first (once per install — the
+ *     export menu asks for it the same way);
+ *   - everything else → the plain anchor download.
  */
-export function deliverFile(file: FileDelivery): void {
+export async function deliverFile(file: FileDelivery): Promise<void> {
   if (typeof window !== 'undefined' && window.parent !== window) {
     const message: ViewerSaveFileMessage = {
       type: 'SAVE_FILE',
@@ -58,6 +81,17 @@ export function deliverFile(file: FileDelivery): void {
       return;
     } catch {
       // Cross-origin parent — fall through to the anchor download.
+    }
+  }
+
+  const platform = (globalThis as { platform?: PlatformAPI }).platform;
+  if (documentCannotDownload() && platform?.file?.download) {
+    try {
+      await platform.file.requestDownloadPermission?.();
+      await platform.file.download(toBlob(file), file.filename, { mimeType: file.mimeType });
+      return;
+    } catch (error) {
+      console.warn('[deliverFile] platform download failed:', error);
     }
   }
 

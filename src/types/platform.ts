@@ -108,6 +108,12 @@ export interface StorageService {
  */
 export interface FileService {
   download(blob: Blob | string, filename: string, options?: DownloadOptions): Promise<void>;
+  /**
+   * Ask for the platform's download permission, when writing a file needs one
+   * (Chrome's optional "downloads" permission). Resolves to whether it is
+   * granted; platforms that need none omit the method.
+   */
+  requestDownloadPermission?(): Promise<boolean>;
 }
 
 /**

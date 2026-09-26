@@ -63,7 +63,30 @@ const serviceChannel = new ServiceChannel(new ChromeRuntimeTransport(), {
 // Unified services (same as Mobile/VSCode)
 const cacheService = new CacheService(serviceChannel);
 const storageService = new StorageService(serviceChannel);
-const fileService = new FileService(serviceChannel);
+
+/**
+ * Chrome's file service, which can also ask for the optional "downloads"
+ * permission. The background writes the file with chrome.downloads when it
+ * holds that permission, and that is the only delivery left for a document
+ * Chrome refuses to download from (a sandboxed one, e.g. raw.githubusercontent
+ * .com). The plain message is the one the export menu already uses.
+ */
+class ChromeFileService extends FileService {
+  requestDownloadPermission(): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' }, (response) => {
+          void chrome.runtime.lastError;
+          resolve(Boolean((response as { granted?: boolean } | undefined)?.granted));
+        });
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+}
+
+const fileService = new ChromeFileService(serviceChannel);
 const fileStateService = new FileStateService(serviceChannel);
 
 // Settings service - will be initialized with refresh callback in ChromePlatformAPI

@@ -812,7 +812,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       mimeType: 'text/markdown;charset=utf-8',
     };
     const fileContent = getRawContent ? getRawContent() : rawMarkdown;
-    deliverFile({ filename: target.filename, mimeType: target.mimeType, content: fileContent });
+    void deliverFile({ filename: target.filename, mimeType: target.mimeType, content: fileContent });
   }
 
   async function triggerPrint(): Promise<void> {
