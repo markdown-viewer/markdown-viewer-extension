@@ -92,4 +92,11 @@ export interface ToolbarManagerInstance {
   setupKeyboardShortcuts: () => void;
   /** Re-apply translated tooltips/aria-labels after the UI locale changed. */
   applyLocale: () => void;
+  /**
+   * Per-document state of the source/preview toggle: `supported` follows the
+   * current file (markdown only), `sourceMode` follows the resolved view mode.
+   */
+  setSourceToggleState: (state: { supported: boolean; sourceMode: boolean }) => void;
+  /** Show/hide the layout (width) control — hidden while code view is active. */
+  setLayoutControlVisible: (visible: boolean) => void;
 }

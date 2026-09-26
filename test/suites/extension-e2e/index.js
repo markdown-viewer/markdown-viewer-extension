@@ -8,3 +8,4 @@ import './context-menu-e2e.test.ts';
 import './browser-context-menu.test.ts';
 import './remote-document-images.test.ts';
 import './query-string-preview.test.ts';
+import './code-view.test.ts';

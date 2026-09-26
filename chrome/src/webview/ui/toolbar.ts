@@ -21,6 +21,7 @@ import type {
 import type { BookExportPhase } from '../../../../src/types/book-export';
 import { createRemarkMode } from '../../../../src/ui/remark-mode';
 import type { RemarkModeController } from '../../../../src/ui/remark-mode';
+import { LAYOUT_MAX_WIDTHS } from '../../../../src/ui/layout-presets';
 import { BookExportProgressModel } from './book-export-progress';
 
 // SVG icons for different layouts
@@ -78,9 +79,9 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   };
 
   const layoutConfigs: Record<string, LayoutConfig> = {
-    normal: { maxWidth: '1360px', icon: layoutIcons.normal, title: layoutTitles.normal },
-    fullscreen: { maxWidth: '100%', icon: layoutIcons.fullscreen, title: layoutTitles.fullscreen },
-    narrow: { maxWidth: '680px', icon: layoutIcons.narrow, title: layoutTitles.narrow }
+    normal: { maxWidth: LAYOUT_MAX_WIDTHS.normal, icon: layoutIcons.normal, title: layoutTitles.normal },
+    fullscreen: { maxWidth: LAYOUT_MAX_WIDTHS.fullscreen, icon: layoutIcons.fullscreen, title: layoutTitles.fullscreen },
+    narrow: { maxWidth: LAYOUT_MAX_WIDTHS.narrow, icon: layoutIcons.narrow, title: layoutTitles.narrow }
   };
 
   // Global zoom state
@@ -569,30 +570,22 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       })();
     }
 
-    // Source/preview toggle button (.md only)
+    // Source/preview toggle button. The button always exists (one toolbar can
+    // serve many files in workspace mode), and its visibility + icon come from
+    // setSourceToggleState() — the per-document availability and the resolved
+    // mode — instead of being frozen at toolbar-build time.
     const sourceToggleBtn = document.getElementById('toggle-source-view-btn');
-    if (sourceToggleBtn && enableSourceToggle && onToggleSourceMode && getSourceMode) {
-      const sourceIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7 6 3 10l4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m13 6 4 4-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      const previewIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke-width="2"/><circle cx="10" cy="10" r="2" stroke-width="2"/></svg>`;
-
-      const updateSourceToggleUI = (): void => {
-        const sourceMode = getSourceMode();
-        sourceToggleBtn.innerHTML = sourceMode ? previewIcon : sourceIcon;
-        sourceToggleBtn.title = sourceMode ? 'Preview Mode' : 'Source Mode';
-        sourceToggleBtn.setAttribute('aria-label', sourceToggleBtn.title);
-      };
-
-      updateSourceToggleUI();
+    if (sourceToggleBtn && onToggleSourceMode) {
       sourceToggleBtn.addEventListener('click', () => {
+        // The icon/title follow the *resolved* mode, which only changes after
+        // the async mode switch — setSourceToggleState applies it.
         onToggleSourceMode();
-        updateSourceToggleUI();
-        // Exit remark mode when entering source mode
-        if (getSourceMode() && remarkController?.isActive()) {
-          remarkController.exit();
-          updateRemarkToggleUI();
-        }
       });
     }
+    setSourceToggleState({
+      supported: Boolean(enableSourceToggle),
+      sourceMode: Boolean(getSourceMode?.()),
+    });
 
     // Remark Mode toggle button
     const remarkToggleBtn = document.getElementById('toggle-remark-btn');
@@ -917,6 +910,48 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     remarkController?.applyLocale();
   }
 
+  /**
+   * Reflect the current document's source-view availability + mode on the
+   * toolbar button.
+   *
+   * Called for every document (workspace mode switches files without rebuilding
+   * the toolbar, so a button created for the first file would otherwise stay
+   * missing — or stay visible — for the rest of the session) and whenever the
+   * resolved mode changes (the click handler cannot know the new mode, it is
+   * applied asynchronously by the viewer session).
+   */
+  function setSourceToggleState(state: { supported: boolean; sourceMode: boolean }): void {
+    const btn = document.getElementById('toggle-source-view-btn');
+    if (!btn) return;
+
+    btn.style.display = state.supported ? '' : 'none';
+    if (!state.supported) return;
+
+    const sourceIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7 6 3 10l4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m13 6 4 4-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const previewIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke-width="2"/><circle cx="10" cy="10" r="2" stroke-width="2"/></svg>`;
+
+    btn.innerHTML = state.sourceMode ? previewIcon : sourceIcon;
+    btn.title = state.sourceMode ? 'Preview Mode' : 'Source Mode';
+    btn.setAttribute('aria-label', btn.title);
+    btn.setAttribute('aria-pressed', String(state.sourceMode));
+
+    // Source view and remark mode are mutually exclusive: entering source mode
+    // closes the annotation sidebar (the controller repaints its own button).
+    if (state.sourceMode && remarkController?.isActive()) {
+      remarkController.exit();
+    }
+  }
+
+  /**
+   * Show/hide the layout (width) control. Code view forces a full-bleed code
+   * surface, so the reading-width presets have nothing to act on there.
+   */
+  function setLayoutControlVisible(visible: boolean): void {
+    const btn = document.getElementById('layout-toggle-btn');
+    if (!btn) return;
+    btn.style.display = visible ? '' : 'none';
+  }
+
   return {
     layoutIcons,
     layoutConfigs,
@@ -926,7 +961,9 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     initializeToolbar,
     setupToolbarButtons,
     setupKeyboardShortcuts,
-    applyLocale
+    applyLocale,
+    setSourceToggleState,
+    setLayoutControlVisible
   };
 }
 
@@ -1002,13 +1039,15 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
               <line x1="3" y1="7" x2="17" y2="7" stroke-width="2"/>
             </svg>
           </button>
-          ${enableSourceToggle ? `
-          <button id="toggle-source-view-btn" class="toolbar-btn" title="Source Mode" aria-label="Source Mode">
+          ${'' /* The source toggle is always rendered: workspace mode reuses one
+                toolbar for many files, so visibility is per document
+                (setSourceToggleState). */}
+          <button id="toggle-source-view-btn" class="toolbar-btn" title="Source Mode" aria-label="Source Mode"${enableSourceToggle ? '' : ' style="display: none;"'}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
               <path d="M7 6 3 10l4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="m13 6 4 4-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-          </button>` : ''}
+          </button>
         </div>
         <div class="toolbar-right">
           ${enableRemarkMode ? `

@@ -15,6 +15,7 @@ import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { buildCodeReadingRender, applyCodeViewPresentation } from '../../../src/utils/code-preview';
 import { stripUrlQueryAndHash } from '../../../src/utils/document-url';
+import { LAYOUT_MAX_WIDTHS } from '../../../src/ui/layout-presets';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
 import { getTableLayout, getImageLayout, getDiagramLayout, exportViewerDocument } from '../../../src/core/viewer/viewer-host';
@@ -374,6 +375,25 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const applyResolvedModePresentation = (resolvedMode: ViewerResolvedMode): void => {
     markdownViewerAdapter?.setDisplayMode(mapResolvedModeToDisplayMode(resolvedMode));
     applyCodeViewPresentation(resolvedMode !== 'rendered');
+    // Source toggle + layout control are per-document state. Workspace mode
+    // reuses one toolbar across files, so both have to follow the *current*
+    // document and resolved mode instead of whatever was true when the toolbar
+    // was built (a .txt opened first used to leave every later .md without a
+    // source toggle). Code view is full-bleed, so the width presets have
+    // nothing to act on while it is active.
+    //
+    // Cosmetic on purpose: this runs inside the presentation effect, and a
+    // throw here would reject the whole dispatch — the document would never
+    // render while the toolbar already shows the new file name.
+    try {
+      toolbarManager?.setSourceToggleState({
+        supported: isMarkdownSourceToggleEnabled(),
+        sourceMode: resolvedMode === 'source',
+      });
+      toolbarManager?.setLayoutControlVisible(resolvedMode === 'rendered');
+    } catch (error) {
+      logThenPermissionError('presentation.toolbarState.failed', error, { resolvedMode });
+    }
     logViewerDebug('presentation.apply', {
       resolvedMode,
       displayMode: mapResolvedModeToDisplayMode(resolvedMode),
@@ -878,9 +898,9 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   const layoutConfigs: LayoutConfigs = {
-    normal: { maxWidth: '1360px', icon: layoutIcons.normal, title: layoutTitles.normal },
-    fullscreen: { maxWidth: '100%', icon: layoutIcons.fullscreen, title: layoutTitles.fullscreen },
-    narrow: { maxWidth: '680px', icon: layoutIcons.narrow, title: layoutTitles.narrow },
+    normal: { maxWidth: LAYOUT_MAX_WIDTHS.normal, icon: layoutIcons.normal, title: layoutTitles.normal },
+    fullscreen: { maxWidth: LAYOUT_MAX_WIDTHS.fullscreen, icon: layoutIcons.fullscreen, title: layoutTitles.fullscreen },
+    narrow: { maxWidth: LAYOUT_MAX_WIDTHS.narrow, icon: layoutIcons.narrow, title: layoutTitles.narrow },
   };
 
   type LayoutMode = keyof LayoutConfigs;
@@ -1017,7 +1037,15 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           scrollLine,
           before: getViewerSnapshot(),
         });
-        await assembler.reportCurrentLine(scrollLine);
+        // Reporting the current line only seeds the scroll anchor for the new
+        // view. It is best-effort on purpose: an error here (storage or session
+        // hiccup while the page is still booting) used to abort this async
+        // chain *before* toggleModeIntent, so the click looked ignored.
+        try {
+          await assembler.reportCurrentLine(scrollLine);
+        } catch (error) {
+          logThenPermissionError('toggleSource.reportCurrentLine.failed', error, { scrollLine });
+        }
         const reportEndedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
         logViewerDebug('toggleSource.reportCurrentLine.done', {
           scrollLine,
