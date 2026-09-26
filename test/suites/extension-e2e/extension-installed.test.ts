@@ -41,6 +41,7 @@ import {
   WAIT_RENDERED_JS,
   WAIT_STANDALONE_READY_JS,
   VIEWER_EMBED_READY_JS,
+  MOCK_DIRECTORY_PICKER_JS,
   evalJs,
   installPageDiagnostics,
   launchExtensionContext,
@@ -146,27 +147,6 @@ const READ_BG_COVERAGE_JS = `() => {
   };
 }`;
 
-const MOCK_PICKER_JS = `(fixtures) => {
-  const handles = {};
-  for (const [name, content] of Object.entries(fixtures)) {
-    handles[name] = { name, kind: 'file', getFile: async () => new File([content], name) };
-  }
-  window.showDirectoryPicker = async () => ({
-    name: 'fixtures',
-    kind: 'directory',
-    queryPermission: async () => 'granted',
-    requestPermission: async () => 'granted',
-    getFileHandle: async (name) => {
-      if (!handles[name]) throw new DOMException('Not found', 'NotFoundError');
-      return handles[name];
-    },
-    getDirectoryHandle: async () => { throw new DOMException('Not a directory', 'NotFoundError'); },
-    [Symbol.asyncIterator]: async function* () {
-      for (const [name, handle] of Object.entries(handles)) yield [name, handle];
-    },
-  });
-}`;
-
 describe('installed Chrome extension (three open modes × full fixture matrix)', { skip: SKIP_EXT }, () => {
   let harness: ExtensionContextHarness | undefined;
   let extensionId = '';
@@ -206,7 +186,7 @@ describe('installed Chrome extension (three open modes × full fixture matrix)',
     }
     workspacePage = await harness.context.newPage();
     installPageDiagnostics(workspacePage, 'installed:workspace');
-    await workspacePage.addInitScript(`(${MOCK_PICKER_JS})(${JSON.stringify(fixtureContents)})`);
+    await workspacePage.addInitScript(`(${MOCK_DIRECTORY_PICKER_JS})(${JSON.stringify(fixtureContents)})`);
 
     // Pin the settings used by every render.
     await embedPage.goto(`chrome-extension://${extensionId}/ui/workspace/viewer-embed.html?embed=1`);

@@ -70,7 +70,13 @@ async function waitForViewerMainRuntime(): Promise<NonNullable<ReturnType<typeof
     return runtime;
   }
 
-  for (let attempt = 0; attempt < 24; attempt += 1) {
+  // The runtime appears only after the viewer's boot finished loading its file
+  // state, settings and theme (each a storage/asset round trip). The old 600ms
+  // budget was inside that boot's spread: on a cold iframe the wait timed out,
+  // the document was dropped and the reading area kept the previous file —
+  // intermittently, which is exactly how it was reported. The hand-off render
+  // masks the first document, so the failure showed up on the *second* switch.
+  for (let attempt = 0; attempt < 400; attempt += 1) {
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 25);
     });
@@ -80,7 +86,7 @@ async function waitForViewerMainRuntime(): Promise<NonNullable<ReturnType<typeof
     }
   }
 
-  throw new Error('[viewer-embed] viewer runtime not initialized');
+  throw new Error('[viewer-embed] viewer runtime not initialized after 10s');
 }
 
 // Inject embed-mode CSS when loaded with ?embed=1 (from element.ts custom element iframe).
@@ -409,10 +415,18 @@ async function handleExportRequest(message: ViewerExportRequestMessage): Promise
 function handleViewerMessage(data: ViewerIframeMessage): void {
   switch (data.type) {
     case 'OPEN_DOCUMENT':
-      void handleDocumentMessage(data, 'open');
+      // Never swallow a failed document open: the toolbar metadata is applied
+      // before the render, so a rejected open leaves the *previous* file on
+      // screen with the new file's name — the exact "switching does nothing"
+      // symptom, with nothing in the console to explain it.
+      void handleDocumentMessage(data, 'open').catch((error) => {
+        console.error('[viewer-embed] OPEN_DOCUMENT failed:', data.filename, error);
+      });
       return;
     case 'UPDATE_CONTENT':
-      void handleDocumentMessage(data, 'update');
+      void handleDocumentMessage(data, 'update').catch((error) => {
+        console.error('[viewer-embed] UPDATE_CONTENT failed:', error);
+      });
       return;
     case 'SYNC_HOST_UI':
       hostUiController.syncHostUi(data);

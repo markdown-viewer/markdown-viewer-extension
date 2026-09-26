@@ -65,6 +65,48 @@ export {
   waitForStable,
 } from './page-driver.ts';
 
+/**
+ * `window.showDirectoryPicker` stub for the workspace suites: serves an
+ * in-memory file map as a granted directory handle (the real picker needs a
+ * user gesture and a native dialog, neither of which exists in a test).
+ *
+ * Map values are either a file's content (string) or a nested directory
+ * (object), so a fixture can exercise the file tree's folders:
+ *   { 'readme.md': '# Hi', docs: { 'guide.md': '# Guide' } }
+ *
+ * Install it with `page.addInitScript`:
+ *   `(${MOCK_DIRECTORY_PICKER_JS})(${JSON.stringify(files)})`
+ */
+export const MOCK_DIRECTORY_PICKER_JS = `(fixtures) => {
+  const makeFile = (name, content) => ({ name, kind: 'file', getFile: async () => new File([content], name) });
+  const makeDir = (name, entries) => {
+    const handles = {};
+    for (const [entryName, value] of Object.entries(entries)) {
+      handles[entryName] = typeof value === 'string' ? makeFile(entryName, value) : makeDir(entryName, value);
+    }
+    return {
+      name,
+      kind: 'directory',
+      queryPermission: async () => 'granted',
+      requestPermission: async () => 'granted',
+      getFileHandle: async (fileName) => {
+        const handle = handles[fileName];
+        if (!handle || handle.kind !== 'file') throw new DOMException('Not found', 'NotFoundError');
+        return handle;
+      },
+      getDirectoryHandle: async (dirName) => {
+        const handle = handles[dirName];
+        if (!handle || handle.kind !== 'directory') throw new DOMException('Not a directory', 'NotFoundError');
+        return handle;
+      },
+      [Symbol.asyncIterator]: async function* () {
+        for (const [entryName, handle] of Object.entries(handles)) yield [entryName, handle];
+      },
+    };
+  };
+  window.showDirectoryPicker = async () => makeDir('fixtures', fixtures);
+}`;
+
 export function waitImagesJs(rootSelector: string): string {
   const selector = JSON.stringify(`${rootSelector} img`);
   return `() => {

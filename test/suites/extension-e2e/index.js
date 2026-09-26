@@ -9,3 +9,4 @@ import './browser-context-menu.test.ts';
 import './remote-document-images.test.ts';
 import './query-string-preview.test.ts';
 import './code-view.test.ts';
+import './workspace-file-switch.test.ts';

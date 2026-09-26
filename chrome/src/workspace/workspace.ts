@@ -8,6 +8,7 @@ import { applyI18nText } from '../../../src/ui/popup/i18n-helpers';
 import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
 import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, arrowLeft, arrowRight, getFileIcon } from './file-icons';
 import { rewriteHtmlForPreview, type HtmlPreviewRewriteResult } from './html-preview-rewrite';
+import type { ViewerIframeDocumentSyncInput } from '../../../src/integration/iframe-viewer-host';
 import themeManager from '../../../src/utils/theme-manager';
 import { createViewerIframeHostBridge } from '../../../src/integration/iframe-viewer-host';
 import type { ViewerIframeMessage } from '../../../src/integration/iframe-viewer-host';
@@ -152,6 +153,24 @@ function notifyPreviewLayoutChanged(): void {
 
 let previewFrameReady = false;
 let previewFrameReadyPromise: Promise<void> | null = null;
+/**
+ * Which document the pane is meant to show, as a monotonically
+ * increasing token. Both openers are asynchronous (reading the file, rewriting
+ * local resources), so a slow one must not land after a newer one: every open
+ * claims the pane, and the loser bails out. Without this a slow HTML preview
+ * could switch the iframe away right after a markdown file had been rendered —
+ * the reading area then showed the wrong document and every later switch was
+ * posted into a document that was no longer the viewer.
+ */
+let previewRequestId = 0;
+/**
+ * The pane's intended owner. Needed because the *live* document is not enough
+ * to answer "is the viewer showing?": while the iframe navigates to another
+ * document the previous one is still current, so a liveness check reports the
+ * viewer while the pane is in fact being taken over — and the document posted
+ * in that window is dropped.
+ */
+let previewMode: 'viewer' | 'html' = 'viewer';
 
 function resetPreviewFrameState(): void {
   previewFrameReady = false;
@@ -159,8 +178,45 @@ function resetPreviewFrameState(): void {
   previewFrameBridge.reset();
 }
 
+/**
+ * True when the iframe really shows the viewer.
+ *
+ * The `src` attribute alone is not enough either: the previewed HTML runs
+ * *inside* this iframe, so a document it navigates to (or the sandbox page
+ * itself) leaves `src` pointing at the viewer while a different document is on
+ * screen. Reading `location` also throws for the sandboxed (null-origin)
+ * preview page, which is exactly the "not the viewer" answer.
+ */
+function isViewerFrameLive(): boolean {
+  try {
+    return Boolean($previewFrame.contentWindow?.location.href.startsWith(VIEWER_URL));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * How long to wait for the viewer page to announce itself before assuming the
+ * navigation did not take and reloading the frame. A silent viewer used to hang
+ * every later switch: the ready promise was never settled, `sendToViewer` never
+ * reached its post, and the reading area kept the previous file with no error.
+ */
+const VIEWER_READY_TIMEOUT_MS = 5000;
+const VIEWER_READY_MAX_ATTEMPTS = 3;
+
 function ensureViewerFrameReady(): Promise<void> {
-  if (previewFrameReady && $previewFrame.src === VIEWER_URL) {
+  // Claim the pane on *every* viewer open, including the fast path: a pending
+  // HTML preview (still reading/rewriting its file) must not take the iframe
+  // over after this document was requested.
+  previewRequestId += 1;
+
+  // Was the pane already meant to show the viewer? Captured before the intent
+  // is (re)asserted below, because the fast path may only be taken when the
+  // previous owner was the viewer too.
+  const paneWasViewer = previewMode === 'viewer';
+  previewMode = 'viewer';
+
+  if (previewFrameReady && paneWasViewer && isViewerFrameLive()) {
     return Promise.resolve();
   }
 
@@ -172,31 +228,62 @@ function ensureViewerFrameReady(): Promise<void> {
   $previewFrame.style.visibility = '';
   $previewFrame.style.display = 'block';
 
-  previewFrameReadyPromise = new Promise((resolve) => {
+  const readyPromise = new Promise<void>((resolve) => {
+    let settled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('message', onMessage);
+      if (timer !== null) clearTimeout(timer);
+      previewFrameReady = true;
+      if (previewFrameReadyPromise === readyPromise) {
+        previewFrameReadyPromise = null;
+      }
+      resolve();
+    };
+
     const onMessage = (event: MessageEvent) => {
       if (event.source !== $previewFrame.contentWindow) return;
       if (event.data?.type !== 'VIEWER_READY') return;
-      window.removeEventListener('message', onMessage);
-      previewFrameReady = true;
-      previewFrameReadyPromise = null;
-      resolve();
+      finish();
+    };
+
+    const armTimeout = (): void => {
+      timer = setTimeout(() => {
+        if (settled) return;
+        attempts += 1;
+        if (attempts >= VIEWER_READY_MAX_ATTEMPTS) {
+          // Never leave the caller hanging: hand the document over anyway and
+          // let the render-confirmation retry cover a merely slow viewer.
+          console.error('[workspace] viewer never signalled VIEWER_READY; handing the document over unconfirmed');
+          finish();
+          return;
+        }
+        console.warn(`[workspace] viewer silent for ${VIEWER_READY_TIMEOUT_MS}ms; reloading the preview frame`);
+        // Cache-buster: assigning the same URL would not re-navigate.
+        $previewFrame.src = `${VIEWER_URL}?t=${Date.now()}`;
+        armTimeout();
+      }, VIEWER_READY_TIMEOUT_MS);
     };
 
     window.addEventListener('message', onMessage);
 
-    if ($previewFrame.src !== VIEWER_URL) {
+    if (!paneWasViewer || !isViewerFrameLive()) {
       resetPreviewFrameState();
       $previewFrame.src = VIEWER_URL;
+      armTimeout();
       return;
     }
 
-    previewFrameReady = true;
-    previewFrameReadyPromise = null;
-    window.removeEventListener('message', onMessage);
-    resolve();
+    // The pane is the viewer and it is live: nothing to wait for.
+    finish();
   });
 
-  return previewFrameReadyPromise;
+  previewFrameReadyPromise = readyPromise;
+  return readyPromise;
 }
 
 // Re-sync host UI (theme, history controls) to the embedded viewer whenever it
@@ -208,6 +295,14 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== $previewFrame.contentWindow) return;
   if (event.data?.type !== 'VIEWER_READY') return;
   void postHostUiToViewer();
+});
+
+// The viewer confirms every document it rendered; that is what clears the
+// retry above (see syncDocumentWithConfirmation).
+window.addEventListener('message', (event: MessageEvent) => {
+  if (event.source !== $previewFrame.contentWindow) return;
+  if (event.data?.type !== 'VIEWER_RENDERED') return;
+  confirmPendingDocumentSync();
 });
 
 async function getStoredSidebarWidth(): Promise<number | null> {
@@ -1016,6 +1111,10 @@ window.addEventListener('message', (event) => {
 });
 
 async function openHtmlPreview(file: File, _name: string): Promise<void> {
+  // Claim the pane before the first await: reading the file and rewriting its
+  // local resources takes a while, and a file clicked in that window must win.
+  const requestId = ++previewRequestId;
+
   // 释放上一次预览创建的 blob URL,避免切换文件时泄漏
   if (htmlPreviewRewrite) {
     htmlPreviewRewrite.revoke();
@@ -1024,6 +1123,9 @@ async function openHtmlPreview(file: File, _name: string): Promise<void> {
   pendingHtmlPreview = null;
 
   const text = await file.text();
+  if (requestId !== previewRequestId) {
+    return; // a newer open (viewer or another HTML file) claimed the pane
+  }
   let previewHtml = text;
 
   if (rootDirHandle) {
@@ -1050,9 +1152,17 @@ async function openHtmlPreview(file: File, _name: string): Promise<void> {
     }
   }
 
+  if (requestId !== previewRequestId) {
+    // The rewrite lost the race: drop the result so a later document is not
+    // replaced by this preview (the blob URLs it created stay alive until the
+    // next HTML preview revokes them).
+    return;
+  }
+
   $previewEmpty.style.display = 'none';
   $previewFrame.style.display = 'block';
   resetPreviewFrameState();
+  previewMode = 'html';
   pendingHtmlPreview = previewHtml;
   // 每次强制重载沙箱页(带时间戳防缓存):重复向同一文档投递内容会二次
   // 执行 deck 脚本,顶层 const/let 重复声明直接 SyntaxError。重载 = 全新
@@ -1062,11 +1172,53 @@ async function openHtmlPreview(file: File, _name: string): Promise<void> {
 }
 
 // ─── File preview via embedded viewer ───
+/**
+ * How long a document may stay unconfirmed before it is handed over again.
+ *
+ * The viewer confirms every document with `VIEWER_RENDERED` (sent after its
+ * render pipeline finished). A document can be dropped *without* any error
+ * while the iframe is booting or navigating — the embed page publishes its
+ * runtime only after its own boot — and the reading area then silently keeps
+ * the previous file, which is exactly how this was reported. One retry as a
+ * fresh OPEN_DOCUMENT (so the toolbar metadata is re-applied) turns that stall
+ * into a slower render instead of a stale pane.
+ */
+const DOCUMENT_RENDER_CONFIRM_TIMEOUT_MS = 8000;
+let pendingDocumentSync: ViewerIframeDocumentSyncInput | null = null;
+let documentSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function confirmPendingDocumentSync(): void {
+  pendingDocumentSync = null;
+  if (documentSyncTimer !== null) {
+    clearTimeout(documentSyncTimer);
+    documentSyncTimer = null;
+  }
+}
+
+function syncDocumentWithConfirmation(input: ViewerIframeDocumentSyncInput): void {
+  pendingDocumentSync = input;
+  previewFrameBridge.syncDocument(input);
+
+  if (documentSyncTimer !== null) {
+    clearTimeout(documentSyncTimer);
+  }
+  documentSyncTimer = setTimeout(() => {
+    documentSyncTimer = null;
+    const retry = pendingDocumentSync;
+    // Superseded by a newer file, or the pane is showing something else now.
+    if (!retry || retry.documentKey !== input.documentKey) return;
+    if (previewMode !== 'viewer' || !previewFrameReady) return;
+    // Reset so the retry goes out as OPEN_DOCUMENT (metadata included) again.
+    previewFrameBridge.reset();
+    previewFrameBridge.syncDocument(retry);
+  }, DOCUMENT_RENDER_CONFIRM_TIMEOUT_MS);
+}
+
 async function sendToViewer(content: string, filename: string, codeView = false, targetLine?: number, workspaceFilePath?: string) {
   await ensureViewerFrameReady();
 
   const nextWorkspaceFilePath = workspaceFilePath || '';
-  previewFrameBridge.syncDocument({
+  syncDocumentWithConfirmation({
     documentKey: nextWorkspaceFilePath || filename,
     content,
     filename,
