@@ -69,6 +69,167 @@ The VS Code layer follows the same rule. Its one external dependency is the
 editor binary itself, resolved from `MV_VSCODE_EXECUTABLE` or the platform's
 standard install location — never from a hard-coded developer path.
 
+## Mobile E2E (Flutter + WebView)
+
+The mobile layer has two speeds, both driven by the same entry point so local
+runs and CI cannot drift:
+
+```text
+scripts/mobile-e2e.js        # --layer=unit | integration | all
+```
+
+| Layer | Command | Needs a device | What it covers |
+|---|---|---|---|
+| unit | `npm run test:mobile:unit` | no | pure Dart: debug-flag semantics, the integration seam's registry contract |
+| integration | `npm run test:mobile:e2e` | yes | the real app on a device/emulator: document rendering, diagram rendering, theme switching, error blocks |
+
+Integration suites live in `mobile/integration_test/` and run through
+`flutter test integration_test -d <device>`. The app must be built for the
+target first; the runner waits for an Android device to finish booting
+(`sys.boot_completed`), then runs every suite in the directory.
+
+### Suite organisation
+
+Suites follow the same shape as the TypeScript layers: one file per area, with
+`group(...)` for the unit under test and `testWidgets(...)` named as a behaviour
+sentence (Dart's `describe`/`it`). Group names double as filters.
+
+```bash
+node scripts/mobile-e2e.js --list                      # discovered suites
+node scripts/mobile-e2e.js --layer=integration --suite=diagram_render
+node scripts/mobile-e2e.js --layer=integration --name='theme switching'
+```
+
+Phones run every file in a single `flutter test` invocation (one app build).
+Desktop hosts cannot: `flutter test` relaunches the app per test file and the
+second launch fails with `Unable to start the app on the device`, so on
+`macos`/`linux`/`windows` the runner invokes one suite per process and aggregates
+the results (`summary.json` records both).
+
+### Asserting on a WebView
+
+A platform view is opaque to Flutter's finders, so the assertions are made
+*inside the page* and read back through
+`WebViewController.runJavaScriptReturningResult`. Two seams exist for that:
+
+- `mobile/lib/dev/mobile_e2e.dart` — the app publishes hooks (open a document,
+  switch theme, wait for readiness) into a process-wide registry; tests never
+  reach into private state.
+- `window.__mvRenderDiagnostics` — the render pipeline's diagnostics sink,
+  exposed by the mobile page so a failing case can say *why* a block is missing
+  instead of only that the selector found nothing.
+
+Both are non-release only (`kReleaseMode` short-circuits).
+
+### Local device setup
+
+```bash
+# Android (the CI path)
+$ANDROID_HOME/emulator/emulator -avd <avd> -gpu host -memory 4096 -cores 4 \
+  -no-boot-anim -no-audio -no-snapshot-save &
+npm run test:mobile:e2e -- --device=emulator-5554
+```
+
+Hardware GPU matters: a software-rendered guest under a loaded host ANRs its own
+system apps (`X isn't responding`), which wedges the run instead of failing it.
+The same applies to the emulator options used in CI.
+
+### Android guest preparation
+
+A cold-booted emulator starts a burst of Google services while the test is
+already launching the app; on a loaded host several of them exceed Android's 20 s
+service budget and ANR at once. Observed on API 35 right after boot:
+`com.android.systemui`, Gboard, `com.google.android.as` (autofill), Messages RCS,
+`com.android.phone` — six ANRs in under a minute, and the dialogs then own the
+screen. The runner's Android preflight handles it:
+
+| Step | What and why |
+|---|---|
+| report | logs ANRs recorded since boot, with package names, so the cause is visible |
+| clear | `am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS` — BACK does **not** dismiss a system ANR dialog, this does |
+| prevent | `settings put global hide_error_dialogs 1` (+ `anr_show_background 0`) — persists on the AVD |
+| settle | waits `MV_E2E_BOOT_SETTLE_SECONDS` (default 20, `0` disables) so the boot burst finishes first |
+
+The ANRs never fail a run by themselves, but they steal focus and hide what
+actually broke. To avoid the burst entirely, let the emulator save a snapshot
+(drop `-no-snapshot-save`) and boot from it next time.
+
+The trigger is **host load**, not the test: the same cold-boot-then-test sequence
+produced six ANRs while this machine was also building (load average 18-26) and
+zero ANRs on an idle host (`am_anr` is logged by ActivityManager regardless of the
+dialog setting, so zero means the guest really did not stall). `hide_error_dialogs`
+persists on the AVD across emulator restarts; the preflight also reports ANRs that
+appear *during* the settle window, which is the signal that the host is starved.
+
+`MV_E2E_HEAVY=1` enables the multi-megabyte diagram case (40-node graph). Keep it
+on real devices: rasterizing that payload is the heaviest thing in the suite.
+
+### Verified baseline
+
+| Layer | Result | Wall clock |
+|---|---|---|
+| unit (`--layer=unit`) | 11/11 passed | ~15 s |
+| integration, Android emulator (warm Gradle) | 8 passed, 3 skipped (heavy + two render-surface migration cases), 0 failed | ~3.4 min incl. guest preparation (cold APK build adds ~5 min) |
+| integration, iOS simulator | 8 passed, 3 skipped, 0 failed | ~3.7 min |
+| integration, macOS desktop (per-suite mode) | 8 passed, 3 skipped, 0 failed | ~2.5 min total (4 suites × 30-40 s) |
+
+Three traps worth knowing before writing new cases:
+
+- **No digit separators in Dart**: `200_000` fails the app build with
+  `requires the experimental 'digit-separators' language feature`, because
+  `mobile/pubspec.yaml` pins an SDK constraint below the 3.6 feature. The
+  analyzer does not flag it; only `flutter build`/`flutter test` on a device does.
+- **Diagram metadata lives on the block wrapper**: `.diagram-block` carries
+  `data-plugin-type` / `data-plugin-rendered` (see
+  `src/plugins/plugin-html-utils.ts:145-153`); the `<img>` inside only carries
+  the PNG. Assert on the wrapper.
+- **`runJavaScriptReturningResult` rejects null on Apple platforms** (Android
+  returns the string `"null"`, WKWebView raises `ArgumentError`). The harness wraps
+  every expression to return a JSON string, and side effects go through
+  `runJs` (`runJavaScript`, no result) instead.
+
+### Debugging during a run
+
+`MV_WEBVIEW_DEBUG=1` (as `--dart-define`, or a process env on desktop) turns on
+WebView content debugging: `chrome://inspect` on Android, the Safari Web
+Inspector on iOS/macOS. The runner passes it for integration runs. Release
+builds cannot enable it.
+
+### CI
+
+`.github/workflows/ci.yml` has three mobile jobs, all running this same script:
+
+| Job | Runner | Layers |
+|---|---|---|
+| `mobile-e2e` | ubuntu + KVM Android emulator (API 35, x86_64) | unit, then integration |
+| `mobile-e2e-ios` | macos-latest + booted iOS simulator | integration |
+| `mobile-e2e-macos` | macos-latest (desktop, no simulator to boot) | integration |
+
+Each uploads its `test-results/mobile-e2e*` directory on failure. The iOS and
+macOS jobs deliberately run only the integration layer — the unit layer already
+runs in the Android job, and macOS runner minutes are the expensive ones.
+
+The iOS job exists because the app's minimum is iOS 15.0 (`mobile/ios/Podfile`,
+`Runner.xcodeproj`, `AppFrameworkInfo.plist`). Plugins still declare older
+minimums, so the Podfile `post_install` raises every pod target to 15.0 — keep
+those three places in sync when the minimum moves again.
+
+The macOS desktop target was raised to 12.0 the same way (`mobile/macos/Podfile`
++ `Runner.xcodeproj`). A release build was verified on 2026-09-28
+(`LSMinimumSystemVersion = 12.0` in the built app).
+
+One toolchain caveat: a **universal** (x86_64 + arm64) macOS build fails on
+Xcode 27 with `Binary …FlutterMacOS does not contain architectures "x86_64 arm64"`,
+because this `lipo` accepts only one architecture per `-verify_arch` call while
+Flutter 3.38 passes the whole list (`packages/flutter_tools/lib/src/build_system/targets/darwin.dart:73`).
+Single-architecture builds pass — Flutter forwards `FLUTTER_XCODE_*` to xcodebuild:
+
+```bash
+FLUTTER_XCODE_ARCHS=arm64 npm run build:macos
+```
+
+The release workflow builds Android only, so it is unaffected.
+
 ## VS Code extension E2E
 
 The Node.js entry point is `test/e2e/vscode.test.ts`, which imports the suites

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'ant_icons.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -24,9 +25,18 @@ import 'services/settings_service.dart';
 import 'services/theme_registry_service.dart';
 import 'pages/settings_page.dart';
 import 'widgets/ui_kit.dart';
+import 'dev/mobile_e2e.dart';
+import 'dev/webview_debug.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Android's WebView debug switch is process-global and must be set before any
+  // WebView exists (no-op on other platforms; never enabled in release builds).
+  if (isWebViewDebugEnabled && Platform.isAndroid) {
+    await AndroidWebViewController.enableDebugging(true);
+  }
+
   // Only init services that don't trigger filesystem permission dialogs
   await settingsService.init();
   await localization.init();
@@ -161,8 +171,6 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     // Configure Android-specific settings for font access in SVG/Canvas
     if (_controller.platform is AndroidWebViewController) {
       final androidController = _controller.platform as AndroidWebViewController;
-      // Enable debugging for development
-      // AndroidWebViewController.enableDebugging(true);
       // Allow file access from the WebView
       androidController.setAllowFileAccess(true);
       // Allow content access
@@ -175,9 +183,17 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
 
     // Configure iOS/macOS-specific settings
     if (_controller.platform is WebKitWebViewController) {
-      // Enable Safari Web Inspector for debugging (set to true when needed)
-      // final webkitController = _controller.platform as WebKitWebViewController;
-      // webkitController.setInspectable(true);
+      // Safari Web Inspector for this WebView (iOS 16.4+ / macOS 13.3+).
+      // Gated by MV_WEBVIEW_DEBUG; release builds are hard-off.
+      if (isWebViewDebugEnabled) {
+        final webkitController = _controller.platform as WebKitWebViewController;
+        webkitController.setInspectable(true);
+      }
+    }
+
+    // Publish integration-test hooks (non-release builds only).
+    if (!kReleaseMode) {
+      MobileE2E.register(_MobileE2EHooks(this));
     }
 
     _initWebView();
@@ -293,6 +309,9 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
   void dispose() {
     recentFilesService.removeListener(_onRecentFilesChanged);
     localization.removeListener(_onLocaleChanged);
+    if (!kReleaseMode) {
+      MobileE2E.unregister();
+    }
     super.dispose();
   }
 
@@ -2407,4 +2426,44 @@ class _UploadSession {
     required this.chunkSize,
     required this.metadata,
   });
+}
+
+/// Adapter that exposes the home page's real code paths to integration tests.
+///
+/// Kept deliberately thin: every method forwards to the same private method the
+/// UI uses, so an E2E test exercises production behaviour instead of a
+/// test-only shortcut.
+class _MobileE2EHooks implements MobileE2EHooks {
+  _MobileE2EHooks(this._state);
+
+  final _MarkdownViewerHomeState _state;
+
+  @override
+  WebViewController get controller => _state._controller;
+
+  @override
+  bool get isWebViewReady => _state._webViewReady;
+
+  @override
+  Future<void> openMarkdown(String content, {String filename = 'e2e-document.md'}) {
+    return _state._loadMarkdownIntoWebView(content, filename);
+  }
+
+  @override
+  Future<void> switchTheme(String themeId) async {
+    settingsService.theme = themeId;
+    await _state._sendThemeData(themeId);
+  }
+
+  @override
+  Future<void> waitUntilWebViewReady({Duration timeout = const Duration(seconds: 60)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_state._webViewReady) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw TimeoutException('Display WebView was not ready within $timeout');
+  }
 }

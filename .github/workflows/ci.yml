@@ -102,6 +102,213 @@ jobs:
           path: test-results/extension-e2e
           if-no-files-found: ignore
 
+  # Mobile E2E (Flutter + WebView).
+  #
+  # Two layers, both behind scripts/mobile-e2e.js so CI and local runs cannot
+  # drift: `unit` is device-free Dart (seconds), `integration` drives the real
+  # app on an Android emulator through `flutter test integration_test`.
+  #
+  # Why Android and not iOS: the app's iOS deployment target is still 13.0, and
+  # current Xcode (>= 26) refuses anything below 15.0, so an iOS simulator job
+  # cannot build the app until that is raised (product decision, tracked in
+  # plans/mobile-render-view-webview-plan.md). The Android image also covers the
+  # WebView IPC path (Binder size limits) that the render-surface plan depends on.
+  #
+  # KVM must be exposed, otherwise the guest runs an order of magnitude slower and
+  # its system apps start ANR'ing ("Messages isn't responding") — which wedges the
+  # run instead of failing the suite.
+  mobile-e2e:
+    name: Mobile E2E (Flutter + Android emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      MV_E2E_ARTIFACT_DIR: test-results/mobile-e2e
+      MV_E2E_TIMEOUT_MIN: '45'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      # The WebView page is Flutter assets: without mobile/build/mobile the app
+      # boots to a blank WebView and every integration case fails.
+      - name: Build WebView assets
+        run: npm run build:mobile
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.5
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Resolve Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Analyze (informational, baseline lints allowed)
+        working-directory: mobile
+        continue-on-error: true
+        run: flutter analyze
+
+      - name: Dart unit layer (no device)
+        run: node scripts/mobile-e2e.js --layer=unit
+
+      # Expose KVM to the emulator (see the job comment above).
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # First run builds the debug APK here; the cache is what keeps the job
+      # inside its 60 minute budget.
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Integration layer (Android emulator)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -cores 4
+          # No --device: the runner picks the emulator from `flutter devices`,
+          # which survives the AVD landing on a different port.
+          script: node scripts/mobile-e2e.js --layer=integration
+
+      - name: Upload mobile E2E artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-artifacts
+          path: test-results/mobile-e2e
+          if-no-files-found: ignore
+
+  # iOS runs on a macOS runner: the simulator needs no KVM and no emulator image,
+  # and WKWebView is the engine the render-surface plan must survive — but macOS
+  # minutes are the expensive ones, so this job is deliberately narrower than the
+  # Android one (integration layer only; the unit layer already ran there).
+  mobile-e2e-ios:
+    name: Mobile E2E (iOS simulator)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      MV_E2E_ARTIFACT_DIR: test-results/mobile-e2e-ios
+      MV_E2E_TIMEOUT_MIN: '45'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build WebView assets
+        run: npm run build:mobile
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.5
+          channel: stable
+          cache: true
+
+      - name: Resolve Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Boot an iOS simulator
+        run: |
+          udid=$(xcrun simctl list devices available --json \
+            | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));const all=Object.values(d.devices).flat().filter(x=>x.isAvailable&&/iPhone/.test(x.name));process.stdout.write((all[0]||{}).udid||'')")
+          if [ -z "$udid" ]; then echo "no iPhone simulator available"; exit 1; fi
+          xcrun simctl boot "$udid" || true
+          echo "MV_E2E_DEVICE=$udid" >> "$GITHUB_ENV"
+          echo "booting $udid"
+
+      - name: Integration layer (iOS simulator)
+        run: node scripts/mobile-e2e.js --layer=integration --device="$MV_E2E_DEVICE"
+
+      - name: Upload mobile E2E artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-ios-artifacts
+          path: test-results/mobile-e2e-ios
+          if-no-files-found: ignore
+
+  # macOS desktop is the cheapest WKWebView target: no simulator to boot, no
+  # emulator image, and the app it exercises is the same desktop build the
+  # packaging script produces (`npm run build:macos:local`).
+  #
+  # Note the host-architecture build: a *universal* macOS build fails on Xcode 27
+  # because Flutter 3.38 passes the whole ARCHS list to one `lipo -verify_arch`
+  # call while that lipo accepts a single architecture per call. The integration
+  # layer builds in debug mode (single arch), so it is unaffected — do not add a
+  # universal release build here without re-checking that.
+  mobile-e2e-macos:
+    name: Mobile E2E (macOS desktop)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      MV_E2E_ARTIFACT_DIR: test-results/mobile-e2e-macos
+      MV_E2E_TIMEOUT_MIN: '35'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build WebView assets
+        run: npm run build:mobile
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.5
+          channel: stable
+          cache: true
+
+      - name: Enable the macOS desktop target
+        run: flutter config --enable-macos-desktop
+
+      - name: Resolve Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Integration layer (macOS desktop)
+        run: node scripts/mobile-e2e.js --layer=integration --device=macos
+
+      - name: Upload mobile E2E artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-e2e-macos-artifacts
+          path: test-results/mobile-e2e-macos
+          if-no-files-found: ignore
+
   # Low-version coverage for the installed extension.
   #
   # The bundled Playwright Chromium is always the newest, so version-specific

@@ -29,11 +29,17 @@ import { setupDiagramLightbox } from '../../../src/ui/diagram-lightbox';
 import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import { isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
+import { clearRenderDiagnostics, getRenderDiagnostics } from '../../../src/core/render-diagnostics';
 
 declare global {
   var bridge: PlatformBridgeAPI | undefined;
   interface Window {
     __mobileWebViewReady?: boolean;
+    /** E2E seam: lets the integration harness read what the render pipeline lost. */
+    __mvRenderDiagnostics?: {
+      get: () => unknown[];
+      clear: () => void;
+    };
   }
 }
 
@@ -41,6 +47,14 @@ declare global {
 globalThis.platform = platform;
 // Expose bridge for shared plugins that need host file/asset access
 globalThis.bridge = bridge;
+
+// Diagnostics sink for the mobile E2E harness (mobile/integration_test): a
+// failing case can dump *why* a block was dropped instead of only that the
+// selector found nothing. Read-only observation — it never changes rendering.
+window.__mvRenderDiagnostics = {
+  get: () => getRenderDiagnostics(),
+  clear: () => clearRenderDiagnostics(),
+};
 
 interface CurrentDocumentState {
   sourceContent: string;

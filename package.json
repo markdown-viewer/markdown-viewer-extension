@@ -30,12 +30,17 @@
     "build:ios:sim": "node mobile/build-app.js ios:sim",
     "build:android": "node mobile/build-app.js android",
     "build:macos": "node mobile/build-app.js macos",
+    "build:macos:local": "node mobile/build-app.js macos:local",
     "app:init": "cd mobile && flutter pub get",
     "typecheck": "node scripts/typecheck.cjs",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "fibjs test/all.test.js",
     "test:e2e": "node --import tsx/esm --test --test-concurrency=1 test/e2e/index.test.ts",
     "test:e2e:vscode": "node --import tsx/esm --test --test-concurrency=1 --test-timeout=300000 test/e2e/vscode.test.ts",
+    "test:mobile": "node scripts/mobile-e2e.js --layer=all",
+    "test:mobile:unit": "node scripts/mobile-e2e.js --layer=unit",
+    "test:mobile:e2e": "node scripts/mobile-e2e.js --layer=integration",
+    "analyze:mobile": "cd mobile && flutter analyze",
     "test:chrome-matrix": "node scripts/chrome-test-matrix.js"
   },
   "keywords": [

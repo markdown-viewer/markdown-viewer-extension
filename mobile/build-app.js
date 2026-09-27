@@ -7,11 +7,12 @@
  *   node mobile/build-app.js <target>
  * 
  * Targets:
- *   ios       - Build iOS IPA for distribution
- *   ios:sim   - Build iOS app for simulator
- *   android   - Build Android release APK (and AAB when release signing is configured)
- *   macos     - Build macOS app
- *   all       - Build all targets
+ *   ios            - Build iOS IPA for distribution
+ *   ios:sim        - Build iOS app for simulator
+ *   android        - Build Android release APK (and AAB when release signing is configured)
+ *   macos          - Build macOS app (universal)
+ *   macos:local    - Build macOS app for this machine's architecture only
+ *   all            - Build every distribution target
  */
 
 import { execSync } from 'child_process';
@@ -100,6 +101,61 @@ function copyFiles(srcDir, destDir, pattern) {
 /**
  * Build targets
  */
+
+/**
+ * The architecture Xcode names for this machine (arm64 / x86_64).
+ */
+function hostXcodeArch() {
+  return process.arch === 'x64' ? 'x86_64' : process.arch;
+}
+
+/**
+ * macOS build, in two variants.
+ *
+ * `macos` is universal (x86_64 + arm64) — what a distribution build needs.
+ * `macos:local` builds for the host architecture only, which is both faster and
+ * the way around a toolchain bug: Flutter 3.38 hands the whole `ARCHS` list to a
+ * single `lipo -verify_arch` call, while Xcode 27's lipo accepts exactly one
+ * architecture per call, so a universal build fails at the framework check
+ * ("does not contain architectures") *after* a successful compile. Flutter
+ * forwards FLUTTER_XCODE_* to xcodebuild, which is how the list is narrowed.
+ */
+function buildMacos({ singleArch = false } = {}) {
+  const arch = hostXcodeArch();
+  const label = singleArch ? `${arch} only` : 'universal';
+  console.log(`\n🖥️  Building macOS app (${label})...\n`);
+
+  ensureFlutterConfig('macos');
+
+  const options = { cwd: mobileDir };
+  if (singleArch) {
+    options.env = { ...process.env, FLUTTER_XCODE_ARCHS: arch };
+  } else {
+    console.log('  ℹ️  Universal build. If it fails with "does not contain architectures",');
+    console.log('      that is the Flutter 3.38 + Xcode 27 lipo incompatibility, not this app;');
+    console.log('      use `npm run build:macos:local` for a host-arch build.\n');
+  }
+
+  try {
+    exec('flutter build macos', options);
+  } catch (error) {
+    if (!singleArch) {
+      console.error('\n❌ Universal macOS build failed.');
+      console.error('   If the log mentions "does not contain architectures", rebuild with:');
+      console.error(`     FLUTTER_XCODE_ARCHS=${arch} npm run build:macos\n`);
+    }
+    throw error;
+  }
+
+  const macosDistDir = path.join(distDir, singleArch ? 'macos-local' : 'macos');
+  const appSrc = path.join(mobileDir, 'build/macos/Build/Products/Release/markdown_viewer_mobile.app');
+  const appDest = path.join(macosDistDir, 'markdown_viewer_mobile.app');
+
+  copyDirectory(appSrc, appDest);
+
+  console.log(`\n✅ macOS app built (${label}): ${appDest}`);
+}
+
 const targets = {
   ios: {
     name: 'iOS (IPA)',
@@ -199,21 +255,15 @@ const targets = {
   },
   
   macos: {
-    name: 'macOS App',
-    build: () => {
-      console.log('\n🖥️  Building macOS app...\n');
-      
-      ensureFlutterConfig('macos');
-      exec('flutter build macos', { cwd: mobileDir });
-      
-      const macosDistDir = path.join(distDir, 'macos');
-      const appSrc = path.join(mobileDir, 'build/macos/Build/Products/Release/markdown_viewer_mobile.app');
-      const appDest = path.join(macosDistDir, 'markdown_viewer_mobile.app');
-      
-      copyDirectory(appSrc, appDest);
-      
-      console.log(`\n✅ macOS app built: ${appDest}`);
-    }
+    name: 'macOS App (universal)',
+    build: () => buildMacos()
+  },
+
+  // Host-arch variant: the escape hatch for the lipo incompatibility above, and
+  // what local iteration should use (it is also noticeably faster).
+  'macos:local': {
+    name: 'macOS App (host architecture)',
+    build: () => buildMacos({ singleArch: true })
   }
 };
 
@@ -231,14 +281,16 @@ Usage:
   node mobile/build-app.js <target> [target2] ...
 
 Targets:
-  ios       Build iOS IPA for distribution
-  ios:sim   Build iOS app for simulator  
-  android   Build Android release APK (build AAB only when release signing is configured)
-  macos     Build macOS app
-  all       Build all targets
+  ios            Build iOS IPA for distribution
+  ios:sim        Build iOS app for simulator
+  android        Build Android release APK (build AAB only when release signing is configured)
+  macos          Build macOS app (universal)
+  macos:local    Build macOS app for this machine's architecture only
+  all            Build every distribution target
 
 Examples:
   node mobile/build-app.js android
+  node mobile/build-app.js macos:local
   node mobile/build-app.js ios macos
   node mobile/build-app.js all
 `);
@@ -248,7 +300,8 @@ Examples:
   // Determine which targets to build
   let targetsToBuild = args;
   if (args.includes('all')) {
-    targetsToBuild = Object.keys(targets);
+    // Variants (`ios:sim`, `macos:local`) are deliberately not part of `all`.
+    targetsToBuild = Object.keys(targets).filter((key) => !key.includes(':'));
   }
   
   // Validate targets
