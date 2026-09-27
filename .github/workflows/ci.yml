@@ -154,10 +154,12 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      - name: Analyze (informational, baseline lints allowed)
+      # Errors are a gate; the repository's known infos/warnings are not (they are
+      # reported but do not fail the run, which keeps this step's annotations
+      # meaningful).
+      - name: Analyze
         working-directory: mobile
-        continue-on-error: true
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Dart unit layer (no device)
         run: node scripts/mobile-e2e.js --layer=unit

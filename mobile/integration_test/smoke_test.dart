@@ -4,7 +4,7 @@
 /// Run first when the harness itself is suspect — every other suite assumes what
 /// these cases prove.
 ///
-///   flutter test integration_test/smoke_test.dart -d <device>
+///   `flutter test integration_test/smoke_test.dart -d <device>`
 library;
 
 import 'package:flutter_test/flutter_test.dart';

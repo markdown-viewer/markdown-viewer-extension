@@ -5,7 +5,7 @@
 /// rasterize multi-megabyte payloads therefore only run when asked for, and are
 /// expected to run on a real device.
 ///
-///   MV_E2E_HEAVY=1 flutter test integration_test -d <real device>
+///   `MV_E2E_HEAVY=1 flutter test integration_test -d <real device>`
 library;
 
 import 'dart:io';
