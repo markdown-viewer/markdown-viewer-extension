@@ -44,15 +44,31 @@ async function executeEffect(
   documentKey: string | undefined,
   surface: ViewerSurfacePort,
   host: ViewerHostBridge,
+  session: ViewerSession,
 ): Promise<void> {
   switch (effect.type) {
     case 'render':
+      // Render the model that is *current*: an older command's render can land
+      // after a newer one (the initial markdown render after a source toggle
+      // clicked while the document was opening) and drawing it would replace the
+      // newer view — the click looked ignored. Zoom/layout changes keep the same
+      // model object, so they never hit this.
+      if (effect.renderModel !== session.getSnapshot().renderModel) {
+        return;
+      }
       await surface.render(effect);
       return;
     case 'apply-theme':
       await surface.applyTheme(effect.themeId);
       return;
     case 'apply-presentation':
+      // Presentation is a repaint, so only the newest one may win: the effects of
+      // an older command can land after a newer one (a source toggle clicked
+      // while the document is still opening) and applying them flipped the view
+      // back, which read as "the button did nothing".
+      if (effect.revision < session.getSnapshot().revision) {
+        return;
+      }
       surface.applyPresentation(effect);
       return;
     case 'scroll-to-line':
@@ -81,7 +97,7 @@ export function createViewerAssembler(options: ViewerAssemblerOptions): ViewerAs
     const documentKey = snapshot.document?.documentKey;
 
     for (const effect of effects) {
-      await executeEffect(effect, documentKey, surface, host);
+      await executeEffect(effect, documentKey, surface, host, session);
     }
 
     return session.getSnapshot();

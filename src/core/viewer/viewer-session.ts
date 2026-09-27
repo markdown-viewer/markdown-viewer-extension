@@ -110,6 +110,7 @@ function syncDerivedState(state: SessionState): void {
 function createPresentationEffect(state: SessionState): Extract<ViewerEffect, { type: 'apply-presentation' }> {
   return {
     type: 'apply-presentation',
+    revision: state.revision,
     resolvedMode: state.resolvedMode,
     tocVisible: state.tocVisible,
     predictedHasHeadings: state.predictedHasHeadings,
@@ -188,10 +189,19 @@ function openDocument(
   state: SessionState,
   command: Extract<ViewerCommand, { type: 'open-document' }>,
 ): ViewerEffect[] {
+  // The toolbar is interactive before the first document is dispatched (the
+  // viewer wires it as soon as its markup exists, so its buttons are not dead
+  // while the page boots). A source-toggle click in that window has to survive
+  // the open that follows — resetting the intent here discarded it, which read
+  // as "the button does nothing" and needed a second click. A persisted
+  // per-file intent still wins, and once a document is loaded the intent stays
+  // per-document as before.
+  const pendingIntent = state.document === null ? state.modeIntent : undefined;
+
   state.document = command.document;
   state.rawContent = command.content;
   state.revision += 1;
-  state.modeIntent = command.persistedState?.modeIntent ?? DEFAULT_MODE_INTENT;
+  state.modeIntent = command.persistedState?.modeIntent ?? pendingIntent ?? DEFAULT_MODE_INTENT;
   state.targetLine = command.targetLine ?? command.persistedState?.scrollLine;
   state.currentLine = undefined;
   state.pendingAnchor = command.anchor;

@@ -470,12 +470,16 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   }
 
   /**
-   * Setup toolbar button event handlers
+   * Setup toolbar button event handlers.
+   *
+   * Synchronous on purpose: the handlers must exist as soon as the toolbar is on
+   * screen. This used to start with `await getFileState()`, which pushed every
+   * `addEventListener` past a platform round trip — a click in that window (or
+   * while the first render was still streaming) hit a button that looked ready
+   * and was silently ignored. The saved state is now read *after* the handlers
+   * are attached, so only the cosmetic restore (layout preset, zoom) is async.
    */
-  async function setupToolbarButtons(): Promise<void> {
-    // Get saved state first
-    const savedState = await getFileState();
-    
+  function setupToolbarButtons(): void {
     // Toggle TOC button
     const toggleTocBtn = document.getElementById('toggle-toc-btn');
     const tocDiv = document.getElementById('table-of-contents');
@@ -558,8 +562,11 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         applyLayout(nextLayout);
       });
       
-      // Restore layout and zoom state after toolbar setup
-      (async () => {
+      // Restore layout and zoom state once the handlers exist (see the note on
+      // setupToolbarButtons): the read is async, the interaction is not.
+      void (async () => {
+        const savedState = await getFileState();
+
         // Restore layout mode
         if (savedState.layoutMode && layoutConfigs[savedState.layoutMode]) {
           applyLayout(savedState.layoutMode, false);
@@ -569,7 +576,11 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         if (savedState.zoom && typeof savedState.zoom === 'number') {
           applyZoom(savedState.zoom, false);
         }
-      })();
+      })().catch((error) => {
+        // Cosmetic only — a failed read must not leave an unhandled rejection.
+        // eslint-disable-next-line no-console
+        console.warn('[Toolbar] failed to restore saved layout/zoom:', error);
+      });
     }
 
     // Source/preview toggle button. The button always exists (one toolbar can

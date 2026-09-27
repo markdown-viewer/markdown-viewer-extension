@@ -5,3 +5,4 @@ import './file-delivery.test.ts';
 import './gitbook-panel.test.ts';
 import './url-extension-matching.test.ts';
 import './viewer-session-contract.test.js';
+import './viewer-session-mode-intent.test.ts';

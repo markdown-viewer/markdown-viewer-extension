@@ -44,6 +44,16 @@ export const WAIT_STANDALONE_READY_JS = `() => {
   return Boolean(c && c.children.length > 0 && document.getElementById('mv-content-styles'));
 }`;
 
+/**
+ * The viewer is unveiled (its own "visible for the user" contract).
+ *
+ * Before unveil the page sits behind the preload overlay with `body { opacity: 0 }`,
+ * so its toolbar is not something a user can click; the same window is where the
+ * boot-order races live (no assembler yet, first render still streaming). Wait for
+ * this before driving any viewer control.
+ */
+export const VIEWER_UNVEILED_JS = `() => document.body.style.opacity === '1'`;
+
 export type E2ETarget = Page | Frame;
 
 export interface ExtensionLaunchOptions {

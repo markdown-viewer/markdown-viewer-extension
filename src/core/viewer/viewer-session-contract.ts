@@ -145,6 +145,8 @@ export type ViewerEffect =
     }
   | {
       type: 'apply-presentation';
+      /** Session revision this presentation was computed from (see the assembler's stale-effect guard). */
+      revision: number;
       resolvedMode: ViewerResolvedMode;
       tocVisible: boolean;
       predictedHasHeadings?: boolean;

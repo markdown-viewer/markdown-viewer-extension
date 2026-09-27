@@ -102,7 +102,7 @@ export interface ToolbarManagerInstance {
   getZoomLevel: () => number;
   setInitialZoom: (level: number) => void;
   initializeToolbar: () => void;
-  setupToolbarButtons: () => Promise<void>;
+  setupToolbarButtons: () => void;
   setupKeyboardShortcuts: () => void;
   /** Re-apply translated tooltips/aria-labels after the UI locale changed. */
   applyLocale: () => void;

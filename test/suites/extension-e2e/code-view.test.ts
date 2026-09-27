@@ -37,6 +37,7 @@ import {
   MOCK_DIRECTORY_PICKER_JS,
   SET_STORAGE_JS,
   VIEWER_EMBED_READY_JS,
+  VIEWER_UNVEILED_JS,
   WAIT_RENDERED_JS,
   WAIT_STANDALONE_READY_JS,
   evalJs,
@@ -66,12 +67,15 @@ const CODE_VIEW_READY_JS = `() => Boolean(document.querySelector('#markdown-cont
 /**
  * Click the source toggle and wait for the mode to actually change.
  *
- * Deliberately not wrapped in a retry: a click used to be swallowed while the
- * initial render was still streaming (the best-effort scroll-anchor report
- * rejected and aborted the toggle chain before it switched the mode), and this
- * assertion is what pins that fix — a retry would hide the regression again.
+ * The interaction waits for the viewer's unveil first: until then the page is
+ * behind the preload overlay (`body { opacity: 0 }`) and its toolbar is not
+ * clickable by a user, while the boot-order races live exactly in that window.
+ * This is a precondition, not a retry — the click itself still has to work on
+ * the first attempt once the page is visible, which is what pins the
+ * swallowed-click regression.
  */
 async function toggleSourceView(target: E2ETarget): Promise<void> {
+  await waitFor(target, VIEWER_UNVEILED_JS, 10000);
   await evalJs(target, `() => { document.getElementById('toggle-source-view-btn').click(); return true; }`);
   await waitFor(target, `() => document.documentElement.dataset.codeView === '1'`, 10000);
   await waitFor(target, CODE_VIEW_READY_JS);

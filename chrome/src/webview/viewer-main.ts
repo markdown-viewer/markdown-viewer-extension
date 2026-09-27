@@ -335,6 +335,20 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   let mountedViewerRoot: HTMLDivElement | null = null;
   let markdownViewerAdapter: ViewerKernel | null = null;
   let viewerAssembler: ViewerAssemblerRuntime | null = null;
+  /**
+   * Resolves when the assembler exists.
+   *
+   * The toolbar is wired as soon as its markup exists, which is earlier than the
+   * assembler (theme load and surface setup come in between). A source-toggle
+   * click in that window used to be dropped silently — the button looked dead
+   * while the page was still booting. The handler waits for this promise instead
+   * (bounded), which is order-independent: it does not matter whether the click
+   * or the assembler comes first.
+   */
+  let markAssemblerReady: { resolve?: (assembler: ViewerAssemblerRuntime) => void } = {};
+  const assemblerReady = new Promise<ViewerAssemblerRuntime>((resolve) => {
+    markAssemblerReady.resolve = resolve;
+  });
   let lastScrollLine = 0;
   let currentThemeId: string | null = null;
   const logThenPermissionError = (scope: string, error: unknown, extra?: Record<string, unknown>): void => {
@@ -358,6 +372,23 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   });
 
   const getViewerSnapshot = () => viewerAssembler?.getSnapshot() ?? null;
+
+  /**
+   * Waits for the assembler, for interactions that can happen before it exists
+   * (see `assemblerReady`). Bounded: a page that never finishes booting must not
+   * leave a click pending forever.
+   */
+  const waitForAssembler = async (timeoutMs = 10000): Promise<ViewerAssemblerRuntime | null> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    });
+    try {
+      return await Promise.race([assemblerReady, timeout]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  };
 
   const logViewerDebug = (scope: string, payload?: Record<string, unknown>): void => {
     void scope;
@@ -1050,7 +1081,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     },
     onToggleSourceMode: () => {
       void (async () => {
-        const assembler = viewerAssembler;
+        const assembler = viewerAssembler ?? await waitForAssembler();
         if (!assembler) {
           return;
         }
@@ -1061,20 +1092,24 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           before: getViewerSnapshot(),
         });
         // Reporting the current line only seeds the scroll anchor for the new
-        // view. It is best-effort on purpose: an error here (storage or session
-        // hiccup while the page is still booting) used to abort this async
-        // chain *before* toggleModeIntent, so the click looked ignored.
-        try {
-          await assembler.reportCurrentLine(scrollLine);
-        } catch (error) {
-          logThenPermissionError('toggleSource.reportCurrentLine.failed', error, { scrollLine });
-        }
-        const reportEndedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        logViewerDebug('toggleSource.reportCurrentLine.done', {
-          scrollLine,
-          durationMs: Number((reportEndedAt - reportStartedAt).toFixed(2)),
-          afterReport: getViewerSnapshot(),
-        });
+        // view, and the line is already captured above, so the report is fired
+        // *off the critical path*: awaiting it made the switch as slow as the
+        // slowest platform round trip (a storage/session write during boot), and
+        // a click that takes seconds to react is a click the user believes was
+        // ignored. Errors never reach the switch either way.
+        void assembler
+          .reportCurrentLine(scrollLine)
+          .then(() => {
+            const reportEndedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            logViewerDebug('toggleSource.reportCurrentLine.done', {
+              scrollLine,
+              durationMs: Number((reportEndedAt - reportStartedAt).toFixed(2)),
+              afterReport: getViewerSnapshot(),
+            });
+          })
+          .catch((error) => {
+            logThenPermissionError('toggleSource.reportCurrentLine.failed', error, { scrollLine });
+          });
         await executeViewerCommand(
           'toggleSource.failed',
           () => assembler.toggleModeIntent(),
@@ -1106,6 +1141,15 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   }
   applyTocPanelSide(Boolean(initialSwapPanelSide));
   applyTocButtonVisibility();
+
+  // Wire the toolbar as soon as its DOM exists, i.e. *before* the document is
+  // rendered. Binding used to happen inside runInitialRender(), so a click in
+  // the window where the toolbar was already visible but the render was still
+  // streaming (or the file-state read was in flight) hit a dead button. The
+  // handlers are what make setSourceToggleState()/the mode toggle usable, and
+  // the per-document state they show is applied later by the presentation
+  // effect, so there is nothing to wait for here.
+  toolbarManager.initializeToolbar();
 
   // If TOC is disabled for the current file (non-.md), ensure the panel starts
   // hidden even though initialTocClass may have rendered it visible.
@@ -1220,6 +1264,8 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     surface: viewerSurface,
     host: viewerHostBridge,
   });
+  markAssemblerReady.resolve?.(viewerAssembler);
+  markAssemblerReady = {};
 
   // Load theme BEFORE unveiling the body. Doing it the other way around
   // causes a brief flash of the default light body background (~6ms) when
@@ -1286,7 +1332,8 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       }
     }
 
-    toolbarManager.initializeToolbar();
+    // Nb: the toolbar is already wired (see initializeToolbar near the toolbar
+    // markup above) — it must exist before this first render, not after it.
 
     // Unveil strategy (issue #110):
     // Wait for the page to be in a presentable state, but do NOT wait for async
