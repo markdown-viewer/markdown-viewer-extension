@@ -218,6 +218,13 @@ works on the emulator/simulator jobs. The migration cases in
 `mobile/integration_test/render_view_test.dart` only run when the mode is on —
 they read the page's `window.__mvRenderView` flag rather than assuming it.
 
+Readiness is **eventual, not a boot constant**: Dart warms the surface only after
+the display page is interactive (two bundles at once ANR the app on a slow
+device), so the status seam reports `unknown` for a while — 650 ms on the iOS
+simulator, 500 ms on macOS desktop. Cases wait for `ready`
+(`waitForRenderSurfaceReady`) instead of sampling it right after launch; a surface
+that never reports ready fails with its own status dump.
+
 ### Debugging during a run
 
 `MV_WEBVIEW_DEBUG=1` (as `--dart-define`, or a process env on desktop) turns on

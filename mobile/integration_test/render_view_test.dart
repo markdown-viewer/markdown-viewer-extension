@@ -37,7 +37,14 @@ void main() {
         return;
       }
 
-      expect(await e2e.eval('window.__mvRenderSurface.state'), 'ready');
+      // The surface is warmed after the display page is interactive, so at
+      // boot the page still reports `unknown`; readiness is what it eventually
+      // reports, and what the display side waits for before the first diagram.
+      final status = await e2e.waitForRenderSurfaceReady();
+      expect(status['state'], 'ready');
+      expect(status['renderers'], isNotEmpty,
+          reason: 'a ready surface announces the engines it registered');
+      expect(status['error'], isNull, reason: 'a ready surface reports no failure');
     });
 
     testWidgets('keeps rendering after the surface restarts', (tester) async {

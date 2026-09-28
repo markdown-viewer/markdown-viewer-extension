@@ -141,6 +141,38 @@ class MvE2E {
     );
   }
 
+  /// Waits until the hidden render surface reports `ready` and returns its
+  /// status snapshot.
+  ///
+  /// Readiness is *eventual*, not a boot-time constant: Dart warms the surface
+  /// only after the display page is interactive (two bundles at once ANR the
+  /// app on a slow device), so the page holds `unknown` for a while — on the
+  /// iOS simulator longer than on the desktop. This is the same contract the
+  /// display side waits for (BridgeRenderHost probes until the supervisor
+  /// answers). A surface that never reports ready fails here with its own
+  /// status, which is where the reason lives (state / error).
+  Future<Map<String, Object?>> waitForRenderSurfaceReady({
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    Map<String, Object?> status = const <String, Object?>{};
+
+    while (DateTime.now().isBefore(deadline)) {
+      final value = await eval('window.__mvRenderSurface');
+      if (value is Map) {
+        status = value.cast<String, Object?>();
+        if (status['state'] == 'ready') {
+          _log('ok: render surface ready (${status['readyMs']}ms)');
+          return status;
+        }
+      }
+      await tester.pump(const Duration(milliseconds: 250));
+    }
+
+    fail('render surface never reported ready within ${timeout.inSeconds}s: '
+        '${jsonEncode(status)}');
+  }
+
   /// Render diagnostics recorded by the page (errors and warnings).
   Future<List<Map<String, Object?>>> diagnostics() async {
     final value = await eval('window.__mvRenderDiagnostics.get()');
