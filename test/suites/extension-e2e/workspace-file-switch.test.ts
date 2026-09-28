@@ -213,6 +213,16 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
   const waitForViewerFile = async (name: string): Promise<{ frame: Frame; state: ViewerState }> => {
     const frame = await previewFrame();
     await waitFor(frame, `() => document.documentElement.dataset.viewerFilename === ${JSON.stringify(name)}`, 30000);
+    // The embed announces a file before the viewer renders it, and the pane
+    // keeps whatever was on screen until the open lands (the boot hand-off, the
+    // previous file, an HTML preview being replaced). `viewerOpenedFilename` is
+    // written when this file's open is done, so the content waits below measure
+    // the file they asked for instead of a stale view of another one.
+    await waitFor(
+      frame,
+      `() => document.documentElement.dataset.viewerOpenedFilename === ${JSON.stringify(name)}`,
+      30000,
+    );
     await waitFor(frame, WAIT_RENDERED_JS);
 
     const expected = CONTENT[name];

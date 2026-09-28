@@ -282,6 +282,31 @@ function applyWorkspaceHistoryUi(message: WorkspaceHistoryUiMessage): void {
   forwardButton.disabled = !message.canGoForward;
 }
 
+/**
+ * Boots the viewer once per document, even when documents arrive while it is
+ * booting.
+ *
+ * The hand-off (`document.body.textContent = …`) wipes the page, and the viewer
+ * builds its own shell (which is where `#markdown-content` comes from). A file
+ * clicked while an HTML preview is still being prepared is the real case for
+ * two opens inside one boot, and the wipe used to run twice: the second one
+ * destroyed the container the first init was about to use, so
+ * `getOrCreateMountedViewerAdapter()` threw
+ * `[Viewer] markdown-content container not found` mid-boot and a later open
+ * started a *rival* viewer. Two viewers share one pane and only the last render
+ * is visible, so the pane could keep showing the file the user had already
+ * left — and `VIEWER_RENDERED` had been sent, so the workspace's stale-pane
+ * retry stood down instead of recovering.
+ *
+ * Two guards keep it single: the promise lives on `window` (the boot is a
+ * property of the document, not of this module instance), and the hand-off only
+ * runs while the shell does not exist yet. A second caller waits for the same
+ * boot; its content is not lost, because every open renders explicitly after it.
+ */
+const viewerInitKey = '__mvViewerInitPromise';
+
+type ViewerInitHost = Window & { __mvViewerInitPromise?: Promise<void> };
+
 async function ensureViewerInitialized(initialContent: string): Promise<{
   runtime: NonNullable<ReturnType<typeof getViewerMainRuntime>>;
   wasInitialized: boolean;
@@ -289,17 +314,25 @@ async function ensureViewerInitialized(initialContent: string): Promise<{
   const wasInitialized = initialized;
 
   if (!initialized) {
-    document.body.textContent = initialContent;
-    await initializeViewerBase(platform).then((pluginRenderer) => startViewer({
-      platform,
-      pluginRenderer,
-      themeConfigRenderer: platform.renderer,
-    })).then(() => {
-      initialized = true;
-      hostUiController.attachWrapperInteractionFixes();
-    }).catch((error) => {
-      console.error('[viewer-embed] viewer base init failed', error);
-    });
+    const host = window as ViewerInitHost;
+    if (!host[viewerInitKey]) {
+      if (!document.getElementById('markdown-content')) {
+        document.body.textContent = initialContent;
+      }
+      host[viewerInitKey] = initializeViewerBase(platform).then((pluginRenderer) => startViewer({
+        platform,
+        pluginRenderer,
+        themeConfigRenderer: platform.renderer,
+      })).then(() => {
+        initialized = true;
+        hostUiController.attachWrapperInteractionFixes();
+      }).catch((error) => {
+        console.error('[viewer-embed] viewer base init failed', error);
+        // A failed boot must not be cached: the next document gets a fresh try.
+        host[viewerInitKey] = undefined;
+      });
+    }
+    await host[viewerInitKey];
   }
 
   const runtime = await waitForViewerMainRuntime();
