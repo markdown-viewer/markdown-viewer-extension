@@ -66,6 +66,18 @@ function log(message) {
   console.log(`[mobile-e2e] ${message}`);
 }
 
+/**
+ * One captured stream, as something a CI log viewer keeps whole.
+ *
+ * `flutter test` writes progress with carriage returns, so several cases share one
+ * "line" and the log keeps only its tail. Splitting them preserves every case's
+ * result, which is the point of printing the output at all (see the note where the
+ * captured streams are written).
+ */
+function toLines(stream) {
+  return String(stream || '').replace(/\r\n?/g, '\n');
+}
+
 function run(command, args, options = {}) {
   const label = `${command} ${args.join(' ')}`;
   log(`$ ${label}`);
@@ -437,12 +449,12 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
     if (retryHangs && result.status !== 0 && looksLikeHarnessHang(result)) {
       // Logged, not hidden: the first attempt's output stays in the artifact.
       log(`[retry] ${invocation.join(', ')} — the device harness hung (all assertions had reported); running it once more`);
-      logs.push(header(result.label) + result.stdout + result.stderr);
+      logs.push(header(result.label) + toLines(result.stdout) + toLines(result.stderr));
       result = run('flutter', args, { cwd: mobileDir, capture: true });
       retried = true;
     }
 
-    logs.push(header(result.label) + result.stdout + result.stderr);
+    logs.push(header(result.label) + toLines(result.stdout) + toLines(result.stderr));
     suiteResults.push({
       suites: invocation,
       status: result.status,
@@ -453,8 +465,14 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
 
     // Surface the harness log in the job output: the E2E evidence must be visible
     // without downloading artifacts (diagnostics dumps are printed by the harness).
-    process.stdout.write(result.stdout);
-    process.stderr.write(result.stderr);
+  //
+  // Carriage returns are normalized because the run is *captured* and written in one
+  // go: `flutter test` separates its progress lines with `\r`, and a CI log viewer
+  // keeps only the last segment of a CR-terminated line — which silently swallowed a
+  // whole invocation's case results (only the build output survived), making a slow
+  // run impossible to read. Measured on the iOS job, 2026-09-29.
+  process.stdout.write(toLines(result.stdout));
+  process.stderr.write(toLines(result.stderr));
   }
 
   const trailer = [

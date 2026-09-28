@@ -213,10 +213,17 @@ jobs:
   mobile-e2e-ios:
     name: Mobile E2E (iOS simulator)
     runs-on: macos-latest
-    timeout-minutes: 60
+    # The simulators make this the slowest mobile job, and the runner pays the
+    # whole cold cost inside the first invocation: SDK migration of the Xcode
+    # project, Swift Package resolution, `pod install`, then one Xcode build per
+    # invocation. Measured 2026-09-29: 59 min end to end (mostly invocation 1, and
+    # one attempt of that was a stalled app launch, not a failing case). The budget
+    # therefore has to fit *two* attempts of the per-invocation timeout
+    # (MV_E2E_TIMEOUT_MIN) with room to spare, which 45 min inside 60 did not.
+    timeout-minutes: 90
     env:
       MV_E2E_ARTIFACT_DIR: test-results/mobile-e2e-ios
-      MV_E2E_TIMEOUT_MIN: '45'
+      MV_E2E_TIMEOUT_MIN: '35'
     steps:
       - uses: actions/checkout@v4
 
