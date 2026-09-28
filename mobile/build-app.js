@@ -17,6 +17,7 @@
 
 import { execSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -110,15 +111,79 @@ function hostXcodeArch() {
 }
 
 /**
+ * Where the macOS build keeps its output, so a failure can be classified.
+ *
+ * The build prints through `tee` (see [buildMacos]) for that reason: the two
+ * blockers this has actually hit need opposite advice, and only the raw output
+ * tells them apart.
+ */
+function macosBuildLogPath() {
+  return path.join(os.tmpdir(), 'markdown-viewer-build-macos.log');
+}
+
+/**
+ * Turns a failed macOS build into advice.
+ *
+ *   - A locked Xcode build database means two builds shared
+ *     `mobile/build/macos/Build/Intermediates.noindex/XCBuildData/build.db`: the
+ *     Debug build the E2E layer compiles and this Release build live in the same
+ *     directory, so they cannot overlap. Nothing is broken — the other build has
+ *     to finish first.
+ *   - "does not contain architectures" is the SDK telling on itself: Flutter
+ *     ≤ 3.44.7 verified the whole `ARCHS` list with one `lipo -verify_arch` call,
+ *     which the lipo in Xcode 27 rejects. The binary is fine; upgrade Flutter
+ *     (≥ 3.44.8) or build a single architecture.
+ */
+function explainMacosBuildFailure(logPath, { singleArch, arch }) {
+  let log = '';
+  try {
+    log = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : '';
+  } catch {
+    // Falls through to the generic advice below.
+  }
+
+  console.error('\n❌ macOS build failed.');
+  if (/database is locked|two concurrent builds/.test(log)) {
+    console.error('   Xcode\'s build database is locked: another build is using');
+    console.error('   mobile/build/macos (Debug and Release share one XCBuildData directory),');
+    console.error('   so a running `flutter test -d macos` / E2E layer and this build cannot');
+    console.error('   overlap. Wait for it to finish (`pgrep -fl xcodebuild`), then retry.');
+  } else if (/does not contain architectures/.test(log)) {
+    console.error('   The SDK predates Flutter 3.44.8: it verifies the whole ARCHS list with a');
+    console.error('   single `lipo -verify_arch` call, which the lipo in Xcode 27 rejects (the');
+    console.error('   binary itself is fine). Upgrade Flutter, or build one architecture:');
+    console.error(`     FLUTTER_XCODE_ARCHS=${arch} npm run build:macos`);
+  } else {
+    console.error('   See the output above.');
+  }
+  if (!singleArch) {
+    console.error('   `npm run build:macos:local` builds the host architecture instead.');
+  }
+  console.error(`   Full log: ${logPath}\n`);
+}
+
+/**
  * macOS build, in two variants.
  *
  * `macos` is universal (x86_64 + arm64) — what a distribution build needs.
- * `macos:local` builds for the host architecture only, which is both faster and
- * the way around a toolchain bug: Flutter 3.38 hands the whole `ARCHS` list to a
- * single `lipo -verify_arch` call, while Xcode 27's lipo accepts exactly one
- * architecture per call, so a universal build fails at the framework check
- * ("does not contain architectures") *after* a successful compile. Flutter
- * forwards FLUTTER_XCODE_* to xcodebuild, which is how the list is narrowed.
+ * `macos:local` builds for the host architecture only: the faster loop when the
+ * other slice is not the point (it also skips the universal packaging step).
+ * Flutter forwards FLUTTER_XCODE_* to xcodebuild, which is how the list narrows.
+ *
+ * Historical note, because a pinned SDK can still hit it: Flutter ≤ 3.44.7 hands
+ * the whole `ARCHS` list to a single `lipo -verify_arch` call, while the lipo in
+ * Xcode 27 accepts exactly one architecture per call — so a universal build fails
+ * at the framework check ("does not contain architectures") *after* a successful
+ * compile, even though the binary is fat and both slices verify individually.
+ * Flutter fixed its call in 3.44.8 (verified one architecture at a time); the
+ * repo pins 3.47.5, and the hint below stays for SDKs that predate that.
+ *
+ * Forward-looking, so this variant stays deliberate: Flutter keeps Intel slices in
+ * release builds only while `enable-macos-arm64-only` stays off — it is off today
+ * and becomes the default in a future release on the way to dropping Intel
+ * support (flutter.dev/go/macos-intel-deprecation). When that lands, `macos` has
+ * to opt out (`flutter config --no-enable-macos-arm64-only`) or it would ship
+ * Apple Silicon only, silently.
  */
 function buildMacos({ singleArch = false } = {}) {
   const arch = hostXcodeArch();
@@ -131,20 +196,26 @@ function buildMacos({ singleArch = false } = {}) {
   if (singleArch) {
     options.env = { ...process.env, FLUTTER_XCODE_ARCHS: arch };
   } else {
-    console.log('  ℹ️  Universal build. If it fails with "does not contain architectures",');
-    console.log('      that is the Flutter 3.38 + Xcode 27 lipo incompatibility, not this app;');
-    console.log('      use `npm run build:macos:local` for a host-arch build.\n');
+    console.log('  ℹ️  Universal build (x86_64 + arm64). Needs Flutter ≥ 3.44.8 on Xcode 27;');
+    console.log('      `npm run build:macos:local` is the faster host-arch loop.\n');
   }
 
+  const logPath = macosBuildLogPath();
+  const command = 'flutter build macos';
+
   try {
-    exec('flutter build macos', options);
+    // `tee` for two reasons: the output stays live on the console during a build
+    // that takes minutes, and the copy it leaves behind is what classifies a
+    // failure. `pipefail` is what makes the exit status the build's own and not
+    // tee's (`/bin/sh` is bash on macOS; verified there) — without it a failed
+    // build would report success.
+    console.log(`  $ ${command}   (log: ${logPath})`);
+    execSync(`set -o pipefail; ${command} 2>&1 | tee '${logPath}'`, { stdio: 'inherit', ...options });
   } catch (error) {
-    if (!singleArch) {
-      console.error('\n❌ Universal macOS build failed.');
-      console.error('   If the log mentions "does not contain architectures", rebuild with:');
-      console.error(`     FLUTTER_XCODE_ARCHS=${arch} npm run build:macos\n`);
-    }
-    throw error;
+    explainMacosBuildFailure(logPath, { singleArch, arch });
+    // Re-thrown without the shell plumbing above, which would otherwise be all the
+    // build summary had to show.
+    throw new Error(`${command} failed (exit ${error.status ?? 'unknown'})`);
   }
 
   const macosDistDir = path.join(distDir, singleArch ? 'macos-local' : 'macos');

@@ -143,7 +143,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.38.5
+          flutter-version: 3.47.5
           channel: stable
           cache: true
 
@@ -232,7 +232,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.38.5
+          flutter-version: 3.47.5
           channel: stable
           cache: true
 
@@ -264,11 +264,10 @@ jobs:
   # emulator image, and the app it exercises is the same desktop build the
   # packaging script produces (`npm run build:macos:local`).
   #
-  # Note the host-architecture build: a *universal* macOS build fails on Xcode 27
-  # because Flutter 3.38 passes the whole ARCHS list to one `lipo -verify_arch`
-  # call while that lipo accepts a single architecture per call. The integration
-  # layer builds in debug mode (single arch), so it is unaffected — do not add a
-  # universal release build here without re-checking that.
+  # The host-architecture build is deliberate: the integration layer builds in
+  # debug mode anyway, and `build:macos:local` skips the universal packaging step
+  # (see the note in mobile/build-app.js — universal used to fail on Xcode 27's
+  # lipo with Flutter < 3.44.8, which is why this workflow pins the SDK).
   mobile-e2e-macos:
     name: Mobile E2E (macOS desktop)
     runs-on: macos-latest
@@ -291,7 +290,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.38.5
+          flutter-version: 3.47.5
           channel: stable
           cache: true
 

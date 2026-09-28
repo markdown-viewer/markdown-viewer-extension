@@ -384,14 +384,20 @@ The macOS desktop target was raised to 12.0 the same way (`mobile/macos/Podfile`
 + `Runner.xcodeproj`). A release build was verified on 2026-09-28
 (`LSMinimumSystemVersion = 12.0` in the built app).
 
-One toolchain caveat: a **universal** (x86_64 + arm64) macOS build fails on
-Xcode 27 with `Binary …FlutterMacOS does not contain architectures "x86_64 arm64"`,
-because this `lipo` accepts only one architecture per `-verify_arch` call while
-Flutter 3.38 passes the whole list (`packages/flutter_tools/lib/src/build_system/targets/darwin.dart:73`).
-Single-architecture builds pass — Flutter forwards `FLUTTER_XCODE_*` to xcodebuild:
+One toolchain caveat, now historical: a **universal** (x86_64 + arm64) macOS
+build used to fail on Xcode 27 with `Binary …FlutterMacOS does not contain
+architectures "x86_64 arm64"`, because that `lipo` accepts only one architecture
+per `-verify_arch` call while Flutter ≤ 3.44.7 passed the whole `ARCHS` list
+(`packages/flutter_tools/lib/src/build_system/targets/darwin.dart`). It was a
+false alarm — the binary was fat and both slices verified individually — and the
+SDK fixed it by verifying one architecture per call; **Flutter 3.44.8 is the
+first stable with the fix** (commit `879ec7d57`, PR #188625), and the repo now
+pins 3.47.5. Single-architecture builds still work the same way (Flutter forwards
+`FLUTTER_XCODE_*` to xcodebuild) and remain the faster local loop:
 
 ```bash
-FLUTTER_XCODE_ARCHS=arm64 npm run build:macos
+FLUTTER_XCODE_ARCHS=arm64 npm run build:macos      # host arch only, fast
+npm run build:macos                                # universal, needs Flutter ≥ 3.44.8
 ```
 
 The release workflow builds Android only, so it is unaffected.
