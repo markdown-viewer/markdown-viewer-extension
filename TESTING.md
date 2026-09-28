@@ -375,10 +375,14 @@ Each uploads its `test-results/mobile-e2e*` directory on failure. The iOS and
 macOS jobs deliberately run only the integration layer — the unit layer already
 runs in the Android job, and macOS runner minutes are the expensive ones.
 
-The iOS job exists because the app's minimum is iOS 15.0 (`mobile/ios/Podfile`,
-`Runner.xcodeproj`, `AppFrameworkInfo.plist`). Plugins still declare older
-minimums, so the Podfile `post_install` raises every pod target to 15.0 — keep
-those three places in sync when the minimum moves again.
+The iOS job exists because the app's minimum is iOS 15.0. It is enforced in two
+places now — `mobile/ios/Podfile` (`platform :ios`) and `Runner.xcodeproj`
+(`IPHONEOS_DEPLOYMENT_TARGET` in all three configurations, which is what the built
+app reports); `AppFrameworkInfo.plist` used to carry a third copy as
+`MinimumOSVersion`, and the Flutter 3.47 migration removed it (the release build
+still reports 15.0). Plugins still declare older minimums, so the Podfile
+`post_install` raises every pod target to 15.0 — keep the two places in sync when
+the minimum moves again.
 
 The macOS desktop target was raised to 12.0 the same way (`mobile/macos/Podfile`
 + `Runner.xcodeproj`). A release build was verified on 2026-09-28
