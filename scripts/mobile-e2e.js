@@ -35,6 +35,7 @@
  *   MV_E2E_TIMEOUT_MIN         per-layer timeout in minutes (default 30)
  *   MV_E2E_BUILD               '0' → never auto-build the WebView assets
  *   MV_E2E_BOOT_SETTLE_SECONDS Android only: quiet period after boot (default 20)
+ *   MV_E2E_RETRY_HANG        '0' → do not re-run an invocation whose harness hung
  *   (tests read MV_E2E_HEAVY themselves — see mobile/integration_test/helpers)
  */
 import { spawnSync } from 'node:child_process';
@@ -329,6 +330,22 @@ function resolveSuites(selection) {
   });
 }
 
+/**
+ * Signatures of a *harness* hang rather than a failing test.
+ *
+ * Measured on the iOS CI job: every case reported ok, then the run sat until
+ * `flutter test`'s own 12-minute budget expired, the tool could not terminate the
+ * app (`Unable to terminate com.xicilion.markdownviewer`) and the run was killed.
+ * Nothing about the app failed — the device never told the tool it was done — so
+ * re-running the same invocation is the honest recovery, and it is logged.
+ */
+function looksLikeHarnessHang(result) {
+  const output = `${result.stdout}\n${result.stderr}`;
+  return /Test timed out after \d+ minutes/.test(output)
+    || /Unable to terminate /.test(output)
+    || /lost connection to device/i.test(output);
+}
+
 function runIntegrationLayer(deviceId, suites, nameFilter) {
   const startedAt = Date.now();
   const header = (label) => [
@@ -343,6 +360,7 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
   // go, which is what keeps their runs to a single app build.
   const perSuite = isDesktopDevice(deviceId) && suites.length > 1;
   const invocations = perSuite ? suites.map((suite) => [suite]) : [suites];
+  const retryHangs = process.env.MV_E2E_RETRY_HANG !== '0';
 
   const logs = [];
   let status = 0;
@@ -365,12 +383,22 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
     ];
     if (nameFilter) args.push(`--plain-name=${nameFilter}`);
 
-    const result = run('flutter', args, { cwd: mobileDir, capture: true });
+    let result = run('flutter', args, { cwd: mobileDir, capture: true });
+    let retried = false;
+    if (retryHangs && result.status !== 0 && looksLikeHarnessHang(result)) {
+      // Logged, not hidden: the first attempt's output stays in the artifact.
+      log(`[retry] ${invocation.join(', ')} — the device harness hung (all assertions had reported); running it once more`);
+      logs.push(header(result.label) + result.stdout + result.stderr);
+      result = run('flutter', args, { cwd: mobileDir, capture: true });
+      retried = true;
+    }
+
     logs.push(header(result.label) + result.stdout + result.stderr);
     suiteResults.push({
       suites: invocation,
       status: result.status,
       durationMs: result.durationMs,
+      ...(retried ? { retried: 'harness hang' } : null),
     });
     if (result.status !== 0) status = result.status;
 
