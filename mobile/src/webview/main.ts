@@ -129,6 +129,18 @@ const currentDocument: CurrentDocumentState = {
 let currentThemeId = 'default'; // Current theme ID (loaded via shared loadAndApplyTheme)
 // Stable ref object so renderMarkdownFlow can abort previous renders across calls
 const currentTaskManagerRef: { current: AsyncTaskManager | null } = { current: null };
+// Every render still streaming, not just the newest one: a superseded render
+// whose task manager was displaced from the slot above would otherwise keep
+// appending blocks after the newest render finished (the pane then shows the
+// previous document while the toolbar already shows the new one).
+const activeRenderTasks = new Set<AsyncTaskManager>();
+const abortActiveRenders = (): void => {
+  for (const task of activeRenderTasks) {
+    task.abort();
+  }
+  activeRenderTasks.clear();
+  currentTaskManagerRef.current = null;
+};
 let currentZoomLevel = 1; // Store current zoom level for applying after content render
 let scrollSyncController: ScrollSyncController | null = null; // Scroll sync controller
 let isSlidevMode = false; // Whether currently showing a Slidev presentation
@@ -546,6 +558,8 @@ async function handleLoadMarkdown(payload: LoadMarkdownPayload): Promise<void> {
     translate: (key: string, subs?: string | string[]) => Localization.translate(key, subs),
     platform,
     currentTaskManagerRef,
+    activeRenderTasks,
+    abortActiveRenders,
     targetLine: savedScrollLine,
     onHeadings: (headings) => {
       bridge.postMessage('HEADINGS_UPDATED', headings);

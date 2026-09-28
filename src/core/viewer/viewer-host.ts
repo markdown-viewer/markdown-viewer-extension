@@ -618,11 +618,16 @@ export interface RenderMarkdownFlowOptions {
 
   /**
    * Every render still streaming, and the owner's abort-all helper (see
-   * `activeRenderTasks` in the adapter): aborting only the *newest* render's
-   * predecessor lets an older one keep writing into the pane.
+   * `activeRenderTasks` in the host adapter): aborting only the *newest*
+   * render's predecessor lets an older one keep writing into the pane.
+   *
+   * Optional because hosts outside `createViewerHostAdapter` call this flow
+   * directly (the mobile WebView page does) and own their own abort
+   * bookkeeping; without them the flow falls back to the single-slot behaviour
+   * those hosts have always used.
    */
-  activeRenderTasks: Set<AsyncTaskManager>;
-  abortActiveRenders: () => void;
+  activeRenderTasks?: Set<AsyncTaskManager>;
+  abortActiveRenders?: () => void;
   
   /**
    * Target line for scroll sync.
@@ -749,6 +754,15 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     abortActiveRenders,
   } = options;
 
+  // Hosts that call this flow directly (the mobile WebView page) keep their own
+  // task-manager slot and pass neither option: fall back to what they expect —
+  // the one render they track — instead of assuming the tracking exists.
+  const abortRenders = abortActiveRenders ?? ((): void => {
+    currentTaskManagerRef.current?.abort();
+    currentTaskManagerRef.current = null;
+  });
+  const liveRenderTasks = activeRenderTasks ?? new Set<AsyncTaskManager>();
+
   const hasRenderableContent = markdown.trim().length > 0;
 
   const waitForNextPaint = async (): Promise<void> => {
@@ -764,12 +778,12 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
   };
 
   // Abort any previous rendering task
-  abortActiveRenders();
+  abortRenders();
 
   try {
     // Create task manager
     const taskManager = new AsyncTaskManager(translate);
-    activeRenderTasks.add(taskManager);
+    liveRenderTasks.add(taskManager);
     currentTaskManagerRef.current = taskManager;
 
     const hadContentBeforeRender = container.childNodes.length > 0;
@@ -931,7 +945,7 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     }
 
     // Clear task manager reference
-    activeRenderTasks.delete(taskManager);
+    liveRenderTasks.delete(taskManager);
     if (currentTaskManagerRef.current === taskManager) {
       currentTaskManagerRef.current = null;
     }
@@ -939,7 +953,7 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[ViewerHost] Render failed:', error);
-    activeRenderTasks.delete(taskManager);
+    liveRenderTasks.delete(taskManager);
   }
 }
 
