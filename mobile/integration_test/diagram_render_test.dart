@@ -69,9 +69,40 @@ void main() {
       final message = await e2e.eval("document.querySelector('.mv-plugin-error')?.textContent");
       expect('$message', isNotEmpty);
 
-      // The failure must also be reported to the host, not only drawn on screen.
+      // The block must say *why* it failed and carry the attributes a host uses
+      // to find lost blocks: the message itself is the engine's own text (not
+      // translated, and mermaid's points at the line, not at itself), while
+      // `data-plugin-type` is the documented contract for "which engine".
+      expect(
+        RegExp('parse|error|line', caseSensitive: false).hasMatch('$message'),
+        isTrue,
+        reason: 'the error block must say why the diagram failed: $message',
+      );
+      final errorTags = await e2e.eval(
+        "Array.from(document.querySelectorAll('.mv-plugin-error'))"
+        ".map((el) => (el.dataset.pluginType || '') + ':' + (el.dataset.pluginStage || ''))",
+      );
+      expect('$errorTags', contains('mermaid'),
+          reason: 'the error block must be tagged with its plugin type: $errorTags');
+
+      // The failure is contained: the rest of the document still renders.
+      expect(await e2e.evalInt("document.querySelectorAll('#markdown-content h1').length"), 1);
+
+// The failure must also be reported to the host, not only drawn on screen,
+      // and the report must identify the engine (`type`), the reason
+      // (`message`) and where it happened (`line`) — a bare "rendering failed"
+      // is what makes a red run undiagnosable.
       final errors = (await e2e.diagnostics()).where((d) => d['level'] == 'error').toList();
       expect(errors, isNotEmpty, reason: 'a failed diagram must reach the diagnostics sink');
+      final failure = errors.first;
+      expect(failure['type'], 'mermaid', reason: 'the diagnostic must name the engine: $failure');
+      expect(failure['kind'], 'render-failed', reason: 'the diagnostic must name the stage: $failure');
+      expect('${failure['line']}', isNot('null'), reason: 'the diagnostic must point at a line: $failure');
+      expect(
+        RegExp('parse|error|line', caseSensitive: false).hasMatch('${failure['message']}'),
+        isTrue,
+        reason: 'the diagnostic must carry the engine reason: $failure',
+      );
     });
 
     group('theme switching', () {

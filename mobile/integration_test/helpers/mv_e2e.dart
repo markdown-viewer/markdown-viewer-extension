@@ -186,8 +186,52 @@ class MvE2E {
   /// Clears the page's diagnostics sink (call before opening a document).
   Future<void> clearDiagnostics() => runJs('window.__mvRenderDiagnostics.clear()');
 
+  /// Error blocks the render pipeline inserted into the document.
+  ///
+  /// The contract is the class plus the `data-plugin-*` attributes
+  /// (`src/plugins/plugin-html-utils.ts`), never the message text — that one is
+  /// translated, so a locale change must not turn a real failure into a pass.
+  static const String pluginErrorSelector = '.mv-plugin-error';
+
+  /// Error blocks currently rendered inside `#markdown-content`.
+  Future<List<Map<String, Object?>>> pluginErrors() async {
+    final value = await eval(
+      "Array.from(document.querySelectorAll('#markdown-content $pluginErrorSelector'))"
+      ".map((el) => ({ type: el.dataset.pluginType || '', stage: el.dataset.pluginStage || '', "
+      "text: (el.textContent || '').slice(0, 200) }))",
+    );
+    if (value is! List) return const <Map<String, Object?>>[];
+    return value
+        .whereType<Map<Object?, Object?>>()
+        .map((entry) => entry.cast<String, Object?>())
+        .toList(growable: false);
+  }
+
+  /// Fails if the rendered content carries a plugin error block.
+  ///
+  /// Counting rendered blocks (`data-plugin-rendered="true"`, a `data:` PNG) is
+  /// not enough: a diagram that failed to parse is *also* a finished block, so
+  /// a broken render can satisfy a structural assertion while the reader sees
+  /// an error message on the page. This is the content half of that check.
+  Future<void> expectNoPluginErrors() async {
+    final errors = await pluginErrors();
+    if (errors.isEmpty) {
+      _log('ok: no plugin error blocks');
+      return;
+    }
+    fail('the rendered document contains ${errors.length} plugin error block(s) — '
+        'the content is an error message, not the expected output:\n'
+        '${const JsonEncoder.withIndent('  ').convert(errors)}\n'
+        '${await snapshot()}');
+  }
+
   /// Fails if the pipeline recorded an `error`-level diagnostic.
+  ///
+  /// Also checks the DOM for error blocks: a block can be reported by the
+  /// engine without the host-side sink seeing it (and the reverse), and what
+  /// the reader sees is the DOM.
   Future<void> expectNoRenderErrors() async {
+    await expectNoPluginErrors();
     final errors = (await diagnostics())
         .where((d) => d['level'] == 'error')
         .toList(growable: false);
