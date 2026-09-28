@@ -80,11 +80,13 @@ jobs:
           npx playwright install chromium --with-deps
 
       # Browser/export contract suites read dist/cli assets; the extension
-      # E2E loads dist/chrome.
-      - name: Build CLI and Chrome extension
+      # E2E loads dist/chrome; the render-surface relay suite drives the built
+      # mobile WebView page (mobile/build/mobile).
+      - name: Build CLI, Chrome extension and mobile WebView assets
         run: |
           npm run build:cli
           npm run build:chrome
+          npm run build:mobile
 
       - name: Run fibjs compatibility tests
         run: npm run test:unit

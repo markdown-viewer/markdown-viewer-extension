@@ -25,4 +25,5 @@ import './suites/renderers-theme/index.js';
 import './suites/charset-recovery/index.js';
 import './suites/project-gates/index.js';
 import './suites/browser-contracts/index.js';
+import './suites/render-view-protocol/index.js';
 import './suites/export-contracts/index.js';

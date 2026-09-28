@@ -37,6 +37,12 @@
  *   MV_E2E_BOOT_SETTLE_SECONDS Android only: quiet period after boot (default 20)
  *   MV_E2E_RETRY_HANG        '0' → do not re-run an invocation whose harness hung
  *   (tests read MV_E2E_HEAVY themselves — see mobile/integration_test/helpers)
+ *
+ * Per-suite dart-defines (see integrationDefines): the render-surface suite gets
+ * `MV_RENDER_VIEW=1` and `MV_E2E_RELAY_SMALL=1` by default — the first is the mode
+ * it tests, the second the tiny bridge budget that makes its framing assertions
+ * mean something. Every other suite runs the shipped iframe path with the real
+ * bridge limits. Both are overridable from the environment.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -346,6 +352,47 @@ function looksLikeHarnessHang(result) {
     || /lost connection to device/i.test(output);
 }
 
+/** The render-surface suite: the only one that needs the hidden-WebView mode. */
+const RENDER_VIEW_SUITE = 'render_view_test.dart';
+
+/** An env flag with a per-suite default ('' counts as unset, so CI can pass empty strings). */
+function flag(name, fallback) {
+  const value = process.env[name];
+  return value === undefined || value === '' ? fallback : value;
+}
+
+/**
+ * The dart-defines one invocation runs with.
+ *
+ * Two of them are per-*suite* rather than per-run:
+ *
+ *   MV_RENDER_VIEW      (mobile/lib/dev/render_view_mode.dart) — the render-surface
+ *                       suite is *about* the hidden WebView, so it gets the mode by
+ *                       default; every other suite keeps the shipped iframe path,
+ *                       which is the point: the migration must not change what they
+ *                       render. Running the whole set with the mode on is a manual
+ *                       choice (`MV_RENDER_VIEW=1 node scripts/mobile-e2e.js …`).
+ *   MV_E2E_RELAY_SMALL  (mobile/lib/dev/relay_limits_override.dart) — the tiny
+ *                       bridge budget that makes the framing path run on a platform
+ *                       whose real bridge carries megabytes. The render-surface
+ *                       suite turns it on by default, because with the platform's
+ *                       real limit its framing assertions would be vacuous;
+ *                       `MV_E2E_RELAY_SMALL=0` gets the passthrough run instead.
+ */
+function integrationDefines(suites) {
+  const renderSurface = suites.includes(RENDER_VIEW_SUITE);
+  return [
+    // The E2E harness reads this back (mobile/integration_test/helpers/mv_e2e.dart).
+    '--dart-define=MV_WEBVIEW_DEBUG=1',
+    `--dart-define=MV_RENDER_VIEW=${flag('MV_RENDER_VIEW', renderSurface ? '1' : '0')}`,
+    // Heavy cases (mobile/integration_test/helpers/mv_e2e_gating.dart): on a device
+    // this define is the only way to reach them, since the app process does not
+    // inherit the launcher's environment.
+    `--dart-define=MV_E2E_HEAVY=${flag('MV_E2E_HEAVY', '0')}`,
+    `--dart-define=MV_E2E_RELAY_SMALL=${flag('MV_E2E_RELAY_SMALL', renderSurface ? '1' : '0')}`,
+  ];
+}
+
 function runIntegrationLayer(deviceId, suites, nameFilter) {
   const startedAt = Date.now();
   const header = (label) => [
@@ -357,9 +404,18 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
   // Desktop hosts launch one app process per test file and do not survive the
   // relaunch (`Unable to start the app on the device`), so each suite gets its
   // own invocation there. Phone targets and simulators run the whole list in one
-  // go, which is what keeps their runs to a single app build.
+  // go, which is what keeps their runs to a single app build — except the
+  // render-surface suite, which always gets its own invocation because it is the
+  // only suite that runs in the hidden-WebView mode (see `integrationDefines`).
+  // Folding it into the shared invocation would either skip its cases (mode off,
+  // a green run that tested nothing) or force the migration mode onto the suites
+  // that exist to pin the shipped iframe path.
   const perSuite = isDesktopDevice(deviceId) && suites.length > 1;
-  const invocations = perSuite ? suites.map((suite) => [suite]) : [suites];
+  const renderSurfaceSuites = suites.filter((suite) => suite === RENDER_VIEW_SUITE);
+  const otherSuites = suites.filter((suite) => suite !== RENDER_VIEW_SUITE);
+  const invocations = perSuite
+    ? suites.map((suite) => [suite])
+    : [otherSuites, renderSurfaceSuites].filter((group) => group.length > 0);
   const retryHangs = process.env.MV_E2E_RETRY_HANG !== '0';
 
   const logs = [];
@@ -372,14 +428,7 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
       ...invocation.map((suite) => path.join('integration_test', suite)),
       '-d',
       deviceId,
-      '--dart-define=MV_WEBVIEW_DEBUG=1',
-      // Render-surface mode for the suites (mobile/lib/dev/render_view_mode.dart);
-      // the migration cases need it on, everything else runs with the iframe path.
-      `--dart-define=MV_RENDER_VIEW=${process.env.MV_RENDER_VIEW || '0'}`,
-      // Heavy cases (mobile/integration_test/helpers/mv_e2e_gating.dart): on a
-      // device this define is the only way to reach them, since the app process
-      // does not inherit the launcher's environment.
-      `--dart-define=MV_E2E_HEAVY=${process.env.MV_E2E_HEAVY || '0'}`,
+      ...integrationDefines(invocation),
     ];
     if (nameFilter) args.push(`--plain-name=${nameFilter}`);
 
@@ -410,7 +459,7 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
 
   const trailer = [
     '',
-    `mode: ${perSuite ? 'one invocation per suite (desktop host)' : 'single invocation'} `,
+    `mode: ${perSuite ? 'one invocation per suite (desktop host)' : 'grouped (iframe-path suites together, render-surface suite alone)'} `,
     `duration: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
     `exit: ${status}`,
     '',

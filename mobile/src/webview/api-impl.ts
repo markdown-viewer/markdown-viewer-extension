@@ -263,6 +263,21 @@ class MobileI18nService extends BaseI18nService {
 // ============================================================================
 
 /**
+ * Which render surface this page should use.
+ *
+ * Dart publishes `window.__mvRenderView` before the first document arrives
+ * (`mobile/lib/dev/render_view_mode.dart`), and this is the single definition of
+ * what that flag means for the page — the host factory and the startup warm-up
+ * both read it here, so they cannot disagree.
+ *
+ * It is a function rather than a constant because the flag arrives after this
+ * module is evaluated (the platform object is built at script load).
+ */
+export function isRenderViewMode(): boolean {
+  return window.__mvRenderView === true;
+}
+
+/**
  * Mobile Platform API
  * Implements PlatformAPI interface for mobile WebView environment
  */
@@ -301,9 +316,14 @@ class MobilePlatformAPI {
     // mode Dart published before the first document (dev/render_view_mode.dart):
     // the face the app ships is still the in-page iframe, and the hidden WebView
     // is what the migration is switching to.
+    //
+    // The host is created lazily on the first render, which is after Dart has
+    // published the mode. Nothing may ask this service what host it has earlier
+    // than that: creating it then would freeze the choice at "no mode published
+    // yet" and the iframe would win every diagram.
     const resourceService = this.resource;
     this.renderer = new RendererService({
-      createHost: () => window.__mvRenderView === true
+      createHost: () => isRenderViewMode()
         ? new BridgeRenderHost({
             transport: new FlutterRelayTransport(),
             source: 'mobile-parent',

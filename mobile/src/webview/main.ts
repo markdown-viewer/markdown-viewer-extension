@@ -2,7 +2,7 @@
 // This is the main entry point for the mobile WebView
 // Note: Diagram renderers (mermaid, vega, etc.) run in a separate iframe
 
-import { platform, bridge } from './api-impl';
+import { platform, bridge, isRenderViewMode } from './api-impl';
 import Localization from '../../../src/utils/localization';
 import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
@@ -33,6 +33,50 @@ import { clearRenderDiagnostics, getRenderDiagnostics } from '../../../src/core/
 
 declare global {
   var bridge: PlatformBridgeAPI | undefined;
+
+  /**
+   * Bridge traffic the Dart supervisor framed (see
+   * mobile/lib/services/relay_chunking.dart): how many frames crossed, how large a
+   * single bridge message was, how large the payloads were, and what the bridge's
+   * limit is. The L2 suite uses it to prove that a result larger than the limit was
+   * carried in frames and reassembled, instead of trusting that the path ran.
+   */
+  interface RenderSurfaceChunks {
+    /** Messages that crossed the bridge (a frame counts once). */
+    messagesSent: number;
+    messagesReceived: number;
+    /** Frames that crossed in each direction. */
+    sent: number;
+    received: number;
+    /** Largest single bridge message — the number the limit bounds. */
+    maxMessageSent: number;
+    maxMessageReceived: number;
+    /** Largest whole payload Dart framed for sending. */
+    maxAssembledOut: number;
+    limit: number;
+    chunkSize: number;
+  }
+
+  /**
+   * The supervisor's status snapshot, as the page mirrors it for diagnostics and
+   * for the E2E harness.
+   */
+  interface RenderSurfaceStatus {
+    state: string;
+    renderers: string[];
+    readyMs: number | null;
+    error: string | null;
+    /** Monotonic push sequence: a reader can tell whether a snapshot is newer. */
+    push: number | null;
+    chunks: RenderSurfaceChunks | null;
+    /**
+     * Recent supervisor diagnostics (why it framed a payload, dropped a stream,
+     * reloaded the surface). The surface has no visible console, so a failing E2E
+     * case has nothing else to quote.
+     */
+    logs?: string[];
+  }
+
   interface Window {
     __mobileWebViewReady?: boolean;
     /** E2E seam: lets the integration harness read what the render pipeline lost. */
@@ -43,19 +87,25 @@ declare global {
     /** Which render surface Dart told this page to use (see dev/render_view_mode.dart). */
     __mvRenderView?: boolean;
     /**
+     * Dart's request to warm the render surface (see `wakeRenderSurface`).
+     *
+     * Called once, right after Dart publishes `__mvRenderView` and before it injects
+     * a document. The page cannot warm the surface on its own: the choice is not
+     * known until that publication, and warming too early would freeze it.
+     */
+    __mvRenderWakeRenderSurface?: () => boolean;
+    /**
      * Render-surface status, pushed by the Dart supervisor.
      *
      * The surface has no widget of its own, so this is the only place the app can
      * see whether it is ready, which renderers it announced, and why it failed —
      * the E2E migration cases read it (mobile/integration_test/render_view_test.dart).
      */
-    __mvRenderSurface?: {
-      state: string;
-      renderers: string[];
-      readyMs: number | null;
-      error: string | null;
+    __mvRenderSurface?: RenderSurfaceStatus & {
       /** Test-only: ask the Dart supervisor to reload the surface (Phase 2 case). */
       __debugReloadForTest?: () => boolean;
+      /** Test-only: ask the supervisor for a fresh status snapshot. */
+      __requestStatusForTest?: () => boolean;
     };
   }
 }
@@ -73,39 +123,120 @@ window.__mvRenderDiagnostics = {
   clear: () => clearRenderDiagnostics(),
 };
 
+/**
+ * Reads the bridge-traffic counters out of a supervisor status payload.
+ *
+ * Diagnostics only, and deliberately strict: a malformed snapshot is reported as
+ * "no counters" rather than half-filled, so the E2E assertion that reads it cannot
+ * pass on garbage.
+ */
+function readChunkStatus(value: unknown): RenderSurfaceChunks | null {
+  const source = (value ?? null) as Record<string, unknown> | null;
+  if (!source) return null;
+  const numeric = (key: string): number | null => (typeof source[key] === 'number' ? (source[key] as number) : null);
+  const messagesSent = numeric('messagesSent');
+  const messagesReceived = numeric('messagesReceived');
+  const sent = numeric('sent');
+  const received = numeric('received');
+  const maxMessageSent = numeric('maxMessageSent');
+  const maxMessageReceived = numeric('maxMessageReceived');
+  const maxAssembledOut = numeric('maxAssembledOut');
+  const limit = numeric('limit');
+  const chunkSize = numeric('chunkSize');
+  if (
+    messagesSent === null ||
+    messagesReceived === null ||
+    sent === null ||
+    received === null ||
+    maxMessageSent === null ||
+    maxMessageReceived === null ||
+    maxAssembledOut === null ||
+    limit === null ||
+    chunkSize === null
+  ) {
+    return null;
+  }
+  return {
+    messagesSent,
+    messagesReceived,
+    sent,
+    received,
+    maxMessageSent,
+    maxMessageReceived,
+    maxAssembledOut,
+    limit,
+    chunkSize,
+  };
+}
+
+/**
+ * Applies one status snapshot to the seam.
+ *
+ * The seam object is mutated, never replaced: the test hooks live on it, and a
+ * status update would otherwise wipe them (the restart case calls one of them
+ * right after a push). Fields are type-checked individually, because everything
+ * that reads this is a diagnostic or a test — a half-filled snapshot must not look
+ * like a measurement.
+ */
+function applyRenderSurfaceStatus(status: Record<string, unknown>): void {
+  const seam = window.__mvRenderSurface;
+  if (!seam) return;
+  seam.state = String(status.state ?? 'unknown');
+  seam.renderers = Array.isArray(status.renderers) ? (status.renderers as string[]) : [];
+  seam.readyMs = typeof status.readyMs === 'number' ? status.readyMs : null;
+  seam.error = status.error == null ? null : String(status.error);
+  seam.push = typeof status.push === 'number' ? status.push : null;
+  seam.chunks = readChunkStatus(status.chunks);
+  seam.logs = Array.isArray(status.logs) ? (status.logs as string[]) : [];
+}
+
 // Render-surface status seam. Installed before the relay transport registers its
 // own inbox handler; the transport chains to whatever it finds, so both see every
 // message (status pushes here, responses there).
-window.__mvRenderSurface = { state: 'unknown', renderers: [], readyMs: null, error: null };
-// Test hook (non-release only): the supervisor handles the request on the relay
-// channel and reloads the surface, which is how the E2E suite exercises recovery.
+window.__mvRenderSurface = {
+  state: 'unknown',
+  renderers: [],
+  readyMs: null,
+  error: null,
+  push: null,
+  chunks: null,
+  logs: [],
+};
+
+// Test hooks (non-release only). Reload asks the supervisor to restart the surface
+// (the recovery case); status asks for a *fresh* snapshot — the counters in it are
+// maxima, so a case that renders something has to fetch one rather than read
+// whatever the last push left behind.
 if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'production') {
-  window.__mvRenderSurface.__debugReloadForTest = () => {
+  const postToSupervisor = (type: string): boolean => {
     const channel = window.MarkdownViewerRender;
     if (!channel) return false;
     channel.postMessage(JSON.stringify({
-      type: 'RENDER_VIEW_DEBUG_RELOAD',
-      id: `debug-reload-${Date.now()}`,
+      type,
+      id: `${type}-${Date.now()}`,
       payload: {},
       timestamp: Date.now(),
     }));
     return true;
   };
+  window.__mvRenderSurface.__debugReloadForTest = () => postToSupervisor('RENDER_VIEW_DEBUG_RELOAD');
+  window.__mvRenderSurface.__requestStatusForTest = () => postToSupervisor('RENDER_VIEW_STATUS');
 }
+
 {
   const previousInbox = window.__receiveRenderMessage;
   window.__receiveRenderMessage = (payload: unknown) => {
     try {
       const message = typeof payload === 'string' ? JSON.parse(payload) : payload;
-      const typed = message as { type?: string; payload?: Record<string, unknown> } | null;
-      if (typed?.type === 'RENDER_VIEW_STATUS' && typed.payload) {
-        const status = typed.payload;
-        window.__mvRenderSurface = {
-          state: String(status.state ?? 'unknown'),
-          renderers: Array.isArray(status.renderers) ? (status.renderers as string[]) : [],
-          readyMs: typeof status.readyMs === 'number' ? status.readyMs : null,
-          error: status.error == null ? null : String(status.error),
-        };
+      const typed = message as { type?: string; payload?: unknown; data?: unknown } | null;
+      if (typed?.type === 'RENDER_VIEW_STATUS' && typed.payload && typeof typed.payload === 'object') {
+        applyRenderSurfaceStatus(typed.payload as Record<string, unknown>);
+      } else if (typed?.type === 'RESPONSE' && typed.data && typeof typed.data === 'object') {
+        // The answer to a status request is a snapshot too (`__requestStatusForTest`).
+        const data = typed.data as Record<string, unknown>;
+        if (typeof data.state === 'string') {
+          applyRenderSurfaceStatus(data);
+        }
       }
     } catch {
       // Diagnostics only: a malformed push must not break the relay.
@@ -254,6 +385,33 @@ function isBridgeMessage(message: unknown): message is BridgeMessage {
 }
 
 /**
+ * Warms the render surface, once Dart has said which one to use.
+ *
+ * The page cannot decide this itself at boot (see the note in `initialize`), so
+ * Dart calls this after publishing the mode and before injecting a document:
+ *   - iframe mode: pre-load the in-page iframe and let its readiness handshake run
+ *     in the background (the first diagram still awaits it through
+ *     `RendererService.sendToHost`, which keeps the cold-start retry);
+ *   - render-WebView mode: nothing to do here — Dart warms the hidden WebView
+ *     itself, after this page is interactive.
+ *
+ * Deliberately not awaited by Dart: the page's readiness must not depend on
+ * another document's boot (plan §2, G2).
+ */
+function wakeRenderSurface(): boolean {
+  if (isRenderViewMode()) {
+    return false;
+  }
+  void platform.renderer.ensureReady();
+  return true;
+}
+
+// Dart calls this right after it publishes the mode (mobile/lib/main.dart,
+// `_markWebViewReady`). Assigned at module scope on purpose: the document must not
+// wait for it, so it cannot live inside the awaited part of `initialize()`.
+window.__mvRenderWakeRenderSurface = wakeRenderSurface;
+
+/**
  * Initialize the mobile viewer
  */
 async function initialize(): Promise<void> {
@@ -273,10 +431,14 @@ async function initialize(): Promise<void> {
       console.error('[Mobile] Failed to load theme at init:', error);
     }
 
-    // Pre-initialize render iframe and wait for a real ready handshake before
-    // telling Flutter it can inject documents. Cold-start share flow is very
-    // sensitive to this order on Android.
-    await platform.renderer.ensureReady();
+    // The render surface is *not* warmed here. Which surface this page must use is
+    // decided by Dart (mobile/lib/dev/render_view_mode.dart) and published as
+    // `window.__mvRenderView`; before that publication the answer is unknown, and
+    // any call into the render service would create its host now — freezing the
+    // choice at "no mode yet", which means the in-page iframe renders every diagram
+    // even under the render-WebView mode. Dart wakes the surface instead, right
+    // after it publishes the mode and before it injects a document
+    // (`__mvRenderWakeRenderSurface` below).
 
     // Initialize scroll sync controller FIRST (before message handlers)
     // Uses #markdown-content as container, window scroll for mobile

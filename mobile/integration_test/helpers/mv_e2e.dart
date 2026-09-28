@@ -129,6 +129,44 @@ class MvE2E {
     );
   }
 
+  /// The render surface's current status snapshot, including the bridge-traffic
+  /// counters the supervisor keeps (`chunks`).
+  ///
+  /// Read *after* a render, not at boot: the counters describe traffic that has
+  /// already happened.
+  Future<Map<String, Object?>> renderSurfaceStatus() async {
+    final value = await eval('window.__mvRenderSurface');
+    if (value is! Map) {
+      fail('render surface status seam is not installed (got ${value?.runtimeType})');
+    }
+    return value.cast<String, Object?>();
+  }
+
+  /// Waits for a status snapshot newer than [push], asking the supervisor for one
+  /// so the wait does not depend on a push happening to arrive.
+  ///
+  /// The snapshot carries maxima (largest message, frame counts), so a case that
+  /// wants to judge *its own* traffic has to read one produced after it.
+  Future<Map<String, Object?>> waitForRenderSurfacePush({int push = 0, Duration timeout = kRenderTimeout}) async {
+    // A side effect, so it must not go through the value-returning evaluator.
+    await runJs('window.__mvRenderSurface.__requestStatusForTest && window.__mvRenderSurface.__requestStatusForTest()');
+
+    final deadline = DateTime.now().add(timeout);
+    Map<String, Object?> status = const <String, Object?>{};
+
+    while (DateTime.now().isBefore(deadline)) {
+      status = await renderSurfaceStatus();
+      final current = status['push'];
+      if (current is int && current > push) {
+        return status;
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    fail('the supervisor produced no status newer than #$push within ${timeout.inSeconds}s: '
+        '${jsonEncode(status)}\n${renderSurfaceLogs(status)}');
+  }
+
   /// Polls until every pending diagram placeholder has been resolved.
   ///
   /// The pipeline inserts `<div class="async-placeholder">` for each async
@@ -170,7 +208,47 @@ class MvE2E {
     }
 
     fail('render surface never reported ready within ${timeout.inSeconds}s: '
-        '${jsonEncode(status)}');
+        '${jsonEncode(status)}\n${renderSurfaceLogs(status)}');
+  }
+
+  /// Waits until the supervisor reports a reload *and* the surface is ready again.
+  ///
+  /// The restart case asserts this rather than merely "diagrams still render": a
+  /// reload hook that never reached the supervisor (or was never installed) would
+  /// leave a case named after a restart that restarted nothing.
+  Future<Map<String, Object?>> waitForRenderSurfaceReload({
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    Map<String, Object?> status = const <String, Object?>{};
+
+    while (DateTime.now().isBefore(deadline)) {
+      await runJs(
+        'window.__mvRenderSurface.__requestStatusForTest && window.__mvRenderSurface.__requestStatusForTest()',
+      );
+      status = await renderSurfaceStatus();
+      if (status['state'] == 'ready' && renderSurfaceLogs(status).contains(kSupervisorReloadLog)) {
+        return status;
+      }
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    fail('the supervisor never reported a reload within ${timeout.inSeconds}s: '
+        '${jsonEncode(status)}\n${renderSurfaceLogs(status)}');
+  }
+
+  /// Supervisor log line written when a reload was requested.
+  static const String kSupervisorReloadLog = 'reload requested';
+
+  /// The supervisor's recent diagnostics out of a status snapshot.
+  ///
+  /// The counters say what crossed the bridge; these lines say *why* — which
+  /// payload was framed, which stream was dropped, whether the surface was
+  /// reloaded. Without them a failing case can only report a number.
+  static List<String> renderSurfaceLogs(Map<String, Object?> status) {
+    final logs = status['logs'];
+    if (logs is! List) return const <String>[];
+    return logs.map((line) => '$line').toList(growable: false);
   }
 
   /// Render diagnostics recorded by the page (errors and warnings).

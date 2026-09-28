@@ -24,6 +24,15 @@ void main() {
         isTrue,
         reason: 'the E2E diagnostics seam must exist in non-release builds',
       );
+      // The page owns the decision of which surface to warm, and Dart only calls
+      // this hook after publishing the mode. A hook that is declared but never
+      // assigned (which happened once) silently costs the iframe path its
+      // background pre-load, and nothing else would notice.
+      expect(
+        await e2e.eval('typeof window.__mvRenderWakeRenderSurface === "function"'),
+        isTrue,
+        reason: 'Dart warms the render surface through this hook (see mobile/src/webview/main.ts)',
+      );
     });
 
     testWidgets('renders a document into the DOM', (tester) async {
