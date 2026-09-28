@@ -186,13 +186,22 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
     await harness?.close();
   });
 
+  const paneState = async (): Promise<string> => {
+    const frames = workspacePage.frames().map((candidate) => candidate.url()).join(', ');
+    const src = await evalJs<string | null>(
+      workspacePage,
+      `() => document.getElementById('preview-frame')?.getAttribute('src') ?? null`,
+    );
+    return `pane src=${src} frames=[${frames}]`;
+  };
+
   const previewFrame = async (): Promise<Frame> => {
     let frame: Frame | null = null;
     for (let attempt = 0; attempt < 60 && !frame; attempt += 1) {
       await workspacePage.waitForTimeout(200);
       frame = workspacePage.frames().find((candidate) => candidate.url().includes('viewer-embed')) ?? null;
     }
-    assert.ok(frame, 'workspace preview iframe not found');
+    assert.ok(frame, `workspace preview iframe not found — ${await paneState()}`);
     return frame;
   };
 
@@ -228,9 +237,25 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
     const expected = CONTENT[name];
     const firstLine = expected.split('\n').find((line) => line.trim().length > 0) || '';
     const isMarkdown = name.endsWith('.md');
-    await waitFor(frame, isMarkdown
-      ? `() => (document.querySelector('#markdown-content h1')?.textContent || '') === ${JSON.stringify(firstLine.replace(/^#\s*/, ''))}`
-      : `() => (document.querySelector('#markdown-content pre code')?.textContent || '').includes(${JSON.stringify(firstLine)})`, 30000);
+    try {
+      await waitFor(frame, isMarkdown
+        ? `() => (document.querySelector('#markdown-content h1')?.textContent || '') === ${JSON.stringify(firstLine.replace(/^#\s*/, ''))}`
+        : `() => (document.querySelector('#markdown-content pre code')?.textContent || '').includes(${JSON.stringify(firstLine)})`, 30000);
+    } catch (error) {
+      // The pane can keep an earlier document (or an empty root) while the
+      // toolbar already shows this file, so a bare timeout is not diagnosable.
+      const pane = await evalJs<{ filename?: string; opened?: string; codeView?: string; children?: number; text?: string }>(
+        frame,
+        `() => ({
+          filename: document.documentElement.dataset.viewerFilename,
+          opened: document.documentElement.dataset.viewerOpenedFilename,
+          codeView: document.documentElement.dataset.codeView,
+          children: document.getElementById('markdown-content')?.children.length,
+          text: (document.getElementById('markdown-content')?.textContent || '').slice(0, 80),
+        })`,
+      );
+      throw new Error(`${(error as Error).message}\n  ${await paneState()}\n  pane state=${JSON.stringify(pane)}`);
+    }
 
     const state = await evalJs<ViewerState>(frame, READ_STATE_JS);
     return { frame, state };
