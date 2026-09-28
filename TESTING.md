@@ -33,6 +33,27 @@ The installed-extension E2E suite is intentionally no longer imported by
 `test/all.test.js`. This prevents extension lifecycle tests from depending on
 the fibjs compatibility runtime.
 
+### The render-surface protocol suite (L1, device-free)
+
+`test/suites/render-view-protocol/` covers the mobile relay without a device:
+
+| File | What it pins |
+|---|---|
+| `chunking.test.ts` | The framing layer: pass-through under the limit, byte-exact reassembly, code-unit slices (a boundary may split a surrogate pair), the `window` pacing, dropped streams (peer stops acking, contradictory frames, idle, oversize), and that `RELAY_LIMITS` cannot be malformed into a worse budget |
+| `routing.test.ts` | The `__target` routing table: the hint lives outside the payload, an unaddressed message is never "for" a surface, the historical literals are unchanged, and on a shared bus exactly one surface answers |
+| `surface-relay.test.ts` | The **built** render surface in Chromium, driven the way Dart drives it: readiness, limits, a result larger than the limit carried in frames and reassembled, the PNG payload, and that the surface never reads files or the network itself |
+
+It needs `npm run build:mobile` (the surface the last case loads is
+`mobile/build/mobile/render-view.html`); CI's `test` job builds it with the CLI and
+extension bundles. The Dart mirror of the framing rules lives in
+`mobile/test/services/relay_chunking_test.dart` and uses the *same fixtures*, so the
+two implementations cannot drift apart silently.
+
+Browser-driving rules for this suite are the repository's: expression **strings**
+rather than serialized functions (see `test/helpers/page-driver.ts` for why), and no
+`writeHead(...).end(...)` chaining — fibjs's `writeHead` returns `undefined`, so a
+chained call answers HTTP 500 and the suite sees an empty page.
+
 ## E2E entry points and scope
 
 The Node.js entry point is:
@@ -180,13 +201,13 @@ on real devices: rasterizing that payload is the heaviest thing in the suite.
 
 | Layer | Result | Wall clock |
 |---|---|---|
-| unit (`--layer=unit`) | 11/11 passed | ~15 s |
-| integration, Android emulator (warm Gradle) | 8 passed, 3 skipped (heavy + two render-surface migration cases), 0 failed | ~3.4 min incl. guest preparation (cold APK build adds ~5 min) |
-| integration, iOS simulator | 8 passed, 3 skipped, 0 failed | ~3.7 min |
-| integration, macOS desktop (per-suite mode) | 8 passed, 3 skipped, 0 failed | ~2.5 min total (4 suites × 30-40 s) |
-| integration, macOS desktop with `MV_RENDER_VIEW=1` (hidden render WebView) | 8 passed, 3 skipped, 0 failed — including both migration cases (status query, restart recovery) | ~4.6 min |
+| unit (`--layer=unit`) | 26/26 passed (debug flags, the hook registry, relay framing) | ~15 s |
+| integration, Android emulator (warm Gradle) | iframe-path suites (`diagram_render`, `document_render`, `smoke`) 8 passed, 1 skipped; `--suite=render_view` 3 passed with 42 frames each direction over an 8 KB budget | 217 s total (133 s + 84 s) incl. guest preparation (cold APK build adds ~5 min) |
+| integration, iOS simulator | `--suite=render_view`: 3 passed, 0 failed — readiness, restart recovery, and 50 frames each direction over an 8 KB budget | 104 s |
+| integration, macOS desktop (per-suite mode, runner defaults) | 11 passed, 1 skipped (the heavy 40-node case), 0 failed — the render-surface suite now runs with the mode on, so its 3 cases are real | ~3.8 min total (4 suites × 30-67 s) |
+| integration, macOS desktop, `--suite=render_view` | 3 passed, 0 failed — readiness, restart recovery, and 51 frames each direction over an 8 KB budget | ~53 s |
 
-Three traps worth knowing before writing new cases:
+Four traps worth knowing before writing new cases:
 
 - **No digit separators in Dart**: `200_000` fails the app build with
   `requires the experimental 'digit-separators' language feature`, because
@@ -200,6 +221,12 @@ Three traps worth knowing before writing new cases:
   returns the string `"null"`, WKWebView raises `ArgumentError`). The harness wraps
   every expression to return a JSON string, and side effects go through
   `runJs` (`runJavaScript`, no result) instead.
+- **Do not cold-boot a second device platform while a device run is in flight.**
+  Booting the Android emulator during an iOS simulator run left the iOS app stuck
+  on its launch screen for the whole run (measured 2026-09-29: the splash never
+  went away and `flutter test` burned its 12-minute budget, while the emulator's
+  cold boot owned the host). Boot the guest first, confirm it is idle, then start
+  the run.
 
 ### Render-surface mode (migration)
 
@@ -213,10 +240,19 @@ MV_RENDER_VIEW=1 npm run test:mobile:fast        # hidden render WebView path
 npm run test:mobile:fast                          # in-page iframe path (shipped)
 ```
 
-The runner forwards it as `--dart-define=MV_RENDER_VIEW=…`, so the same command
-works on the emulator/simulator jobs. The migration cases in
-`mobile/integration_test/render_view_test.dart` only run when the mode is on —
-they read the page's `window.__mvRenderView` flag rather than assuming it.
+The runner forwards it as `--dart-define=MV_RENDER_VIEW=…`, and since the mode is
+what `render_view_test.dart` *tests*, that suite gets `MV_RENDER_VIEW=1` by
+default while every other suite keeps the shipped iframe path (see
+`integrationDefines` in `scripts/mobile-e2e.js`) — otherwise a CI run would skip
+the migration cases and call itself green. The cases still read the page's
+`window.__mvRenderView` flag rather than assuming it, so running the whole set
+with `MV_RENDER_VIEW=1` is a deliberate choice, not a side effect.
+
+That per-suite define is also why the render-surface suite always runs as its own
+invocation (on phones and simulators the other suites still share one, which is
+what keeps their run to a single app build): a dart-define applies to a whole
+`flutter test` invocation, so folding it in would either skip its cases or force
+the migration mode onto the suites that pin the shipped iframe path.
 
 Readiness is **eventual, not a boot constant**: Dart warms the surface only after
 the display page is interactive (two bundles at once ANR the app on a slow
@@ -226,8 +262,74 @@ simulator, 590 ms on the Android emulator, 500 ms on macOS desktop. Cases wait f
 surface that never reports ready fails with its own status dump.
 
 The migration suite itself (`--suite=render_view`) is the fastest way to check the
-surface on one device: 2 passed on macOS desktop, iOS simulator and Android
-emulator, and 2 skipped with the mode off (the gate).
+surface on one device: 3 passed on macOS desktop, and 2 passed / 1 skipped with
+the mode off (the gate).
+
+**The page must not touch the render service before the mode arrives.** The host
+is chosen lazily on the first render (`isRenderViewMode()` in
+`mobile/src/webview/api-impl.ts`), which is after Dart publishes the flag. Anything
+that asks the service for its host earlier — `platform.renderer.ensureReady()` at
+boot, for instance — creates the *iframe* host at that moment and every later
+diagram renders in the iframe, silently, with the migration suite still green. The
+framing case below is what caught it: it asserts the render crossed the relay.
+
+### Cross-process framing (the bridge budget)
+
+Android's JavaScript bridge is a Binder transaction (~1 MB, with ~512 KB already
+dangerous) and it *drops* what it cannot carry, so no single message may exceed a
+per-platform limit. Every relayed message over that limit is framed
+(`src/messaging/relay-chunking.ts`, `mobile/lib/services/relay_chunking.dart`):
+
+| Frame | Direction | Meaning |
+|---|---|---|
+| `RELAY_HELLO` / `RELAY_LIMITS` | page ⇄ host | "what can this bridge carry?" — asked by the page at load, answered by Dart |
+| `RELAY_CHUNK` | either way | one slice of a larger serialized message: `{streamId, index, total, length, data}` |
+| `RELAY_CHUNK_ACK` | either way | "frame N is buffered, send the next one" — the sender keeps at most `window` frames unacknowledged |
+
+Budgets: Android 192 KB per message / 128 KB chunks / window 1; iOS+macOS 8 MB /
+512 KB / window 4; anything unknown gets the Android profile, because framing too
+eagerly only costs latency. A stream that stops being acknowledged is dropped and
+logs why, so a wedged peer cannot block later messages.
+
+The supervisor keeps counters and publishes them with its status
+(`window.__mvRenderSurface.chunks`): messages and frames that crossed, the largest
+single bridge message (the number the limit bounds), the largest payload Dart
+framed, and the limit itself. `render_view_test.dart`'s framing case asserts both
+the bound and — with the override below — that framing actually happened, on a real
+bridge:
+
+```bash
+MV_RENDER_VIEW=1 MV_E2E_RELAY_SMALL=1 npm run test:mobile:fast -- --suite=render_view
+```
+
+`MV_E2E_RELAY_SMALL=1` (dart-define) forces a tiny budget (8 KB / 2 KB / window 1)
+on *every* platform, because on iOS/macOS the real limit is megabytes and a
+diagram result would cross in one piece — the framing path would never run there.
+The runner turns it on for the render-surface suite by default (with the real
+budget the suite's framing assertions would be vacuous), and `MV_E2E_RELAY_SMALL=0`
+gets the passthrough run instead. Cases use a source unique to the run: with a warm
+render cache the service answers from the cache and nothing crosses the bridge at
+all.
+
+Measured on macOS desktop, 2026-09-28 (`--suite=render_view`, mode + small budget):
+51 frames per direction over the 8 KB budget, the result 102 964 chars
+(`framed 51 frames above a 8192 char budget (largest message 102964 chars)`). Two
+real defects surfaced only because that case ran end to end:
+
+- **the Dart sender indexed past its waiters** when the *last* frame's ack landed
+  while that frame was still in flight (the peer acks on arrival, so it routinely
+  does): `List.[]` RangeError at `relay_chunking.dart:192`, thrown *after* every
+  frame had arrived — the delivery looked fine and the crash appeared as an async
+error attributed to the previous test. Regression case:
+  `finishes when the ack of the last frame lands while that frame is in flight`
+  in `mobile/test/services/relay_chunking_test.dart` (fails without the fix).
+- **a reassembled payload inflated the "largest single bridge message"** counter,
+  because it re-entered the supervisor's message path as if it had crossed whole.
+  The invariant it guards (`nothing a page sent may exceed the bridge limit`) then
+  failed on a transfer that was framed correctly. Reassembled deliveries are now
+excluded from that measurement, and the status snapshot also carries the
+  supervisor's recent log lines (`logs`), so a failing case can say *why* instead
+  of only how much.
 
 ### Debugging during a run
 
@@ -235,6 +337,10 @@ emulator, and 2 skipped with the mode off (the gate).
 WebView content debugging: `chrome://inspect` on Android, the Safari Web
 Inspector on iOS/macOS. The runner passes it for integration runs. Release
 builds cannot enable it.
+
+`RV_DEBUG=1` does the same for the L1 browser contract below: it prints the page's
+console, page errors and failed requests, which is otherwise a black box when a
+surface never reports ready.
 Two knobs for the *browser* suites, both off by default:
 
 - `MV_DEBUG_PAGEERR=1` — print full stacks for page errors. Playwright reports a
