@@ -374,6 +374,25 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const getViewerSnapshot = () => viewerAssembler?.getSnapshot() ?? null;
 
   /**
+   * Timeline of the session's per-document decisions (opt-in).
+   *
+   * The pane's failures are orderings (which document's presentation/render
+   * landed last), so a snapshot at the end cannot explain them; the workspace
+   * suite sets `window.__mvE2ETrace` and dumps `data-mv-trace` on failure.
+   */
+  const traceViewer = (event: string, data: Record<string, unknown> = {}): void => {
+    const host = window as Window & { __mvE2ETrace?: boolean };
+    if (!host.__mvE2ETrace) return;
+    try {
+      const root = document.documentElement;
+      const entries = JSON.parse(root.dataset.mvTrace || '[]') as unknown[];
+      entries.push({ t: Math.round(performance.now()), event, ...data });
+      root.dataset.mvTrace = JSON.stringify(entries.slice(-200));
+    } catch { /* diagnostics only */ }
+  };
+  traceViewer('main.init');
+
+  /**
    * Waits for the assembler, for interactions that can happen before it exists
    * (see `assemblerReady`). Bounded: a page that never finishes booting must not
    * leave a click pending forever.
@@ -412,6 +431,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
   const applyResolvedModePresentation = (resolvedMode: ViewerResolvedMode): void => {
     markdownViewerAdapter?.setDisplayMode(mapResolvedModeToDisplayMode(resolvedMode));
+    traceViewer('pres', { mode: resolvedMode, rev: getViewerSnapshot()?.revision ?? -1 });
     applyCodeViewPresentation(resolvedMode !== 'rendered');
     // Source toggle + layout control are per-document state. Workspace mode
     // reuses one toolbar across files, so both have to follow the *current*
@@ -1181,6 +1201,12 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
   const viewerSurface = createViewerSurfacePort({
     render: async (effect) => {
+      traceViewer('render.start', {
+        rev: effect.revision,
+        preserve: effect.preserveViewport,
+        len: effect.renderModel.markdown.length,
+        code: Boolean(effect.renderModel.directCodeView),
+      });
       const viewer = getOrCreateMountedViewerAdapter();
 
       logViewerDebug('surface.render.start', {
@@ -1209,6 +1235,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       });
 
       if (effect.renderModel.directCodeView) {
+        traceViewer('render.end', { rev: effect.revision, code: true });
         logViewerDebug('surface.render.directCodeView', {
           targetLine: effect.targetLine,
           language: effect.renderModel.directCodeView.language,
@@ -1227,6 +1254,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       logViewerDebug('surface.render.preview', {
         targetLine: effect.targetLine,
       });
+      traceViewer('render.end', { rev: effect.revision, code: false });
       if (isTocDisabledForCurrentFile()) {
         hideTocForCodeView();
       } else {
@@ -1559,6 +1587,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       anchor,
       descriptor,
       persistedState,
+    });
+    traceViewer('open.request', {
+      format: descriptor.format,
+      source: descriptor.sourcePath,
+      bytes: content.length,
     });
 
     if (!viewerAssembler) {

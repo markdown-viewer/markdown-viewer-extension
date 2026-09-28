@@ -205,6 +205,29 @@ function isViewerFrameLive(): boolean {
 const VIEWER_READY_TIMEOUT_MS = 5000;
 const VIEWER_READY_MAX_ATTEMPTS = 3;
 
+/**
+ * Timeline of the pane's decisions (opt-in).
+ *
+ * What goes wrong here is an *ordering*, not a state: by the time a test (or a
+ * user) can look, the interesting pair — the toolbar showing file A while the
+ * content belongs to file B — is already on screen, and Playwright only ever
+ * sees snapshots. With `window.__mvE2ETrace = true` the page records what it
+ * asked the viewer to do (and when) into `window.__mvWsTrace`, which the
+ * workspace suite dumps when a wait times out. Off by default: one boolean
+ * read per event, no behaviour change.
+ */
+type PaneTraceEntry = { t: number; event: string } & Record<string, unknown>;
+
+function tracePane(event: string, data: Record<string, unknown> = {}): void {
+  const host = window as Window & { __mvE2ETrace?: boolean; __mvWsTrace?: PaneTraceEntry[] };
+  if (!host.__mvE2ETrace) return;
+  host.__mvWsTrace ??= [];
+  host.__mvWsTrace.push({ t: Math.round(performance.now()), event, ...data });
+  if (host.__mvWsTrace.length > 200) {
+    host.__mvWsTrace.splice(0, host.__mvWsTrace.length - 200);
+  }
+}
+
 function ensureViewerFrameReady(): Promise<void> {
   // Claim the pane on *every* viewer open, including the fast path: a pending
   // HTML preview (still reading/rewriting its file) must not take the iframe
@@ -216,8 +239,15 @@ function ensureViewerFrameReady(): Promise<void> {
   // previous owner was the viewer too.
   const paneWasViewer = previewMode === 'viewer';
   previewMode = 'viewer';
+  tracePane('viewer.ready.begin', {
+    id: previewRequestId,
+    paneWasViewer,
+    frameReady: previewFrameReady,
+    frameLive: isViewerFrameLive(),
+  });
 
   if (previewFrameReady && paneWasViewer && isViewerFrameLive()) {
+    tracePane('viewer.ready.fast');
     return Promise.resolve();
   }
 
@@ -240,6 +270,7 @@ function ensureViewerFrameReady(): Promise<void> {
       window.removeEventListener('message', onMessage);
       if (timer !== null) clearTimeout(timer);
       previewFrameReady = true;
+      tracePane('viewer.ready.done', { attempts });
       if (previewFrameReadyPromise === readyPromise) {
         previewFrameReadyPromise = null;
       }
@@ -264,6 +295,7 @@ function ensureViewerFrameReady(): Promise<void> {
           return;
         }
         console.warn(`[workspace] viewer silent for ${VIEWER_READY_TIMEOUT_MS}ms; reloading the preview frame`);
+        tracePane('viewer.ready.timeout', { attempts });
         // Cache-buster: assigning the same URL would not re-navigate.
         $previewFrame.src = `${VIEWER_URL}?t=${Date.now()}`;
         armTimeout();
@@ -274,6 +306,7 @@ function ensureViewerFrameReady(): Promise<void> {
 
     if (!paneWasViewer || !isViewerFrameLive()) {
       resetPreviewFrameState();
+      tracePane('viewer.ready.reload');
       $previewFrame.src = VIEWER_URL;
       armTimeout();
       return;
@@ -295,6 +328,7 @@ function ensureViewerFrameReady(): Promise<void> {
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== $previewFrame.contentWindow) return;
   if (event.data?.type !== 'VIEWER_READY') return;
+  tracePane('msg.ready');
   void postHostUiToViewer();
 });
 
@@ -303,6 +337,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.source !== $previewFrame.contentWindow) return;
   if (event.data?.type !== 'VIEWER_RENDERED') return;
+  tracePane('msg.rendered', { pending: pendingDocumentSync?.documentKey ?? null });
   confirmPendingDocumentSync();
 });
 
@@ -1142,6 +1177,7 @@ async function openHtmlPreview(file: File, _name: string): Promise<void> {
   // Claim the pane before the first await: reading the file and rewriting its
   // local resources takes a while, and a file clicked in that window must win.
   const requestId = ++previewRequestId;
+  tracePane('html.begin', { id: requestId, name: _name });
 
   // 释放上一次预览创建的 blob URL,避免切换文件时泄漏
   if (htmlPreviewRewrite) {
@@ -1192,6 +1228,7 @@ async function openHtmlPreview(file: File, _name: string): Promise<void> {
   resetPreviewFrameState();
   previewMode = 'html';
   pendingHtmlPreview = previewHtml;
+  tracePane('html.pane', { id: requestId });
   // 每次强制重载沙箱页(带时间戳防缓存):重复向同一文档投递内容会二次
   // 执行 deck 脚本,顶层 const/let 重复声明直接 SyntaxError。重载 = 全新
   // 文档,与浏览器原生打开文件语义一致。加载完成后 READY 会取
@@ -1216,6 +1253,7 @@ let pendingDocumentSync: ViewerIframeDocumentSyncInput | null = null;
 let documentSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 function confirmPendingDocumentSync(): void {
+  tracePane('confirm.clear', { key: pendingDocumentSync?.documentKey ?? null });
   pendingDocumentSync = null;
   if (documentSyncTimer !== null) {
     clearTimeout(documentSyncTimer);
@@ -1224,6 +1262,7 @@ function confirmPendingDocumentSync(): void {
 }
 
 function syncDocumentWithConfirmation(input: ViewerIframeDocumentSyncInput): void {
+  tracePane('confirm.arm', { key: input.documentKey });
   pendingDocumentSync = input;
   previewFrameBridge.syncDocument(input);
 
@@ -1233,16 +1272,24 @@ function syncDocumentWithConfirmation(input: ViewerIframeDocumentSyncInput): voi
   documentSyncTimer = setTimeout(() => {
     documentSyncTimer = null;
     const retry = pendingDocumentSync;
+    tracePane('confirm.fired', {
+      key: input.documentKey,
+      pending: retry?.documentKey ?? null,
+      mode: previewMode,
+      frameReady: previewFrameReady,
+    });
     // Superseded by a newer file, or the pane is showing something else now.
     if (!retry || retry.documentKey !== input.documentKey) return;
     if (previewMode !== 'viewer' || !previewFrameReady) return;
     // Reset so the retry goes out as OPEN_DOCUMENT (metadata included) again.
+    tracePane('confirm.retry', { key: input.documentKey });
     previewFrameBridge.reset();
     previewFrameBridge.syncDocument(retry);
   }, DOCUMENT_RENDER_CONFIRM_TIMEOUT_MS);
 }
 
 async function sendToViewer(content: string, filename: string, codeView = false, targetLine?: number, workspaceFilePath?: string) {
+  tracePane('send', { key: workspaceFilePath || filename, name: filename, bytes: content.length });
   await ensureViewerFrameReady();
 
   const nextWorkspaceFilePath = workspaceFilePath || '';

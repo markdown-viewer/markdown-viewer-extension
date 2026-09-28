@@ -32,6 +32,11 @@ interface WorkspaceHistoryUiMessage {
 }
 
 let initialized = false;
+
+/** Identifies this *evaluation* of the module in the trace: two ids mean the
+ *  page is running two copies (two worlds or a double load), which is what
+ *  makes two viewers fight for one pane. */
+const embedModuleId = Math.random().toString(36).slice(2, 7);
 const EMBED_MODE = new URLSearchParams(window.location.search).get('embed') === '1';
 let pendingWorkspaceHistoryUi: WorkspaceHistoryUiMessage | null = null;
 
@@ -115,6 +120,7 @@ if (EMBED_MODE) {
     if (message && typeof message.content === 'string') {
       // Replay through the normal handler — it will call ensureViewerInitialized
       // which triggers startViewer → initializeViewerMain.
+      traceEmbed('boot.replay', { name: message.filename || '' });
       void handleDocumentMessage(message, 'open');
     }
   } catch { /* malformed JSON or storage blocked — ignore */ }
@@ -315,22 +321,39 @@ async function ensureViewerInitialized(initialContent: string): Promise<{
 
   if (!initialized) {
     const host = window as ViewerInitHost;
+    traceEmbed('init.enter', { has: Boolean(host[viewerInitKey]), initialized });
     if (!host[viewerInitKey]) {
       if (!document.getElementById('markdown-content')) {
         document.body.textContent = initialContent;
+        traceEmbed('handoff', { bytes: initialContent.length });
       }
-      host[viewerInitKey] = initializeViewerBase(platform).then((pluginRenderer) => startViewer({
-        platform,
-        pluginRenderer,
-        themeConfigRenderer: platform.renderer,
-      })).then(() => {
-        initialized = true;
-        hostUiController.attachWrapperInteractionFixes();
-      }).catch((error) => {
-        console.error('[viewer-embed] viewer base init failed', error);
-        // A failed boot must not be cached: the next document gets a fresh try.
-        host[viewerInitKey] = undefined;
-      });
+      traceEmbed('init.start');
+      try {
+        host[viewerInitKey] = initializeViewerBase(platform).then((pluginRenderer) => {
+          traceEmbed('init.base');
+          return startViewer({
+            platform,
+            pluginRenderer,
+            themeConfigRenderer: platform.renderer,
+          });
+        }).then(() => {
+          initialized = true;
+          traceEmbed('init.done');
+          hostUiController.attachWrapperInteractionFixes();
+        }).catch((error) => {
+          console.error('[viewer-embed] viewer base init failed', error);
+          traceEmbed('init.fail', { error: String(error) });
+          // A failed boot must not be cached: the next document gets a fresh try.
+          host[viewerInitKey] = undefined;
+        });
+      } catch (error) {
+        // A *synchronous* throw would leave the guard unset (no `init.assign`),
+        // so the next document wipes the page again and starts a second viewer
+        // — the state this guard exists to prevent. Name it explicitly.
+        traceEmbed('init.syncfail', { error: String(error) });
+        throw error;
+      }
+      traceEmbed('init.assign', { has: Boolean(host[viewerInitKey]) });
     }
     await host[viewerInitKey];
   }
@@ -369,9 +392,34 @@ function markViewerDocumentOpened(filename: string): void {
   document.documentElement.dataset.viewerOpenedFilename = filename;
 }
 
+/**
+ * Timeline of the embed's per-document decisions (opt-in).
+ *
+ * Written to `data-mv-trace` so it is readable from any world (the workspace
+ * suite dumps it when a wait times out), and only when the harness asked for
+ * it: the pane's failures are orderings, and a snapshot cannot show that file A
+ * was announced after file B was rendered.
+ */
+function traceEmbed(event: string, data: Record<string, unknown> = {}): void {
+  const host = window as Window & { __mvE2ETrace?: boolean; __mvDocId?: string };
+  if (!host.__mvE2ETrace) return;
+  host.__mvDocId ??= Math.random().toString(36).slice(2, 7);
+  try {
+    const root = document.documentElement;
+    const entries = JSON.parse(root.dataset.mvTrace || '[]') as unknown[];
+    entries.push({ t: Math.round(performance.now()), doc: host.__mvDocId, mod: embedModuleId, event, ...data });
+    root.dataset.mvTrace = JSON.stringify(entries.slice(-200));
+  } catch { /* diagnostics only */ }
+}
+
 async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'update'): Promise<void> {
   const content = String(message.content || '');
   const targetLine = normalizeTargetLine(message.targetLine);
+  traceEmbed('doc', {
+    mode,
+    name: (message as ViewerOpenDocumentMessage).filename || '',
+    bytes: content.length,
+  });
 
   if (mode === 'open') {
     applyOpenDocumentMetadata(message as ViewerOpenDocumentMessage);
@@ -433,6 +481,7 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
   parentBridge.prepareWorkspaceResolvers();
   hostUiController.applyAfterRender();
   markViewerDocumentOpened(openedFilename);
+  traceEmbed('doc.done', { mode, name: openedFilename });
   parentBridge.notifyViewerRendered();
 }
 

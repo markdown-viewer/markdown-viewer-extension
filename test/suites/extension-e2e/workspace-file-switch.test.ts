@@ -156,6 +156,10 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
     // test output — a silent drop is what made this bug hard to see.
     installPageDiagnostics(workspacePage, 'workspace-file-switch');
     await workspacePage.addInitScript(`(${MOCK_DIRECTORY_PICKER_JS})(${JSON.stringify(FILES)})`);
+    // Opt in to the pane/viewer timelines: these cases fail on an *ordering*
+    // (file A's toolbar with file B's content), which a snapshot taken after
+    // the fact cannot show. Both scripts record only when this flag is set.
+    await workspacePage.addInitScript('window.__mvE2ETrace = true;');
 
     // Settings live in chrome.storage, which only an extension page can write.
     const bootstrap = await harness.context.newPage();
@@ -195,13 +199,28 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
     return `pane src=${src} frames=[${frames}]`;
   };
 
+  /** What the pane asked the viewer to do, and what the viewer did with it. */
+  const paneTimeline = async (frame?: Frame): Promise<string> => {
+    const pane = await evalJs<unknown[]>(
+      workspacePage,
+      `() => window.__mvWsTrace || []`,
+    ).catch(() => []);
+    const viewer = frame
+      ? await evalJs<unknown>(
+          frame,
+          `() => { try { return JSON.parse(document.documentElement.dataset.mvTrace || '[]'); } catch { return []; } }`,
+        ).catch(() => [])
+      : [];
+    return `\n  pane timeline: ${JSON.stringify(pane)}\n  viewer timeline: ${JSON.stringify(viewer)}`;
+  };
+
   const previewFrame = async (): Promise<Frame> => {
     let frame: Frame | null = null;
     for (let attempt = 0; attempt < 60 && !frame; attempt += 1) {
       await workspacePage.waitForTimeout(200);
       frame = workspacePage.frames().find((candidate) => candidate.url().includes('viewer-embed')) ?? null;
     }
-    assert.ok(frame, `workspace preview iframe not found — ${await paneState()}`);
+    assert.ok(frame, `workspace preview iframe not found — ${await paneState()}${await paneTimeline()}`);
     return frame;
   };
 
@@ -220,41 +239,47 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
   };
 
   const waitForViewerFile = async (name: string): Promise<{ frame: Frame; state: ViewerState }> => {
-    const frame = await previewFrame();
-    await waitFor(frame, `() => document.documentElement.dataset.viewerFilename === ${JSON.stringify(name)}`, 30000);
-    // The embed announces a file before the viewer renders it, and the pane
-    // keeps whatever was on screen until the open lands (the boot hand-off, the
-    // previous file, an HTML preview being replaced). `viewerOpenedFilename` is
-    // written when this file's open is done, so the content waits below measure
-    // the file they asked for instead of a stale view of another one.
-    await waitFor(
-      frame,
-      `() => document.documentElement.dataset.viewerOpenedFilename === ${JSON.stringify(name)}`,
-      30000,
-    );
-    await waitFor(frame, WAIT_RENDERED_JS);
-
-    const expected = CONTENT[name];
-    const firstLine = expected.split('\n').find((line) => line.trim().length > 0) || '';
-    const isMarkdown = name.endsWith('.md');
+    let frame: Frame | null = null;
     try {
+      frame = await previewFrame();
+      await waitFor(frame, `() => document.documentElement.dataset.viewerFilename === ${JSON.stringify(name)}`, 30000);
+      // The embed announces a file before the viewer renders it, and the pane
+      // keeps whatever was on screen until the open lands (the boot hand-off, the
+      // previous file, an HTML preview being replaced). `viewerOpenedFilename` is
+      // written when this file's open is done, so the content waits below measure
+      // the file they asked for instead of a stale view of another one.
+      await waitFor(
+        frame,
+        `() => document.documentElement.dataset.viewerOpenedFilename === ${JSON.stringify(name)}`,
+        30000,
+      );
+      await waitFor(frame, WAIT_RENDERED_JS);
+
+      const expected = CONTENT[name];
+      const firstLine = expected.split('\n').find((line) => line.trim().length > 0) || '';
+      const isMarkdown = name.endsWith('.md');
       await waitFor(frame, isMarkdown
         ? `() => (document.querySelector('#markdown-content h1')?.textContent || '') === ${JSON.stringify(firstLine.replace(/^#\s*/, ''))}`
         : `() => (document.querySelector('#markdown-content pre code')?.textContent || '').includes(${JSON.stringify(firstLine)})`, 30000);
     } catch (error) {
-      // The pane can keep an earlier document (or an empty root) while the
-      // toolbar already shows this file, so a bare timeout is not diagnosable.
-      const pane = await evalJs<{ filename?: string; opened?: string; codeView?: string; children?: number; text?: string }>(
-        frame,
-        `() => ({
-          filename: document.documentElement.dataset.viewerFilename,
-          opened: document.documentElement.dataset.viewerOpenedFilename,
-          codeView: document.documentElement.dataset.codeView,
-          children: document.getElementById('markdown-content')?.children.length,
-          text: (document.getElementById('markdown-content')?.textContent || '').slice(0, 80),
-        })`,
+      // A timeout here means "the pane did not end up showing this file"; the
+      // timelines say who wrote last, which is the part no snapshot can show.
+      const pane = frame
+        ? await evalJs<{ filename?: string; opened?: string; codeView?: string; children?: number; text?: string }>(
+            frame,
+            `() => ({
+              filename: document.documentElement.dataset.viewerFilename,
+              opened: document.documentElement.dataset.viewerOpenedFilename,
+              codeView: document.documentElement.dataset.codeView,
+              children: document.getElementById('markdown-content')?.children.length,
+              text: (document.getElementById('markdown-content')?.textContent || '').slice(0, 80),
+            })`,
+          ).catch(() => null)
+        : null;
+      throw new Error(
+        `${(error as Error).message}\n  ${await paneState()}${await paneTimeline(frame ?? undefined)}`
+        + `\n  pane state=${JSON.stringify(pane)}`,
       );
-      throw new Error(`${(error as Error).message}\n  ${await paneState()}\n  pane state=${JSON.stringify(pane)}`);
     }
 
     const state = await evalJs<ViewerState>(frame, READ_STATE_JS);
