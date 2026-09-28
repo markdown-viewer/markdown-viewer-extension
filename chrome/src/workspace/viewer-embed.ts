@@ -319,6 +319,23 @@ function applyTargetLine(runtime: NonNullable<ReturnType<typeof getViewerMainRun
   }
 }
 
+/**
+ * Records the document the viewer has actually opened.
+ *
+ * `data-viewer-filename` is the *announcement*: it is written before the
+ * viewer is asked to render, and the first paint in between comes from the
+ * boot hand-off (raw text) rather than from this file's own presentation — a
+ * `.txt` is briefly on screen as plain markdown, a `.md` without its reading
+ * card, and the toolbar still holds the previous file's state. The opened
+ * marker is the readable counterpart of the `VIEWER_RENDERED` confirmation
+ * this layer sends the parent, so anything that inspects per-document UI state
+ * (the workspace suite does) can wait for the file it just asked for instead of
+ * guessing from the DOM.
+ */
+function markViewerDocumentOpened(filename: string): void {
+  document.documentElement.dataset.viewerOpenedFilename = filename;
+}
+
 async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'update'): Promise<void> {
   const content = String(message.content || '');
   const targetLine = normalizeTargetLine(message.targetLine);
@@ -339,8 +356,12 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
 
   const { runtime, wasInitialized } = await ensureViewerInitialized(content);
 
+  const openedFilename = mode === 'open'
+    ? (message as ViewerOpenDocumentMessage).filename || ''
+    : document.documentElement.dataset.viewerFilename || '';
+
   if (mode === 'open') {
-    const filename = (message as ViewerOpenDocumentMessage).filename || '';
+    const filename = openedFilename;
     const isSlides = /\.slides\.md$/i.test(filename);
     const cameFromSlidev = document.documentElement.dataset.slidevActive === '1';
 
@@ -378,6 +399,7 @@ async function handleDocumentMessage(message: DocumentMessage, mode: 'open' | 'u
   applyTargetLine(runtime, targetLine);
   parentBridge.prepareWorkspaceResolvers();
   hostUiController.applyAfterRender();
+  markViewerDocumentOpened(openedFilename);
   parentBridge.notifyViewerRendered();
 }
 

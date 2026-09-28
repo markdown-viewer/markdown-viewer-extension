@@ -81,6 +81,21 @@ async function toggleSourceView(target: E2ETarget): Promise<void> {
   await waitFor(target, CODE_VIEW_READY_JS);
 }
 
+/**
+ * Make the tab under test the active one before driving it.
+ *
+ * The viewer paints through `requestAnimationFrame` — the unveil polls with it
+ * and the streaming render yields with it — and Chrome suspends rAF in a
+ * background tab. A page that `before` leaves behind another one therefore
+ * clears its content root for the next render and then stalls with an *empty*
+ * pane (measured: one whole run in six under load); the mode flag and the
+ * toolbar had already switched, so the pane looked broken rather than idle.
+ * The suite asserts on what a user sees, and a user sees an active tab.
+ */
+async function activate(page: Page): Promise<void> {
+  await page.bringToFront();
+}
+
 /** The toolbar's per-document state, as the user sees it. */
 const TOOLBAR_STATE_JS = `() => {
   const visible = (id) => {
@@ -144,6 +159,7 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
   });
 
   it('renders a text file as one full-bleed code surface (no page card)', async () => {
+    await activate(page);
     await page.goto(fileUrl('notes.txt'), { waitUntil: 'load' });
     await waitFor(page, WAIT_STANDALONE_READY_JS);
     await waitFor(page, CODE_VIEW_READY_JS);
@@ -190,6 +206,7 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
   });
 
   it('keeps the reading measure for markdown and toggles to source view', async () => {
+    await activate(page);
     await page.goto(fileUrl('doc.md'), { waitUntil: 'load' });
     await waitFor(page, WAIT_STANDALONE_READY_JS);
 
@@ -241,6 +258,7 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
   });
 
   it('offers the source toggle per file in workspace mode', async () => {
+    await activate(workspacePage);
     await evalJs(workspacePage, `() => { document.querySelector('#pick-directory').click(); return true; }`);
     await workspacePage.waitForSelector('.tree-item', { timeout: 30000 });
 
@@ -263,6 +281,17 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
       // stylesheet link), so it never grows the content-script style element
       // WAIT_STANDALONE_READY_JS looks for.
       await waitFor(frame, WAIT_RENDERED_JS);
+      // ... and content alone is not this file: the embed *announces* the name
+      // before the viewer renders (the boot hand-off paints first, with the
+      // previous file's toolbar state and without this file's code surface), so
+      // per-document state is only readable once the viewer has opened it. This
+      // is the in-frame counterpart of the `VIEWER_RENDERED` the embed sends
+      // the parent.
+      await waitFor(
+        frame,
+        `() => document.documentElement.dataset.viewerOpenedFilename === ${JSON.stringify(name)}`,
+        30000,
+      );
       return frame;
     };
 
