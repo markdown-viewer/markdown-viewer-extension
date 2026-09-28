@@ -27,6 +27,7 @@ import 'pages/settings_page.dart';
 import 'widgets/ui_kit.dart';
 import 'dev/mobile_e2e.dart';
 import 'dev/render_view_mode.dart';
+import 'dev/relay_limits_override.dart';
 import 'dev/webview_debug.dart';
 import 'services/render_view_service.dart';
 
@@ -217,7 +218,14 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     // loading their bundles at once ANR the app on a slow device (measured on the
     // Android emulator), and the display page is what the user is waiting for.
     // Requests that arrive before it is up are queued by the service.
-    _renderViewService = RenderViewService(createController: _createRenderViewController)
+    _renderViewService = RenderViewService(
+      createController: _createRenderViewController,
+      // Test seam: a tiny bridge budget on every platform, so the L2 suite can
+      // prove that a result is carried in frames over a real bridge (see
+      // mobile/lib/dev/relay_limits_override.dart). Null uses the platform's own
+      // limit.
+      chunkLimits: relayChunkLimitsOverride(),
+    )
       ..displayController = _controller
       ..hostResolver = _resolveRenderHostRequest;
 
@@ -470,6 +478,14 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     try {
       await _controller.runJavaScript(
         'window.__mvRenderView = ${isRenderViewEnabled ? 'true' : 'false'};',
+      );
+      // Now that the mode is published, let the page decide whether to warm its own
+      // surface (iframe mode pre-loads the in-page iframe in the background;
+      // render-WebView mode does nothing here — Dart warms the hidden WebView
+      // below). The call returns before the renderer is ready, so the document
+      // never waits on another document's boot (plan §2, G2).
+      await _controller.runJavaScript(
+        'window.__mvRenderWakeRenderSurface && window.__mvRenderWakeRenderSurface();',
       );
     } catch (e) {
       debugPrint('[Mobile] Failed to publish render-view mode: $e');

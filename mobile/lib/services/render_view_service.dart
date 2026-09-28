@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'relay_chunking.dart';
+
 /// Owns the app's second, hidden WebView: the diagram engine's surface.
 ///
 /// Diagrams used to render in a hidden iframe inside the display WebView, which
@@ -18,13 +20,33 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// Responsibilities: readiness handshake, forwarding, host requests, heartbeat
 /// and reload. It deliberately knows nothing about diagram types — the shared
 /// render worker does.
+///
+/// The supervision numbers are the contract in plan §5.6 (the same state machine
+/// Chrome's offscreen supervisor implements, in another language):
+///
+///   - readiness: one request answered once the surface is up (30 s watchdog),
+///     with requests queued while it boots (64 messages) rather than failed;
+///   - liveness: a PING every 30 s with an 8 s budget; two misses in a row reload
+///     the surface;
+///   - failures: the surface's own errors are forwarded (it has no visible
+///     console), and the display side retries in-flight renders (idempotent);
+///   - lifecycle: `DOM_READY` / `READY` / `ERROR`, named after Chrome's
+///     `OFFSCREEN_*` events.
+///
+/// It also owns the bridge budget: a message larger than the platform's limit is
+/// framed (see relay_chunking.dart) before it is handed to either WebView, and the
+/// counters for that traffic travel with every status snapshot.
 class RenderViewService {
   RenderViewService({
     required Future<WebViewController> Function() createController,
     this.readyTimeout = const Duration(seconds: 30),
     this.heartbeatInterval = const Duration(seconds: 30),
     this.heartbeatTimeout = const Duration(seconds: 8),
-  }) : _createController = createController;
+    RelayChunkLimits? chunkLimits,
+    Duration? chunkAckTimeout,
+  })  : _createController = createController,
+        _limits = chunkLimits ?? resolveRelayChunkLimits(defaultRelayChunkProfile()),
+        _chunkAckTimeout = chunkAckTimeout;
 
   /// Relay channel name. Both WebViews register the same name; Dart tells them
   /// apart by *which controller* delivered the message.
@@ -52,6 +74,14 @@ class RenderViewService {
   static const String messageDebugReload = 'RENDER_VIEW_DEBUG_RELOAD';
 
   final Future<WebViewController> Function() _createController;
+
+  /// Limits of the bridge this app is on (see relay_chunking.dart): a message
+  /// larger than [RelayChunkLimits.maxMessageLength] is framed, because the
+  /// platform bridge drops what it cannot carry (plan §5.2 / risk R2).
+  final RelayChunkLimits _limits;
+
+  /// Test seam: shorten the per-frame ack budget.
+  final Duration? _chunkAckTimeout;
 
   /// How long to wait for the surface to report ready after a load.
   final Duration readyTimeout;
@@ -81,6 +111,64 @@ class RenderViewService {
   final List<String> _pending = <String>[];
   static const int _maxPending = 64;
 
+  /// Chunk counters, so the app and the E2E seam can see that framing ran and how
+  /// large the traffic actually was (the Android case that motivates it):
+  ///
+  ///   messagesSent/Received  messages that crossed (frames counted once each)
+  ///   sent/received          frames that crossed in each direction
+  ///   maxMessageSent/Received  the largest *single* bridge message, which is the
+  ///                        number the bridge's limit bounds
+  ///   maxAssembledOut      the largest *message* Dart framed for sending
+  int _messagesSent = 0;
+  int _messagesReceived = 0;
+  int _framesSent = 0;
+  int _framesReceived = 0;
+  int _maxMessageSent = 0;
+  int _maxMessageReceived = 0;
+  int _maxAssembledOut = 0;
+
+  /// Monotonic sequence of status snapshots *read*: every snapshot handed to the
+  /// display side (a push, or the answer to its status request) carries a new
+  /// number, so a reader that has seen #N knows whether what it holds is fresh.
+  /// The counters above are maxima, which is exactly why that matters.
+  int _statusSeq = 0;
+
+  /// Reassembles framed traffic from each WebView (both directions can carry a
+  /// payload the bridge cannot take whole).
+  late final RelayChunkReceiver _fromDisplayReceiver = RelayChunkReceiver(
+    onMessage: (text) => unawaited(handleRelayMessage(text, fromDisplay: true, reassembled: true)),
+    ack: (streamId, index) => unawaited(_postText(displayController, _ackJson(streamId, index))),
+    onDrop: (streamId, reason) => _logs.add('display stream $streamId dropped: $reason'),
+  );
+
+  late final RelayChunkReceiver _fromSurfaceReceiver = RelayChunkReceiver(
+    onMessage: (text) => unawaited(handleRelayMessage(text, fromDisplay: false, reassembled: true)),
+    ack: (streamId, index) => unawaited(_postText(_controller, _ackJson(streamId, index))),
+    onDrop: (streamId, reason) => _logs.add('surface stream $streamId dropped: $reason'),
+  );
+
+  /// Frames what this side sends. Dart owns the controllers, so a send is a
+  /// sequential loop inside the sender rather than an event-pumped queue.
+  late final RelayChunkSender _toDisplaySender = RelayChunkSender(
+    limits: _limits,
+    post: (frameJson) {
+      _framesSent += 1;
+      return _postText(displayController, frameJson);
+    },
+    onDrop: (streamId, reason) => _logs.add('display stream $streamId dropped: $reason'),
+    ackTimeout: _chunkAckTimeout ?? relayAckTimeout,
+  );
+
+  late final RelayChunkSender _toSurfaceSender = RelayChunkSender(
+    limits: _limits,
+    post: (frameJson) {
+      _framesSent += 1;
+      return _postText(_controller, frameJson);
+    },
+    onDrop: (streamId, reason) => _logs.add('surface stream $streamId dropped: $reason'),
+    ackTimeout: _chunkAckTimeout ?? relayAckTimeout,
+  );
+
   Completer<void>? _readyCompleter;
   final List<String> _logs = <String>[];
 
@@ -88,14 +176,40 @@ class RenderViewService {
   WebViewController? get controller => _controller;
 
   /// Status snapshot for the display side and the E2E hooks.
-  Map<String, Object?> get status => <String, Object?>{
-        'state': isReady
-            ? 'ready'
-            : (_failure != null ? 'failed' : (_loaded ? 'loading' : 'idle')),
-        'readyMs': _loadedAt == null ? null : DateTime.now().difference(_loadedAt!).inMilliseconds,
-        'renderers': _renderers,
-        if (_failure != null) 'error': _failure,
-      };
+  Map<String, Object?> get status {
+    _statusSeq += 1;
+    return <String, Object?>{
+      'state': isReady
+          ? 'ready'
+          : (_failure != null ? 'failed' : (_loaded ? 'loading' : 'idle')),
+      'readyMs': _loadedAt == null ? null : DateTime.now().difference(_loadedAt!).inMilliseconds,
+      'renderers': _renderers,
+      'push': _statusSeq,
+      // Why the supervisor did what it did (framed a payload, dropped a stream,
+      // reloaded the surface). The surface has no visible console, so a failed E2E
+      // run has nothing else to quote — and the counters alone cannot say whether
+      // framing *should* have run.
+      'logs': _logs.length <= _maxStatusLogs
+          ? List<String>.unmodifiable(_logs)
+          : List<String>.unmodifiable(_logs.sublist(_logs.length - _maxStatusLogs)),
+      'chunks': <String, Object?>{
+        'messagesSent': _messagesSent,
+        'messagesReceived': _messagesReceived,
+        'sent': _framesSent,
+        'received': _framesReceived,
+        'maxMessageSent': _maxMessageSent,
+        'maxMessageReceived': _maxMessageReceived,
+        'maxAssembledOut': _maxAssembledOut,
+        'limit': _limits.maxMessageLength,
+        'chunkSize': _limits.chunkSize,
+      },
+      if (_failure != null) 'error': _failure,
+    };
+  }
+
+  /// How many diagnostics a status snapshot carries (the tail: the newest lines are
+  /// the ones that explain the traffic a case just caused).
+  static const int _maxStatusLogs = 24;
 
   bool get isReady => _ready;
 
@@ -175,7 +289,26 @@ class RenderViewService {
   ///
   /// [fromDisplay] says which WebView delivered it; that is the whole routing
   /// table (see plan §5.1): the channel names are identical on purpose.
-  Future<void> handleRelayMessage(String raw, {required bool fromDisplay}) async {
+  ///
+  /// [reassembled] marks a payload the framing layer put back together: it did not
+  /// cross the bridge as one message — its frames did — so it must stay out of the
+  /// per-message measurement below. Only a whole message can violate the bridge
+  /// limit, and the E2E case that guards that invariant reads this number.
+  Future<void> handleRelayMessage(
+    String raw, {
+    required bool fromDisplay,
+    bool reassembled = false,
+  }) async {
+    if (!reassembled) {
+      _messagesReceived += 1;
+      if (raw.length > _maxMessageReceived) {
+        // The bridge's limit bounds a single message; this is where that number is
+        // observed (the E2E seam reads it, and a real device is the only place the
+        // Android Binder limit can be checked).
+        _maxMessageReceived = raw.length;
+      }
+    }
+
     Map<String, dynamic> message;
     try {
       message = jsonDecode(raw) as Map<String, dynamic>;
@@ -186,6 +319,10 @@ class RenderViewService {
 
     final type = message['type'] as String?;
     if (type == null) {
+      return;
+    }
+
+    if (_handleFramingMessage(message, type, fromDisplay: fromDisplay)) {
       return;
     }
 
@@ -200,6 +337,64 @@ class RenderViewService {
       await _handleFromSurface(message, type);
     }
   }
+
+  /// The transport-level framing layer: hello/limits, frames and acks.
+  ///
+  /// Returns true when the message belongs to it and must not be routed further.
+  /// Frames are consumed here because they are *not* relayed messages — they are
+  /// the pieces of one, and the reassembled text comes back through
+  /// [handleRelayMessage] as a normal arrival.
+  bool _handleFramingMessage(
+    Map<String, dynamic> message,
+    String type, {
+    required bool fromDisplay,
+  }) {
+    switch (type) {
+      case RelayFrameTypes.hello:
+        final protocol = readIntField(message['protocol']);
+        if (protocol != null && protocol != relayProtocolVersion) {
+          _logs.add(
+            'relay protocol mismatch: page speaks v$protocol, app speaks v$relayProtocolVersion (stale page bundle?)',
+          );
+        }
+        // Answer with the limits of the bridge this page is on. It asked rather
+        // than being told so that whichever WebView boots first learns the limits
+        // before it sends much.
+        unawaited(_deliver(
+          fromDisplay ? displayController : _controller,
+          jsonEncode(<String, Object?>{
+            'type': RelayFrameTypes.limits,
+            'protocol': relayProtocolVersion,
+            'payload': _limits.toJson(),
+          }),
+          toDisplay: fromDisplay,
+        ));
+        return true;
+
+      case RelayFrameTypes.ack:
+        final streamId = message['streamId'];
+        final index = readIntField(message['index']);
+        if (streamId is String && index != null) {
+          (fromDisplay ? _toDisplaySender : _toSurfaceSender).handleAck(streamId, index);
+        }
+        return true;
+
+      case RelayFrameTypes.chunk:
+        _framesReceived += 1;
+        (fromDisplay ? _fromDisplayReceiver : _fromSurfaceReceiver).handle(message);
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  /// The ack frame that releases the next window of a sender.
+  String _ackJson(String streamId, int index) => jsonEncode(<String, Object?>{
+        'type': RelayFrameTypes.ack,
+        'streamId': streamId,
+        'index': index,
+      });
 
   Future<void> _handleFromDisplay(Map<String, dynamic> message, String type) async {
     // Status probe from the display side: answered by the supervisor, and it
@@ -303,7 +498,7 @@ class RenderViewService {
       return;
     }
 
-    await _deliver(_controller, json);
+    await _deliver(_controller, json, toDisplay: false);
   }
 
   Future<void> _flushPending() async {
@@ -313,21 +508,50 @@ class RenderViewService {
     final queued = List<String>.from(_pending);
     _pending.clear();
     for (final json in queued) {
-      await _deliver(_controller, json);
+      await _deliver(_controller, json, toDisplay: false);
     }
   }
 
-  Future<void> _forwardToDisplay(String json) => _deliver(displayController, json);
+  Future<void> _forwardToDisplay(String json) => _deliver(displayController, json, toDisplay: true);
 
-  /// Delivers one relayed message into a page.
+  /// Delivers one relayed message into a page, framing it when the bridge cannot
+  /// carry it whole.
   ///
-  /// Payload sizes go through unsplit until the chunked transport lands (plan
-  /// §5.2): WKWebView carries multi-megabyte messages (measured), Android's
-  /// JavaScript interface does not, so a large payload is a pending failure there
-  /// rather than a silent one.
-  Future<void> _deliver(WebViewController? controller, String json) async {
+  /// The size limit is a property of the platform bridge, not of the payload, so
+  /// every kind of traffic goes through the same rule (plan §5.2 / risk R2): a
+  /// serialized message over [RelayChunkLimits.maxMessageLength] becomes ack-paced
+  /// frames, and the receiving page reassembles it before the channel sees it.
+  Future<void> _deliver(WebViewController? controller, String json, {required bool toDisplay}) async {
     if (controller == null) {
       return;
+    }
+    if (json.length > _maxAssembledOut) {
+      _maxAssembledOut = json.length;
+    }
+
+    final sender = toDisplay ? _toDisplaySender : _toSurfaceSender;
+    if (!sender.needsChunking(json)) {
+      await _postText(controller, json);
+      return;
+    }
+
+    _logs.add('framing ${json.length} chars for ${toDisplay ? 'display' : 'surface'}');
+    await sender.send(json);
+    // A framed delivery changes every counter above, and the app's seam only ever
+    // sees pushed snapshots: publish one, so a reader waiting for "the traffic I
+    // just caused" gets it (the status request path excludes the counters' maxima
+    // from being observed any other way).
+    _broadcastStatus();
+  }
+
+  /// Hands one serialized message (or frame) to a WebView.
+  Future<void> _postText(WebViewController? controller, String json) async {
+    if (controller == null) {
+      return;
+    }
+    _messagesSent += 1;
+    if (json.length > _maxMessageSent) {
+      _maxMessageSent = json.length;
     }
     try {
       await controller.runJavaScript(
@@ -351,6 +575,7 @@ class RenderViewService {
         if (error != null) 'error': {'message': error},
         if (error == null) 'data': data,
       }),
+      toDisplay: false,
     ));
   }
 
@@ -427,7 +652,7 @@ class RenderViewService {
     // miss. (The worker answers PING from the shared bootstrap.)
     _pendingPings[id] = answered;
     try {
-      await _deliver(controller, envelope);
+      await _deliver(controller, envelope, toDisplay: false);
       await answered.future.timeout(heartbeatTimeout);
       _missedHeartbeats = 0;
     } on TimeoutException {
