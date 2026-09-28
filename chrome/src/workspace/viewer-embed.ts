@@ -33,10 +33,36 @@ interface WorkspaceHistoryUiMessage {
 
 let initialized = false;
 
+/**
+ * Viewer-boot guard, declared here (before any file-scope statement that can run
+ * the handler) on purpose.
+ *
+ * The bundler emits file-scope code in source order, so anything a module-scope
+ * IIFE touches must already be initialized: the reload replay below calls
+ * `handleDocumentMessage` → `ensureViewerInitialized`, which writes
+ * `window[viewerInitKey]` — when these declarations lived *below* that IIFE the
+ * key was still `undefined`, so the write was `window[undefined] = …` and threw
+ * (`Cannot assign to read only property 'undefined'`). That aborted the boot
+ * mid-way, left the guard unset, and the next document started a *second*
+ * viewer — the pane then showed whichever viewer rendered last.
+ */
+const viewerInitKey = '__mvViewerInitPromise';
+
+/** The boot promise for *this* evaluation of the module: it makes the guard
+ *  re-entrancy-proof inside one, because it is assigned in the same synchronous
+ *  step as the call (a nested open joins the boot instead of starting a rival). */
+let viewerInitPromise: Promise<void> | null = null;
+
+type ViewerInitHost = Window & { __mvViewerInitPromise?: Promise<void> };
+
 /** Identifies this *evaluation* of the module in the trace: two ids mean the
  *  page is running two copies (two worlds or a double load), which is what
  *  makes two viewers fight for one pane. */
 const embedModuleId = Math.random().toString(36).slice(2, 7);
+
+/** Module-local call counter: with two copies of this bundle the sequence
+ *  interleaves (1,1,2,2,…) instead of counting up once. */
+let embedTraceSeq = 0;
 const EMBED_MODE = new URLSearchParams(window.location.search).get('embed') === '1';
 let pendingWorkspaceHistoryUi: WorkspaceHistoryUiMessage | null = null;
 
@@ -111,7 +137,11 @@ if (EMBED_MODE) {
 // reload we stash the incoming OPEN_DOCUMENT message in sessionStorage;
 // here we replay it through the normal message handler so initializeViewerMain
 // picks up the content and renders it with a fresh DOM.
-(function restorePendingOpenDocument() {
+//
+// Safe to run at file scope because everything it reaches is declared above it
+// — see the boot guard near the top of this module for what went wrong when it
+// was not.
+(function restorePendingOpenDocument(): void {
   try {
     const raw = sessionStorage.getItem('mv:pendingOpen');
     if (!raw) return;
@@ -288,31 +318,6 @@ function applyWorkspaceHistoryUi(message: WorkspaceHistoryUiMessage): void {
   forwardButton.disabled = !message.canGoForward;
 }
 
-/**
- * Boots the viewer once per document, even when documents arrive while it is
- * booting.
- *
- * The hand-off (`document.body.textContent = …`) wipes the page, and the viewer
- * builds its own shell (which is where `#markdown-content` comes from). A file
- * clicked while an HTML preview is still being prepared is the real case for
- * two opens inside one boot, and the wipe used to run twice: the second one
- * destroyed the container the first init was about to use, so
- * `getOrCreateMountedViewerAdapter()` threw
- * `[Viewer] markdown-content container not found` mid-boot and a later open
- * started a *rival* viewer. Two viewers share one pane and only the last render
- * is visible, so the pane could keep showing the file the user had already
- * left — and `VIEWER_RENDERED` had been sent, so the workspace's stale-pane
- * retry stood down instead of recovering.
- *
- * Two guards keep it single: the promise lives on `window` (the boot is a
- * property of the document, not of this module instance), and the hand-off only
- * runs while the shell does not exist yet. A second caller waits for the same
- * boot; its content is not lost, because every open renders explicitly after it.
- */
-const viewerInitKey = '__mvViewerInitPromise';
-
-type ViewerInitHost = Window & { __mvViewerInitPromise?: Promise<void> };
-
 async function ensureViewerInitialized(initialContent: string): Promise<{
   runtime: NonNullable<ReturnType<typeof getViewerMainRuntime>>;
   wasInitialized: boolean;
@@ -321,41 +326,65 @@ async function ensureViewerInitialized(initialContent: string): Promise<{
 
   if (!initialized) {
     const host = window as ViewerInitHost;
-    traceEmbed('init.enter', { has: Boolean(host[viewerInitKey]), initialized });
-    if (!host[viewerInitKey]) {
+    traceEmbed('init.enter', {
+      hasWindow: Boolean(host[viewerInitKey]),
+      hasModule: Boolean(viewerInitPromise),
+      initialized,
+      origin: Math.round(performance.timeOrigin),
+      href: location.href.slice(-24),
+      // Which call path is this? The boot replays its stashed document and the
+      // workspace opens one; a third caller would show up here.
+      stack: (new Error().stack || '').split('\n').slice(1, 4).join(' | ').slice(0, 220),
+    });
+    viewerInitPromise ??= host[viewerInitKey] ?? null;
+    if (!viewerInitPromise) {
       if (!document.getElementById('markdown-content')) {
         document.body.textContent = initialContent;
         traceEmbed('handoff', { bytes: initialContent.length });
       }
       traceEmbed('init.start');
-      try {
-        host[viewerInitKey] = initializeViewerBase(platform).then((pluginRenderer) => {
-          traceEmbed('init.base');
-          return startViewer({
-            platform,
-            pluginRenderer,
-            themeConfigRenderer: platform.renderer,
-          });
-        }).then(() => {
-          initialized = true;
-          traceEmbed('init.done');
-          hostUiController.attachWrapperInteractionFixes();
-        }).catch((error) => {
-          console.error('[viewer-embed] viewer base init failed', error);
-          traceEmbed('init.fail', { error: String(error) });
-          // A failed boot must not be cached: the next document gets a fresh try.
-          host[viewerInitKey] = undefined;
+      // The guard is assigned *before* the boot runs: the page can re-enter
+      // this function from inside `initializeViewerBase` (it replays its
+      // stashed document when it reads the boot state), and that nested call
+      // has to join this boot instead of starting a second viewer. A gated
+      // promise makes the ordering explicit rather than accidental.
+      let startBoot!: () => void;
+      const bootGate = new Promise<void>((resolve) => {
+        startBoot = resolve;
+      });
+      const boot = bootGate.then(async () => {
+        let pluginRenderer;
+        try {
+          pluginRenderer = await initializeViewerBase(platform);
+        } catch (error) {
+          // A *synchronous* throw here used to leave the guard unset, so the
+          // next document wiped the page again and started a second viewer.
+          traceEmbed('init.syncfail', { error: String(error) });
+          throw error;
+        }
+        traceEmbed('init.base');
+        return startViewer({
+          platform,
+          pluginRenderer,
+          themeConfigRenderer: platform.renderer,
         });
-      } catch (error) {
-        // A *synchronous* throw would leave the guard unset (no `init.assign`),
-        // so the next document wipes the page again and starts a second viewer
-        // — the state this guard exists to prevent. Name it explicitly.
-        traceEmbed('init.syncfail', { error: String(error) });
-        throw error;
-      }
+      }).then(() => {
+        initialized = true;
+        traceEmbed('init.done');
+        hostUiController.attachWrapperInteractionFixes();
+      }).catch((error) => {
+        console.error('[viewer-embed] viewer base init failed', error);
+        traceEmbed('init.fail', { error: String(error) });
+        // A failed boot must not be cached: the next document gets a fresh try.
+        viewerInitPromise = null;
+        host[viewerInitKey] = undefined;
+      });
+      viewerInitPromise = boot;
+      host[viewerInitKey] = boot;
       traceEmbed('init.assign', { has: Boolean(host[viewerInitKey]) });
+      startBoot();
     }
-    await host[viewerInitKey];
+    await viewerInitPromise;
   }
 
   const runtime = await waitForViewerMainRuntime();
@@ -401,13 +430,36 @@ function markViewerDocumentOpened(filename: string): void {
  * was announced after file B was rendered.
  */
 function traceEmbed(event: string, data: Record<string, unknown> = {}): void {
-  const host = window as Window & { __mvE2ETrace?: boolean; __mvDocId?: string };
+  const host = window as Window & {
+    __mvE2ETrace?: boolean;
+    __mvDocId?: string;
+    __mvWorldSeq?: number;
+    __mvEvents?: unknown[];
+  };
   if (!host.__mvE2ETrace) return;
   host.__mvDocId ??= Math.random().toString(36).slice(2, 7);
+  // Per-*window* counter: it restarts when the code runs in another world (a
+  // separate JS context sharing this DOM) and keeps counting when it is the
+  // same one, which is exactly the question the init guard's failure raises.
+  host.__mvWorldSeq = (host.__mvWorldSeq ?? 0) + 1;
+  const entry = {
+    t: Math.round(performance.now()),
+    doc: host.__mvDocId,
+    mod: embedModuleId,
+    seq: (embedTraceSeq += 1),
+    world: host.__mvWorldSeq,
+    event,
+    ...data,
+  };
+  // Two sinks on purpose: the DOM attribute survives an isolated world and a
+  // pane dump, while the plain array cannot be clobbered by a read-modify-write
+  // of the attribute (the reason the first boot's `init.assign` went missing
+  // while its earlier events stayed visible).
+  (host.__mvEvents ??= []).push(entry);
   try {
     const root = document.documentElement;
     const entries = JSON.parse(root.dataset.mvTrace || '[]') as unknown[];
-    entries.push({ t: Math.round(performance.now()), doc: host.__mvDocId, mod: embedModuleId, event, ...data });
+    entries.push(entry);
     root.dataset.mvTrace = JSON.stringify(entries.slice(-200));
   } catch { /* diagnostics only */ }
 }

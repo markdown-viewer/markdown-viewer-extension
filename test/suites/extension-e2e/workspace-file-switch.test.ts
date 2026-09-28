@@ -208,7 +208,11 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
     const viewer = frame
       ? await evalJs<unknown>(
           frame,
-          `() => { try { return JSON.parse(document.documentElement.dataset.mvTrace || '[]'); } catch { return []; } }`,
+          `() => {
+            const events = (window).__mvEvents || [];
+            const data = (() => { try { return JSON.parse(document.documentElement.dataset.mvTrace || '[]'); } catch { return []; } })();
+            return { events, dataAttr: data, eventsLength: events.length, dataLength: data.length };
+          }`,
         ).catch(() => [])
       : [];
     return `\n  pane timeline: ${JSON.stringify(pane)}\n  viewer timeline: ${JSON.stringify(viewer)}`;

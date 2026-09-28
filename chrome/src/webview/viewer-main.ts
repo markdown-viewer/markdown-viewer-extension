@@ -1206,6 +1206,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         preserve: effect.preserveViewport,
         len: effect.renderModel.markdown.length,
         code: Boolean(effect.renderModel.directCodeView),
+        // Which document this render belongs to: the pane's failures are
+        // "older document's render landed last", which needs names, not sizes.
+        doc: getViewerDocumentLocation().split('/').pop() || '',
+        snapshotDoc: getViewerSnapshot()?.document?.displayName || '',
       });
       const viewer = getOrCreateMountedViewerAdapter();
 
@@ -1418,7 +1422,21 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     }
 
     try {
-      const renderPromise = renderMarkdown(liveRawContent, savedScrollLine, pendingAnchor ?? undefined);
+      // The hand-off (the page's own raw text) is only the *initial* document.
+      // A real open can arrive while the viewer is still booting — the embed
+      // replays its stashed file and the workspace sends the one the user
+      // clicked — and the session may already have opened it. Rendering the
+      // hand-off then repaints the pane with the *older* content *after* the
+      // newest open had rendered: the toolbar showed the clicked file while the
+      // reading area showed the previous one (the workspace suite pinned it as
+      // "comes back to the viewer after an HTML preview").
+      const sessionHasDocument = viewerAssembler?.getSnapshot().document != null;
+      if (sessionHasDocument) {
+        traceViewer('initial.skip', { bytes: liveRawContent.length });
+      }
+      const renderPromise = sessionHasDocument
+        ? Promise.resolve()
+        : renderMarkdown(liveRawContent, savedScrollLine, pendingAnchor ?? undefined);
 
       // Unveil when the page is presentable (scroll restored or first content).
       // renderPromise continues running in the background (async diagrams).

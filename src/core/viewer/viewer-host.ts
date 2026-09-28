@@ -780,9 +780,12 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
   // Abort any previous rendering task
   abortRenders();
 
+  // Declared outside the try so the cleanup in `catch` can drop it from the
+  // live-render registry even when the render throws mid-way.
+  const taskManager = new AsyncTaskManager(translate);
+
   try {
-    // Create task manager
-    const taskManager = new AsyncTaskManager(translate);
+    // Register it for abort handling
     liveRenderTasks.add(taskManager);
     currentTaskManagerRef.current = taskManager;
 
