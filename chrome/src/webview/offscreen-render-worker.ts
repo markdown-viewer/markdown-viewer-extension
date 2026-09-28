@@ -5,6 +5,7 @@ import { bootstrapRenderWorker } from '../../../src/renderers/worker/worker-boot
 import { DirectResourceService } from '../../../src/services';
 
 import { RenderChannel } from '../../../src/messaging/channels/render-channel';
+import { RenderTarget, isTargetedAt } from '../../../src/messaging/routing';
 import { ChromeRuntimeTransport } from '../transports/chrome-runtime-transport';
 
 // ============================================================================
@@ -79,11 +80,7 @@ sendOffscreenLifecycle('OFFSCREEN_READY');
 const renderChannel = new RenderChannel(new ChromeRuntimeTransport({ willRespond: true }), {
   source: 'chrome-offscreen',
   timeoutMs: 300000,
-  acceptRequest: (msg) => {
-    if (!msg || typeof msg !== 'object') return false;
-    const target = (msg as { __target?: unknown }).__target;
-    return target === 'offscreen';
-  },
+  acceptRequest: (msg) => isTargetedAt(msg, RenderTarget.Offscreen),
 });
 
 const worker = bootstrapRenderWorker(renderChannel, {

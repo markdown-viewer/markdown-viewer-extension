@@ -30,6 +30,7 @@ const browser = getWebExtensionApi() as unknown as FirefoxBrowserApi;
 
 import CacheStorage from '../../../src/utils/cache-storage';
 import { toSimpleCacheStats } from '../../../src/utils/cache-stats';
+import { RenderTarget, isTargetedAt } from '../../../src/messaging/routing';
 
 import type { ManualDispatchTransport } from './manual-dispatch-transport';
 import type {
@@ -853,8 +854,7 @@ browser.runtime.onMessage.addListener((message: BackgroundMessage, sender): Prom
   }
 
   // Render requests - dispatch to render worker via ManualDispatchTransport
-  const target = (message as { __target?: unknown }).__target;
-  if (target === 'background-render') {
+  if (isTargetedAt(message, RenderTarget.BackgroundRender)) {
     return new Promise((resolve) => {
       renderTransport.dispatch(message, (response) => {
         resolve(response as object);

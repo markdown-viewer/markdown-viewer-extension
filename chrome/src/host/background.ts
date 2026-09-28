@@ -6,6 +6,7 @@
 
 import CacheStorage from '../../../src/utils/cache-storage';
 import { toSimpleCacheStats } from '../../../src/utils/cache-stats';
+import { RenderTarget } from '../../../src/messaging/routing';
 import {
   getFileChangeTracker,
   getFileCheckAlarmName,
@@ -841,7 +842,7 @@ const OFFSCREEN_REQUEST_TIMEOUT_MS = 20000;
 function sendOffscreenMessage(request: { id: string; type: string; payload: unknown }): Promise<unknown> {
   const offscreenRequest = {
     ...request,
-    __target: 'offscreen'
+    __target: RenderTarget.Offscreen
   };
 
   return new Promise((resolve, reject) => {

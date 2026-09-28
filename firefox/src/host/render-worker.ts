@@ -9,6 +9,7 @@
  */
 
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
+import { RenderTarget, isTargetedAt } from '../../../src/messaging/routing';
 import { DirectResourceService } from '../../../src/services';
 import { bootstrapRenderWorker } from '../../../src/renderers/worker/worker-bootstrap';
 import { RenderChannel } from '../../../src/messaging/channels/render-channel';
@@ -27,11 +28,7 @@ const renderTransport = new ManualDispatchTransport();
 const renderChannel = new RenderChannel(renderTransport, {
   source: 'firefox-background',
   timeoutMs: 300000,
-  acceptRequest: (msg) => {
-    if (!msg || typeof msg !== 'object') return false;
-    const target = (msg as { __target?: unknown }).__target;
-    return target === 'background-render';
-  },
+  acceptRequest: (msg) => isTargetedAt(msg, RenderTarget.BackgroundRender),
 });
 
 const renderWorker = bootstrapRenderWorker(renderChannel, {

@@ -210,7 +210,11 @@ export abstract class BaseMessageChannel {
     this.listeners.get(type)?.delete(handler);
   }
 
-  async send(type: string, payload: unknown, options: { timeoutMs?: number } = {}): Promise<unknown> {
+  async send(
+    type: string,
+    payload: unknown,
+    options: { timeoutMs?: number; target?: string } = {},
+  ): Promise<unknown> {
     const id = this.nextId();
     const timeoutMs = options.timeoutMs ?? this.timeoutMs;
 
@@ -220,6 +224,10 @@ export abstract class BaseMessageChannel {
       payload,
       timestamp: Date.now(),
       ...(this.source ? { source: this.source } : null),
+      // Transport-level routing hint (see src/messaging/routing.ts). A surface
+      // that shares one bus with others (and with host services) says who the
+      // message is for; the payload stays untouched.
+      ...(options.target ? { __target: options.target } : null),
     };
 
     const result = new Promise<unknown>((resolve, reject) => {
@@ -240,13 +248,14 @@ export abstract class BaseMessageChannel {
     return result;
   }
 
-  post(type: string, payload: unknown): void {
+  post(type: string, payload: unknown, options: { target?: string } = {}): void {
     const envelope = {
       id: this.nextId(),
       type,
       payload,
       timestamp: Date.now(),
       ...(this.source ? { source: this.source } : null),
+      ...(options.target ? { __target: options.target } : null),
     };
 
     void this.transport.send(envelope);

@@ -7,6 +7,7 @@
 
 import type { RenderHost } from '../../../../src/renderers/host/render-host';
 import { getWebExtensionApi } from '../../../../src/utils/platform-info';
+import { RenderTarget } from '../../../../src/messaging/routing';
 
 type ResponseEnvelope = {
   type: 'RESPONSE';
@@ -50,7 +51,7 @@ export class BackgroundRenderHost implements RenderHost {
       payload,
       timestamp: Date.now(),
       source: this.source,
-      __target: 'background-render',  // Route to render worker in background
+      __target: RenderTarget.BackgroundRender,  // Route to render worker in background
     };
 
     return new Promise((resolve, reject) => {
