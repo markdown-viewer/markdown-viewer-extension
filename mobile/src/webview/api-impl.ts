@@ -22,6 +22,8 @@ import { FlutterJsChannelTransport } from '../transports/flutter-jschannel-trans
 import { WindowPostMessageTransport } from '../../../src/messaging/transports/window-postmessage-transport';
 
 import { IframeRenderHost } from '../../../src/renderers/host/iframe-render-host';
+import { BridgeRenderHost } from '../../../src/renderers/host/bridge-render-host';
+import { FlutterRelayTransport } from '../transports/flutter-relay-transport';
 
 import { CacheService, StorageService, FileService, FileStateService, RendererService } from '../../../src/services';
 
@@ -295,23 +297,31 @@ class MobilePlatformAPI {
     // Settings service - refresh callback will be set by main.ts after render function is ready
     this.settings = createSettingsService(this.storage);
     
-    // Unified renderer service with IframeRenderHost
+// Unified renderer service. Which surface renders diagrams depends on the
+    // mode Dart published before the first document (dev/render_view_mode.dart):
+    // the face the app ships is still the in-page iframe, and the hidden WebView
+    // is what the migration is switching to.
     const resourceService = this.resource;
     this.renderer = new RendererService({
-      createHost: () => new IframeRenderHost({
-        iframeUrl: './iframe-render.html',
-        source: 'mobile-parent',
-        // Service request handler for proxying render worker requests
-        serviceRequestHandler: async (type, payload) => {
-          // Handle resource fetch requests (e.g., DrawIO stencils)
-          if (type === 'FETCH_RESOURCE') {
-            const { path } = payload as { path: string };
-            return resourceService.fetch(path);
-          }
-          
-          throw new Error(`Unknown service request type: ${type}`);
-        },
-      }),
+      createHost: () => window.__mvRenderView === true
+        ? new BridgeRenderHost({
+            transport: new FlutterRelayTransport(),
+            source: 'mobile-parent',
+          })
+        : new IframeRenderHost({
+            iframeUrl: './iframe-render.html',
+            source: 'mobile-parent',
+            // Service request handler for proxying render worker requests
+            serviceRequestHandler: async (type, payload) => {
+              // Handle resource fetch requests (e.g., DrawIO stencils)
+              if (type === 'FETCH_RESOURCE') {
+                const { path } = payload as { path: string };
+                return resourceService.fetch(path);
+              }
+
+              throw new Error(`Unknown service request type: ${type}`);
+            },
+          }),
       cache: this.cache,
     });
     

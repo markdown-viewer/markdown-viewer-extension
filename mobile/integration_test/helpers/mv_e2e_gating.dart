@@ -10,13 +10,21 @@ library;
 
 import 'dart:io';
 
-/// True when `MV_E2E_HEAVY=1` is set in the *test host* environment.
+const String _defineValue = String.fromEnvironment(kHeavyE2EKey);
+
+/// The define/env key used by tooling and docs.
+const String kHeavyE2EKey = 'MV_E2E_HEAVY';
+
+/// True when the heavy cases are enabled.
 ///
-/// On a device the app process does not inherit the launcher environment, so
-/// integration tests read it from `--dart-define`-free tooling by checking the
-/// host process. `flutter test` runs the test code inside the app process, hence
-/// `Platform.environment` is the device's — CI passes it through both ways.
+/// Two sources on purpose: a device's app process does not inherit the launcher's
+/// environment, so `--dart-define=MV_E2E_HEAVY=1` (what the runner passes) is the
+/// one that works everywhere; the process environment covers desktop runs.
 bool get isHeavyE2EEnabled {
-  final value = Platform.environment['MV_E2E_HEAVY'];
+  if (_defineValue == '1' || _defineValue.toLowerCase() == 'true') {
+    return true;
+  }
+
+  final value = Platform.environment[kHeavyE2EKey];
   return value == '1' || value == 'true';
 }

@@ -40,6 +40,23 @@ declare global {
       get: () => unknown[];
       clear: () => void;
     };
+    /** Which render surface Dart told this page to use (see dev/render_view_mode.dart). */
+    __mvRenderView?: boolean;
+    /**
+     * Render-surface status, pushed by the Dart supervisor.
+     *
+     * The surface has no widget of its own, so this is the only place the app can
+     * see whether it is ready, which renderers it announced, and why it failed —
+     * the E2E migration cases read it (mobile/integration_test/render_view_test.dart).
+     */
+    __mvRenderSurface?: {
+      state: string;
+      renderers: string[];
+      readyMs: number | null;
+      error: string | null;
+      /** Test-only: ask the Dart supervisor to reload the surface (Phase 2 case). */
+      __debugReloadForTest?: () => boolean;
+    };
   }
 }
 
@@ -55,6 +72,47 @@ window.__mvRenderDiagnostics = {
   get: () => getRenderDiagnostics(),
   clear: () => clearRenderDiagnostics(),
 };
+
+// Render-surface status seam. Installed before the relay transport registers its
+// own inbox handler; the transport chains to whatever it finds, so both see every
+// message (status pushes here, responses there).
+window.__mvRenderSurface = { state: 'unknown', renderers: [], readyMs: null, error: null };
+// Test hook (non-release only): the supervisor handles the request on the relay
+// channel and reloads the surface, which is how the E2E suite exercises recovery.
+if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'production') {
+  window.__mvRenderSurface.__debugReloadForTest = () => {
+    const channel = window.MarkdownViewerRender;
+    if (!channel) return false;
+    channel.postMessage(JSON.stringify({
+      type: 'RENDER_VIEW_DEBUG_RELOAD',
+      id: `debug-reload-${Date.now()}`,
+      payload: {},
+      timestamp: Date.now(),
+    }));
+    return true;
+  };
+}
+{
+  const previousInbox = window.__receiveRenderMessage;
+  window.__receiveRenderMessage = (payload: unknown) => {
+    try {
+      const message = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      const typed = message as { type?: string; payload?: Record<string, unknown> } | null;
+      if (typed?.type === 'RENDER_VIEW_STATUS' && typed.payload) {
+        const status = typed.payload;
+        window.__mvRenderSurface = {
+          state: String(status.state ?? 'unknown'),
+          renderers: Array.isArray(status.renderers) ? (status.renderers as string[]) : [],
+          readyMs: typeof status.readyMs === 'number' ? status.readyMs : null,
+          error: status.error == null ? null : String(status.error),
+        };
+      }
+    } catch {
+      // Diagnostics only: a malformed push must not break the relay.
+    }
+    previousInbox?.(payload);
+  };
+}
 
 interface CurrentDocumentState {
   sourceContent: string;

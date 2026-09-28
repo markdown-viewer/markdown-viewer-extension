@@ -113,6 +113,11 @@ void main() {
           final srcLength = await e2e.evalInt(
             "document.querySelector('$kDiagramImageSelector')?.src.length ?? 0",
           );
+          // Recorded so the relay's payload size is visible in the run log: this
+          // is the number that decides when the chunked transport is required
+          // (WKWebView carries multi-MB; Android's JavaScript interface is the
+          // platform whose limit is in question).
+          print('$kLogPrefix heavy diagram PNG data-URL length: $srcLength');
           // No digit separators: the app's pubspec pins a language version below
           // the 3.6 feature and `flutter build` rejects them.
           expect(srcLength, greaterThan(200000),

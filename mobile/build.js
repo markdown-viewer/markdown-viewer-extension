@@ -191,6 +191,48 @@ async function buildIframeRenderWorkerBundle() {
 }
 
 /**
+ * Build render surface bundle (the hidden render WebView's own document).
+ *
+ * Same worker code as the iframe build below; the difference is the transport
+ * (relayed by Dart) and that this runs as a top-level document in its own
+ * WebView. The iframe build is kept for one release so the two can be switched
+ * back and forth (settings.renderView).
+ */
+async function buildRenderViewBundle() {
+  console.log('📦 Building render-view...');
+
+  await build({
+    entryPoints: {
+      'render-view': 'mobile/src/render-view/main.ts'
+    },
+    bundle: true,
+    outdir: DIST_DIR,
+    format: 'iife',
+    target: ['es2020'],
+    treeShaking: true,
+    define: {
+      'process.env.NODE_ENV': '"production"',
+      'MV_PLATFORM': '"mobile"',
+      'MV_RUNTIME': '"worker"',
+      'global': 'globalThis'
+    },
+    inject: ['./scripts/buffer-shim.js'],
+    loader: {
+      '.css': 'css',
+      '.woff': 'dataurl',
+      '.woff2': 'dataurl',
+      '.ttf': 'dataurl'
+    },
+    minify: true,
+    sourcemap: false,
+    external: ['web-worker'],
+    plugins: [dagreShimPlugin]
+  });
+
+  console.log('✅ render-view built');
+}
+
+/**
  * Build styles - all CSS bundled into one file
  * Includes: app styles, katex, highlight.js, custom Chinese fonts
  */
@@ -239,6 +281,9 @@ function copyResources() {
   
   copyFile('mobile/src/webview/iframe-render.html', `${DIST_DIR}/iframe-render.html`);
   console.log('  • iframe-render.html');
+
+  copyFile('mobile/src/render-view/render-view.html', `${DIST_DIR}/render-view.html`);
+  console.log('  • render-view.html');
 
   // Copy mermaid library (loaded separately via script tag)
   const libsDir = `${DIST_DIR}/libs`;
@@ -378,12 +423,14 @@ async function main() {
   try {
     await buildMainBundle();
     await buildIframeRenderWorkerBundle();
+    await buildRenderViewBundle();
     await buildStyles();
     copyResources();
 
     // Show bundle sizes
     const mainBundleSize = fs.statSync(`${DIST_DIR}/bundle.js`).size;
     const renderBundleSize = fs.statSync(`${DIST_DIR}/iframe-render-worker.js`).size;
+    const renderViewSize = fs.statSync(`${DIST_DIR}/render-view.js`).size;
     const stylesSize = fs.statSync(`${DIST_DIR}/styles.css`).size;
     
     const formatSize = (bytes) => bytes >= 1024 * 1024 
@@ -393,6 +440,7 @@ async function main() {
     console.log(`\n📊 Bundle sizes:`);
     console.log(`   bundle.js: ${formatSize(mainBundleSize)}`);
     console.log(`   iframe-render-worker.js: ${formatSize(renderBundleSize)}`);
+    console.log(`   render-view.js: ${formatSize(renderViewSize)}`);
     console.log(`   styles.css: ${formatSize(stylesSize)}`);
 
     console.log(`\n✅ Build complete! Output: ${DIST_DIR}/`);

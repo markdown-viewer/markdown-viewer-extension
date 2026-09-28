@@ -58,7 +58,10 @@ function isColdStartTransportFailure(message: string): boolean {
     || message.includes('No response received')
     || message.includes('Offscreen communication failed')
     || message.includes('Offscreen request timed out')
-    || message.includes('Failed to create offscreen document');
+    || message.includes('Failed to create offscreen document')
+    // The mobile render surface boots as its own WebView; a render that arrives
+    // while it is still coming up is a cold start, not a failure of the render.
+    || message.includes('Render view not ready');
 }
 
 /**

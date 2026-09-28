@@ -123,6 +123,18 @@ Both are non-release only (`kReleaseMode` short-circuits).
 
 ### Local device setup
 
+**The fast loop for mobile work is macOS desktop** (no simulator to boot, ~30-40 s
+per suite, same WKWebView family as iOS):
+
+```bash
+npm run test:mobile:fast                 # integration layer on macOS, all suites
+npm run test:mobile:fast -- --suite=diagram_render
+npm run test:mobile:unit                 # device-free Dart tests, ~15 s
+```
+
+Reach for the Android emulator / iOS simulator when the change touches their own
+behaviour (IPC limits, WebView quirks, share-sheet paths), not for the inner loop.
+
 ```bash
 # Android (the CI path)
 $ANDROID_HOME/emulator/emulator -avd <avd> -gpu host -memory 4096 -cores 4 \
@@ -172,6 +184,7 @@ on real devices: rasterizing that payload is the heaviest thing in the suite.
 | integration, Android emulator (warm Gradle) | 8 passed, 3 skipped (heavy + two render-surface migration cases), 0 failed | ~3.4 min incl. guest preparation (cold APK build adds ~5 min) |
 | integration, iOS simulator | 8 passed, 3 skipped, 0 failed | ~3.7 min |
 | integration, macOS desktop (per-suite mode) | 8 passed, 3 skipped, 0 failed | ~2.5 min total (4 suites × 30-40 s) |
+| integration, macOS desktop with `MV_RENDER_VIEW=1` (hidden render WebView) | 8 passed, 3 skipped, 0 failed — including both migration cases (status query, restart recovery) | ~4.6 min |
 
 Three traps worth knowing before writing new cases:
 
@@ -187,6 +200,23 @@ Three traps worth knowing before writing new cases:
   returns the string `"null"`, WKWebView raises `ArgumentError`). The harness wraps
   every expression to return a JSON string, and side effects go through
   `runJs` (`runJavaScript`, no result) instead.
+
+### Render-surface mode (migration)
+
+The mobile app can render diagrams either in the long-standing in-page iframe or
+in its own hidden WebView, relayed by Dart
+(`plans/mobile-render-view-webview-plan.md`). The switch is a developer/test flag
+until the rollout:
+
+```bash
+MV_RENDER_VIEW=1 npm run test:mobile:fast        # hidden render WebView path
+npm run test:mobile:fast                          # in-page iframe path (shipped)
+```
+
+The runner forwards it as `--dart-define=MV_RENDER_VIEW=…`, so the same command
+works on the emulator/simulator jobs. The migration cases in
+`mobile/integration_test/render_view_test.dart` only run when the mode is on —
+they read the page's `window.__mvRenderView` flag rather than assuming it.
 
 ### Debugging during a run
 

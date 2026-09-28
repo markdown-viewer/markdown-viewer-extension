@@ -26,7 +26,9 @@ import 'services/theme_registry_service.dart';
 import 'pages/settings_page.dart';
 import 'widgets/ui_kit.dart';
 import 'dev/mobile_e2e.dart';
+import 'dev/render_view_mode.dart';
 import 'dev/webview_debug.dart';
+import 'services/render_view_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,6 +108,9 @@ class MarkdownViewerHome extends StatefulWidget {
 
 class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
   late final WebViewController _controller;
+
+  /// Relay + supervision for the hidden render surface (mobile-render-view plan).
+  late final RenderViewService _renderViewService;
   String? _currentFilename;
   String? _currentFilePath;  // Track current file path for scroll position save
   String _currentTheme = 'default';
@@ -191,12 +196,87 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       }
     }
 
+    // Relay traffic for the render surface (requests, responses, status pushes).
+    // A separate channel from MarkdownViewer on purpose: a render response must
+    // never be mistaken for a host-service response (plan §5.1).
+    _controller.addJavaScriptChannel(
+      RenderViewService.relayChannelName,
+      onMessageReceived: (message) {
+        unawaited(_renderViewService.handleRelayMessage(message.message, fromDisplay: true));
+      },
+    );
+
     // Publish integration-test hooks (non-release builds only).
     if (!kReleaseMode) {
       MobileE2E.register(_MobileE2EHooks(this));
     }
 
+    // The diagram engine's own hidden WebView (see
+    // plans/mobile-render-view-webview-plan.md). It is *warmed after* the display
+    // page becomes interactive rather than alongside app boot: two WebViews
+    // loading their bundles at once ANR the app on a slow device (measured on the
+    // Android emulator), and the display page is what the user is waiting for.
+    // Requests that arrive before it is up are queued by the service.
+    _renderViewService = RenderViewService(createController: _createRenderViewController)
+      ..displayController = _controller
+      ..hostResolver = _resolveRenderHostRequest;
+
     _initWebView();
+  }
+
+  /// Builds the render surface's controller.
+  ///
+  /// Same relay channel name as the display side on purpose: Dart tells the two
+  /// apart by *which controller* delivered a message (plan §5.1).
+  Future<WebViewController> _createRenderViewController() async {
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setOnConsoleMessage((message) {
+        debugPrint('[RenderView] ${message.level.name}: ${message.message}');
+      })
+      ..addJavaScriptChannel(
+        RenderViewService.relayChannelName,
+        onMessageReceived: (message) {
+          unawaited(_renderViewService.handleRelayMessage(message.message, fromDisplay: false));
+        },
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onWebResourceError: (error) {
+            debugPrint('[RenderView] resource error: ${error.description} (${error.errorCode})');
+          },
+        ),
+      );
+
+    if (controller.platform is AndroidWebViewController) {
+      // Fonts/stencils referenced by the surface's document need file access on
+      // Android, same as the display WebView.
+      await (controller.platform as AndroidWebViewController).setAllowFileAccess(true);
+    }
+    if (isWebViewDebugEnabled && controller.platform is WebKitWebViewController) {
+      await (controller.platform as WebKitWebViewController).setInspectable(true);
+    }
+
+    return controller;
+  }
+
+  /// Answers a host-service request coming from the render surface.
+  ///
+  /// The surface cannot read files or assets itself (iOS restricts a WKWebView to
+  /// the directory it was loaded from; Android blocks file:// reads from a
+  /// file:// page), so it asks the same questions the display page asks and gets
+  /// the same answers.
+  Future<Object?> _resolveRenderHostRequest(String type, Map<String, dynamic> payload) async {
+    switch (type) {
+      case 'FETCH_ASSET':
+        return _fetchAssetData(payload);
+      case 'READ_RELATIVE_FILE':
+        return _readRelativeFileData(payload);
+      case 'FETCH_REMOTE':
+        return _fetchRemoteData(payload);
+      default:
+        throw UnsupportedError('Unsupported host request: $type');
+    }
   }
 
   /// Initialize filesystem-dependent services after UI is visible
@@ -383,12 +463,31 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       return;
     }
 
+    // Tell the page which render surface to use *before* any document arrives:
+    // the page reads it when it creates its render host (first diagram). The
+    // switch is a developer/test flag today; the user-facing setting lands with
+    // the rollout (see mobile/lib/dev/render_view_mode.dart).
+    try {
+      await _controller.runJavaScript(
+        'window.__mvRenderView = ${isRenderViewEnabled ? 'true' : 'false'};',
+      );
+    } catch (e) {
+      debugPrint('[Mobile] Failed to publish render-view mode: $e');
+    }
+
     if (mounted) {
       setState(() {
         _webViewReady = true;
       });
     } else {
       _webViewReady = true;
+    }
+
+    // Warm the render surface now that the page is interactive (see the note
+    // where the service is created): it boots in the background while the user
+    // reads, and a diagram requested meanwhile waits in the service's queue.
+    if (isRenderViewEnabled && _renderViewService.controller == null) {
+      unawaited(_renderViewService.start());
     }
 
     // Apply saved font size (zoom level) only after the WebView frontend has
@@ -916,51 +1015,55 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     String requestId,
   ) async {
     try {
-      final relativePath = payload['path'] as String?;
-      final binary = payload['binary'] as bool? ?? false;
-
-      if (relativePath == null || relativePath.isEmpty) {
-        _respondToWebViewEnvelope(requestId, error: 'No path provided');
-        return;
-      }
-
-      if (_currentFileDir == null) {
-        _respondToWebViewEnvelope(requestId, error: 'No markdown file opened');
-        return;
-      }
-
-      String absolutePath;
-      if (relativePath.startsWith('./')) {
-        absolutePath = '$_currentFileDir/${relativePath.substring(2)}';
-      } else if (relativePath.startsWith('../')) {
-        final baseDir = Directory(_currentFileDir!);
-        absolutePath = '${baseDir.path}/$relativePath';
-        absolutePath = File(absolutePath).absolute.path;
-      } else if (relativePath.startsWith('/')) {
-        absolutePath = relativePath;
-      } else {
-        absolutePath = '$_currentFileDir/$relativePath';
-      }
-
-      final file = File(absolutePath);
-      if (!await file.exists()) {
-        _respondToWebViewEnvelope(requestId, error: 'File not found: $absolutePath');
-        return;
-      }
-
-      if (binary) {
-        // Read as binary and return base64 encoded
-        final bytes = await file.readAsBytes();
-        final base64Content = base64Encode(bytes);
-        _respondToWebViewEnvelope(requestId, data: {'content': base64Content});
-      } else {
-        final content = await file.readAsString();
-        _respondToWebViewEnvelope(requestId, data: {'content': content});
-      }
+      _respondToWebViewEnvelope(requestId, data: await _readRelativeFileData(payload));
     } catch (e) {
       debugPrint('[Mobile] READ_RELATIVE_FILE error: $e');
       _respondToWebViewEnvelope(requestId, error: e.toString());
     }
+  }
+
+  /// Reads a document-relative file.
+  ///
+  /// Shared by the display WebView and the render surface (the latter reaches it
+  /// through the relay); throws instead of answering, so both callers can shape
+  /// their own response.
+  Future<Map<String, Object?>> _readRelativeFileData(Map<String, dynamic> payload) async {
+    final relativePath = payload['path'] as String?;
+    final binary = payload['binary'] as bool? ?? false;
+
+    if (relativePath == null || relativePath.isEmpty) {
+      throw StateError('No path provided');
+    }
+
+    if (_currentFileDir == null) {
+      throw StateError('No markdown file opened');
+    }
+
+    String absolutePath;
+    if (relativePath.startsWith('./')) {
+      absolutePath = '$_currentFileDir/${relativePath.substring(2)}';
+    } else if (relativePath.startsWith('../')) {
+      final baseDir = Directory(_currentFileDir!);
+      absolutePath = '${baseDir.path}/$relativePath';
+      absolutePath = File(absolutePath).absolute.path;
+    } else if (relativePath.startsWith('/')) {
+      absolutePath = relativePath;
+    } else {
+      absolutePath = '$_currentFileDir/$relativePath';
+    }
+
+    final file = File(absolutePath);
+    if (!await file.exists()) {
+      throw StateError('File not found: $absolutePath');
+    }
+
+    if (binary) {
+      // Read as binary and return base64 encoded
+      final bytes = await file.readAsBytes();
+      return <String, Object?>{'content': base64Encode(bytes)};
+    }
+
+    return <String, Object?>{'content': await file.readAsString()};
   }
 
   /// Handle FETCH_ASSET request from WebView
@@ -970,18 +1073,21 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     String requestId,
   ) async {
     try {
-      final path = payload['path'] as String?;
-      if (path == null) {
-        _respondToWebViewEnvelope(requestId, error: 'Missing path parameter');
-        return;
-      }
-
-      final content = await rootBundle.loadString('build/mobile/$path');
-      _respondToWebViewEnvelope(requestId, data: content);
+      _respondToWebViewEnvelope(requestId, data: await _fetchAssetData(payload));
     } catch (e) {
       debugPrint('[Mobile] FETCH_ASSET error for ${payload['path']}: $e');
       _respondToWebViewEnvelope(requestId, error: e.toString());
     }
+  }
+
+  /// Loads an asset from Flutter's asset bundle (shared by both WebViews).
+  Future<String> _fetchAssetData(Map<String, dynamic> payload) async {
+    final path = payload['path'] as String?;
+    if (path == null) {
+      throw StateError('Missing path parameter');
+    }
+
+    return rootBundle.loadString('build/mobile/$path');
   }
 
   /// Fetches remote URL via native HTTP client to avoid CORS restrictions in WebView
@@ -990,36 +1096,37 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     String requestId,
   ) async {
     try {
-      final url = payload['url'] as String?;
-      if (url == null) {
-        _respondToWebViewEnvelope(requestId, error: 'Missing url parameter');
-        return;
-      }
-
-      final client = HttpClient();
-      try {
-        final request = await client.getUrl(Uri.parse(url));
-        final response = await request.close();
-
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          final bytes = await response.fold<List<int>>(
-            <int>[],
-            (list, chunk) => list..addAll(chunk),
-          );
-          final base64Content = base64Encode(bytes);
-          _respondToWebViewEnvelope(requestId, data: {'content': base64Content});
-        } else {
-          _respondToWebViewEnvelope(
-            requestId,
-            error: 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
-          );
-        }
-      } finally {
-        client.close();
-      }
+      _respondToWebViewEnvelope(requestId, data: await _fetchRemoteData(payload));
     } catch (e) {
       debugPrint('[Mobile] FETCH_REMOTE error for ${payload['url']}: $e');
       _respondToWebViewEnvelope(requestId, error: e.toString());
+    }
+  }
+
+  /// Fetches a remote URL through the native HTTP client (no CORS in a WebView).
+  /// Shared by both WebViews.
+  Future<Map<String, Object?>> _fetchRemoteData(Map<String, dynamic> payload) async {
+    final url = payload['url'] as String?;
+    if (url == null) {
+      throw StateError('Missing url parameter');
+    }
+
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('HTTP ${response.statusCode}: ${response.reasonPhrase}');
+      }
+
+      final bytes = await response.fold<List<int>>(
+        <int>[],
+        (list, chunk) => list..addAll(chunk),
+      );
+      return <String, Object?>{'content': base64Encode(bytes)};
+    } finally {
+      client.close();
     }
   }
 
@@ -1746,7 +1853,34 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
         // (which includes "Refresh" — refreshing the WebView loses all content)
         onLongPress: () {},
         excludeFromSemantics: true,
-        child: WebViewWidget(controller: _controller),
+        child: Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            if (isRenderViewEnabled) _buildHiddenRenderSurface(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The render surface, mounted full size but invisible.
+  ///
+  /// Invisible by Opacity rather than Offstage/zero-size on purpose: a platform
+  /// view without a real layout viewport reports 0×0 to the page, which breaks
+  /// DOM measurement inside the diagram engines (measured in the Phase 0 probe,
+  /// see plans/mobile-render-view-webview-plan.md §3.1).
+  Widget _buildHiddenRenderSurface() {
+    final controller = _renderViewService.controller;
+    if (controller == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0,
+          child: WebViewWidget(controller: controller),
+        ),
       ),
     );
   }

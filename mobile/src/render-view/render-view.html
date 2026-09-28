@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Render Surface</title>
+  <style>
+    /* Same layout contract as the iframe this replaces: the engine renders into
+       a fixed 1400px-wide document so diagram layout does not depend on the
+       surface's own window size (the hidden WebView is attached at device size). */
+    * { margin: 0; padding: 0; }
+    html, body {
+      background: transparent;
+      width: 1400px;
+      min-height: 600px;
+    }
+  </style>
+</head>
+<body>
+  <div id="render-container"></div>
+  <canvas id="png-canvas"></canvas>
+
+  <!-- Mermaid loaded separately to keep bundle size manageable -->
+  <script src="./libs/mermaid.min.js"></script>
+  <script src="./render-view.js"></script>
+</body>
+</html>

@@ -355,6 +355,13 @@ function runIntegrationLayer(deviceId, suites, nameFilter) {
       '-d',
       deviceId,
       '--dart-define=MV_WEBVIEW_DEBUG=1',
+      // Render-surface mode for the suites (mobile/lib/dev/render_view_mode.dart);
+      // the migration cases need it on, everything else runs with the iframe path.
+      `--dart-define=MV_RENDER_VIEW=${process.env.MV_RENDER_VIEW || '0'}`,
+      // Heavy cases (mobile/integration_test/helpers/mv_e2e_gating.dart): on a
+      // device this define is the only way to reach them, since the app process
+      // does not inherit the launcher's environment.
+      `--dart-define=MV_E2E_HEAVY=${process.env.MV_E2E_HEAVY || '0'}`,
     ];
     if (nameFilter) args.push(`--plain-name=${nameFilter}`);
 

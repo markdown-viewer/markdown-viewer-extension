@@ -17,10 +17,16 @@ import 'helpers/mv_fixtures.dart';
 
 const String kDiagramImageSelector = '.diagram-block img[src^="data:image/png"]';
 
-/// The render surface exposes its status through the page while it is being
-/// migrated; absence means "not implemented yet", not "broken".
+/// The render surface is the *active* surface for this run.
+///
+/// The status seam itself is always installed (it is harmless diagnostics), so
+/// the gate has to ask the mode — Dart publishes `window.__mvRenderView` with the
+/// surface the page should use (`mobile/lib/dev/render_view_mode.dart`).
 Future<bool> hasRenderSurfaceSeam(MvE2E e2e) async =>
-    await e2e.eval('typeof window.__mvRenderSurface === "object"') == true;
+    await e2e.eval(
+          'window.__mvRenderView === true && typeof window.__mvRenderSurface === "object"',
+        ) ==
+        true;
 
 void main() {
   group('render surface', () {

@@ -40,6 +40,7 @@
     "test:mobile": "node scripts/mobile-e2e.js --layer=all",
     "test:mobile:unit": "node scripts/mobile-e2e.js --layer=unit",
     "test:mobile:e2e": "node scripts/mobile-e2e.js --layer=integration",
+    "test:mobile:fast": "node scripts/mobile-e2e.js --layer=integration --device=macos",
     "analyze:mobile": "cd mobile && flutter analyze",
     "test:chrome-matrix": "node scripts/chrome-test-matrix.js"
   },
