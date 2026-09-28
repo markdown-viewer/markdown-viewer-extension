@@ -235,7 +235,26 @@ emulator, and 2 skipped with the mode off (the gate).
 WebView content debugging: `chrome://inspect` on Android, the Safari Web
 Inspector on iOS/macOS. The runner passes it for integration runs. Release
 builds cannot enable it.
+Two knobs for the *browser* suites, both off by default:
 
+- `MV_DEBUG_PAGEERR=1` — print full stacks for page errors. Playwright reports a
+  thrown page error without a stack otherwise, and a stack is what turns
+  `TypeError: Cannot assign to read only property 'undefined'` into a file/line.
+- The **pane/viewer timelines** — the workspace suite sets
+  `window.__mvE2ETrace = true` in `addInitScript` and dumps both sinks when a
+  document wait fails:
+  - `window.__mvWsTrace` (pane decisions: hand-over, pane claims, render
+    confirmation, viewer replies),
+  - `documentElement.dataset.mvTrace` + `window.__mvEvents` (viewer: boot
+    hand-off, viewer init, open requests, presentations, render start/end with
+    the document each one rendered).
+
+  These exist because the pane's failures are *orderings* — the toolbar showing
+  file A while the content root holds file B — and a snapshot taken after the
+  fact cannot show that two documents raced. Every entry carries a per-document
+  id and a per-evaluation module id, so "two copies of the bundle" can be
+  confirmed or ruled out from a single log. Recording costs one boolean read per
+  event when the flag is unset.
 ### CI
 
 `.github/workflows/ci.yml` has three mobile jobs, all running this same script:
