@@ -221,9 +221,13 @@ they read the page's `window.__mvRenderView` flag rather than assuming it.
 Readiness is **eventual, not a boot constant**: Dart warms the surface only after
 the display page is interactive (two bundles at once ANR the app on a slow
 device), so the status seam reports `unknown` for a while — 650 ms on the iOS
-simulator, 500 ms on macOS desktop. Cases wait for `ready`
-(`waitForRenderSurfaceReady`) instead of sampling it right after launch; a surface
-that never reports ready fails with its own status dump.
+simulator, 590 ms on the Android emulator, 500 ms on macOS desktop. Cases wait for
+`ready` (`waitForRenderSurfaceReady`) instead of sampling it right after launch; a
+surface that never reports ready fails with its own status dump.
+
+The migration suite itself (`--suite=render_view`) is the fastest way to check the
+surface on one device: 2 passed on macOS desktop, iOS simulator and Android
+emulator, and 2 skipped with the mode off (the gate).
 
 ### Debugging during a run
 
