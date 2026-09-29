@@ -151,6 +151,8 @@ export interface BrowserLayoutMeasurement {
     textIndent: string;
     display: string;
     backgroundColor: string;
+    /** Resolved `break-inside` (also carries the legacy page-break-inside value). */
+    breakInside: string;
     overflowX: string;
     overflowY: string;
   }>;
@@ -360,7 +362,12 @@ export interface BrowserConsoleMessage {
 
 export interface BrowserRenderHarness {
   snapshotDom(inputPath: string, overrides?: Partial<BrowserRenderRequest> & { timeoutMs?: number }): Promise<BrowserDomSnapshot>;
-  measureLayout(inputPath: string, selectors: string[], overrides?: Partial<BrowserRenderRequest> & { timeoutMs?: number }): Promise<BrowserLayoutMeasurement[]>;
+  /**
+   * Render the document and measure layout/style for the given selectors.
+   * `media: 'print'` emulates the print media type first, so @media print
+   * declarations (page-break rules) are the ones that resolve.
+   */
+  measureLayout(inputPath: string, selectors: string[], overrides?: Partial<BrowserRenderRequest> & { timeoutMs?: number; media?: 'screen' | 'print' }): Promise<BrowserLayoutMeasurement[]>;
   /** Console messages emitted by the page since harness creation (type + text). */
   consoleMessages(): BrowserConsoleMessage[];
   /** Collect the EPUB stylesheet exactly as the exporter produces it. */
@@ -527,7 +534,12 @@ export async function createBrowserRenderHarness(options: { inputPath: string; c
       const resolved = path.resolve(targetPath);
       const markdown = await fs.readFile(resolved, 'utf8');
       const timeoutMs = overrides.timeoutMs ?? 120_000;
-      return withTimeout(page.evaluate(({ request, selectors }) => {
+      // The stylesheet carries a @media print block (page-break rules); emulate the
+      // media type before rendering so print-only declarations resolve.
+      if (overrides.media) {
+        await page.emulateMedia({ media: overrides.media });
+      }
+      const measurement = await withTimeout(page.evaluate(({ request, selectors }) => {
         return window.markdownCli.snapshotDom(request).then(async () => {
           // Wait for every image to decode so geometry measurements are based
           // on final rendered dimensions, not placeholder boxes.
@@ -584,6 +596,7 @@ export async function createBrowserRenderHarness(options: { inputPath: string; c
                   backgroundColor: style.backgroundColor,
                   overflowX: style.overflowX,
                   overflowY: style.overflowY,
+                  breakInside: style.breakInside,
                 };
               }),
             };
@@ -610,6 +623,11 @@ export async function createBrowserRenderHarness(options: { inputPath: string; c
         },
         selectors,
       }), timeoutMs);
+      if (overrides.media) {
+        // Leave the page in its default media state for later measurements.
+        await page.emulateMedia({ media: 'screen' });
+      }
+      return measurement;
     },
     async collectEpubCss(targetPath: string, overrides = {}) {
       const resolved = path.resolve(targetPath);

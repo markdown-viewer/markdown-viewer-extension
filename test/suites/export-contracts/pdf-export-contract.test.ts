@@ -65,17 +65,22 @@ describe('PDF export contract (headless Chrome print)', () => {
     );
   });
 
-  it('never prints interactive-only heading anchors', () => {
-    // Heading "#" anchors are hover-revealed (opacity 0 until :hover/:focus). When
-    // export is triggered the menu is removed just before window.print(), so the
-    // pointer lands on the content underneath (often a heading) and Chromium can
-    // carry that :hover reveal into the print snapshot. The injected print CSS must
-    // therefore force the anchors out of the PDF.
+  it('never prints interactive-only chrome', () => {
+    // Heading "#" anchors and code block copy buttons are hover-revealed (opacity 0 until
+    // :hover/:focus). When export is triggered the menu is removed just before
+    // window.print(), so the pointer lands on the content underneath (a heading or a code
+    // block) and Chromium can carry that :hover reveal into the print snapshot. The
+    // injected print CSS must therefore force both out of the PDF.
     const css = buildPrintCssRules('#ffffff');
     assert.match(
       css,
       /heading-anchor[^{}]*\{[^}]*display: none !important/s,
       'print CSS must hide heading anchors',
+    );
+    assert.match(
+      css,
+      /\.mv-code-copy-btn[^{}]*\{[^}]*display: none !important/s,
+      'print CSS must hide the code block copy button',
     );
   });
 
@@ -92,6 +97,42 @@ describe('PDF export contract (headless Chrome print)', () => {
       css,
       /#markdown-page\s*\{[^}]*background: transparent !important/s,
       'print CSS must drop the card background',
+    );
+  });
+
+  it('keeps only page-sized boxes unbreakable in print', async () => {
+    // Chrome honours `break-inside: avoid` by moving the whole box to the next page when
+    // it does not fit in the space left on the current page — and when the box is taller
+    // than a page it has to be split there anyway, so the page in front of it is left
+    // almost empty (printing a Markdown document inserted a page break wherever a long
+    // table, code block or quote started, issue #132). Boxes that can grow past a page
+    // must therefore stay fragmentable; only the inner units that must not be cut in half
+    // keep `avoid` (table rows — Chrome also repeats the header row on every page).
+    const measured = await harness.measureLayout(
+      path.resolve('test/fixtures/layout/print-breaks.md'),
+      [
+        '#markdown-content table',
+        '#markdown-content pre',
+        '#markdown-content blockquote',
+        '#markdown-content table tr',
+      ],
+      { ...FIXED_PARAMS, media: 'print' },
+    );
+
+    for (const measurement of measured.slice(0, 3)) {
+      assert.ok(measurement.elements.length > 0, `${measurement.selector} must be rendered`);
+      assert.equal(
+        measurement.elements[0].breakInside,
+        'auto',
+        `${measurement.selector} must be allowed to span pages in print`,
+      );
+    }
+
+    assert.ok(measured[3].elements.length > 0, 'fixture must contain table rows');
+    assert.equal(
+      measured[3].elements[0].breakInside,
+      'avoid',
+      'print CSS must keep table rows whole',
     );
   });
 });
