@@ -375,14 +375,14 @@ Each uploads its `test-results/mobile-e2e*` directory on failure. The iOS and
 macOS jobs deliberately run only the integration layer — the unit layer already
 runs in the Android job, and macOS runner minutes are the expensive ones.
 
-The iOS job exists because the app's minimum is iOS 15.0. It is enforced in two
-places now — `mobile/ios/Podfile` (`platform :ios`) and `Runner.xcodeproj`
-(`IPHONEOS_DEPLOYMENT_TARGET` in all three configurations, which is what the built
-app reports); `AppFrameworkInfo.plist` used to carry a third copy as
-`MinimumOSVersion`, and the Flutter 3.47 migration removed it (the release build
-still reports 15.0). Plugins still declare older minimums, so the Podfile
-`post_install` raises every pod target to 15.0 — keep the two places in sync when
-the minimum moves again.
+The iOS job exists because the app's minimum is iOS 15.0, which lives in exactly
+one place now: `IPHONEOS_DEPLOYMENT_TARGET` in `mobile/ios/Runner.xcodeproj` (all
+three configurations, and what the built app reports — verified on release builds
+after each migration). `mobile/ios/Flutter/AppFrameworkInfo.plist` used to carry a
+copy as `MinimumOSVersion` and the Podfile carried another, and both are gone: the
+Flutter 3.47 migration removed the plist key, and the projects now take their
+plugins as Swift Packages instead of CocoaPods (so nothing raises a pod target's
+minimum any more — the project's target wins over a package's lower one).
 
 The macOS desktop target was raised to 12.0 the same way (`mobile/macos/Podfile`
 + `Runner.xcodeproj`). A release build was verified on 2026-09-28
@@ -403,6 +403,13 @@ pins 3.47.5. Single-architecture builds still work the same way (Flutter forward
 FLUTTER_XCODE_ARCHS=arm64 npm run build:macos      # host arch only, fast
 npm run build:macos                                # universal, needs Flutter ≥ 3.44.8
 ```
+
+`npm run build:macos` also checks the artifact it just made: if the app or the
+embedded `FlutterMacOS` is missing either slice, the build fails before anything
+reaches `dist/`, with the one-line fix quoted. Flutter keeps Intel slices only
+while `enable-macos-arm64-only` stays off, and that default flips in a future
+release (flutter.dev/go/macos-intel-deprecation) — the guard is what stops that
+from shipping Apple-Silicon-only builds silently.
 
 The release workflow builds Android only, so it is unaffected.
 

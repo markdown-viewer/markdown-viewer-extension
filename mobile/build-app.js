@@ -111,6 +111,62 @@ function hostXcodeArch() {
 }
 
 /**
+ * The architectures a Mach-O binary actually carries (empty when unreadable).
+ */
+function machoArchs(binaryPath) {
+  try {
+    return execSync(`lipo -archs "${binaryPath}"`, { encoding: 'utf8' })
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fails a universal build whose artifact is not actually universal.
+ *
+ * Flutter keeps Intel slices only while `enable-macos-arm64-only` stays off, and
+ * flips that default before dropping Intel support entirely
+ * (flutter.dev/go/macos-intel-deprecation). A build that quietly lost x86_64 would
+ * still "succeed" and only show up on an Intel machine, so the artifact is checked
+ * here — before it reaches `dist/` — and the one-line fix is quoted in the failure.
+ */
+function assertUniversalArchitectures(appPath) {
+  const binaries = [
+    ['app', path.join(appPath, 'Contents/MacOS/markdown_viewer_mobile')],
+    ['FlutterMacOS', path.join(appPath, 'Contents/Frameworks/FlutterMacOS.framework/Versions/A/FlutterMacOS')],
+  ];
+
+  const bad = [];
+  for (const [name, binary] of binaries) {
+    if (!fs.existsSync(binary)) {
+      bad.push(`${name}: missing (${binary})`);
+      continue;
+    }
+    const archs = machoArchs(binary);
+    if (!archs.includes('x86_64') || !archs.includes('arm64')) {
+      bad.push(`${name}: ${archs.join(' ') || 'no architectures reported'} (expected x86_64 arm64)`);
+    }
+  }
+
+  if (bad.length > 0) {
+    console.error('\n❌ The universal build produced non-universal binaries:');
+    for (const entry of bad) {
+      console.error(`     ${entry}`);
+    }
+    console.error('\n   Flutter only keeps Intel slices while `enable-macos-arm64-only` is off, and');
+    console.error('   that default flips in a future release. Opt back in with:');
+    console.error('     flutter config --no-enable-macos-arm64-only');
+    console.error('   (or build the host architecture on purpose: `npm run build:macos:local`)\n');
+    throw new Error('universal macOS build produced a single-architecture artifact');
+  }
+
+  console.log('  ✅ x86_64 + arm64 present in the app and in the embedded FlutterMacOS');
+}
+
+/**
  * Where the macOS build keeps its output, so a failure can be classified.
  *
  * The build prints through `tee` (see [buildMacos]) for that reason: the two
@@ -221,6 +277,11 @@ function buildMacos({ singleArch = false } = {}) {
   const macosDistDir = path.join(distDir, singleArch ? 'macos-local' : 'macos');
   const appSrc = path.join(mobileDir, 'build/macos/Build/Products/Release/markdown_viewer_mobile.app');
   const appDest = path.join(macosDistDir, 'markdown_viewer_mobile.app');
+
+  if (!singleArch) {
+    // Checked before the copy, so a silently Intel-less artifact never reaches dist/.
+    assertUniversalArchitectures(appSrc);
+  }
 
   copyDirectory(appSrc, appDest);
 
