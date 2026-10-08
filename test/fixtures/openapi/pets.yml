@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: Pet API
+  version: 1.0.0
+  description: '<img src="missing.png" onerror="window.openapiXss = true">Pet service.'
+paths:
+  /pets/{id}:
+    get:
+      summary: Get a pet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: A pet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        petName:
+          type: string

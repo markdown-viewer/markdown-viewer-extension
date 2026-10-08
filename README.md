@@ -76,6 +76,8 @@ docu.md bridges that gap. Open the Markdown file, review the rendered result, ch
 
 docu.md supports standard Markdown, GitHub-style tables and task lists, images, highlighted code, math formulas, SVG content, complex HTML tables, and diagrams or charts written in common text-based formats such as PlantUML, Mermaid, Vega/Vega-Lite, drawio, Canvas, Infographic, Graphviz, and ECharts.
 
+OpenAPI 3.x and Swagger 2.0 YAML documents (`.yaml` / `.yml`) opened in the workspace or editor preview render as API references with Redoc CE. In Markdown, use an `openapi` or `swagger` code fence; YAML fences containing a top-level API version declaration are also recognized. Ordinary YAML stays highlighted source. Relative `$ref` files use the current document's resource reader, including nested and circular references. Redoc CE is bundled locally, uses system fonts, sanitizes document HTML, and filters unsafe metadata links. Script-free HTML, EPUB, and Word exports preserve the YAML source.
+
 That feature list appears here once because it is useful. The rest of the README focuses on workflows, platforms, and practical setup.
 
 ## What You Can Do

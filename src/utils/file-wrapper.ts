@@ -5,6 +5,8 @@
 
 import { EXTENSION_TO_FILE_TYPE } from '../types/formats';
 import { stripUrlQueryAndHash } from './document-url';
+import { isOpenapiSource } from './openapi';
+import { toFencedCode } from './code-preview';
 
 /**
  * Get the file type from extension
@@ -35,6 +37,7 @@ export function wrapFileContent(content: string, filePath: string): string {
   }
   
   // Wrap the content in appropriate code block based on file type
+  if (fileType === 'openapi') return toFencedCode(content, isOpenapiSource(content) ? 'openapi' : 'yaml');
   return `\`\`\`${fileType}\n${content}\n\`\`\``;
 }
 

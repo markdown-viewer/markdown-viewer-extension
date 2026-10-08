@@ -83,6 +83,7 @@ export async function renderBookForPrint(options: RenderBookForPrintOptions): Pr
       const page = pages[i];
       const chapter = document.createElement('div');
       chapter.className = 'book-chapter';
+      chapter.dataset.href = page.href;
       const chapterContent = document.createElement('div');
       chapterContent.id = 'markdown-content';
       chapterContent.className = [

@@ -27,7 +27,9 @@ const WINDOWS_DRIVE = /^[a-z]:[\\/]/i;
 export function isSafeUrl(url: string | null | undefined): boolean {
   if (!url) return true;
 
-  const trimmed = url.trim();
+  // Match browser URL parsing: tabs/newlines are removed, and leading/trailing
+  // C0 controls are ignored. Validate the protocol after that normalization.
+  const trimmed = url.replace(/[\t\n\r]/g, '').replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, '');
   if (!trimmed || trimmed.startsWith('#')) return true;
 
   const lower = trimmed.toLowerCase();
