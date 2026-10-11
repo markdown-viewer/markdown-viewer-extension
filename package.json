@@ -121,6 +121,7 @@
     "highlight.js": "^11.11.1",
     "katex": "^0.16.27",
     "knip": "^5.80.0",
+    "lowlight": "^3.0.0",
     "markdown-it": "^14.1.1",
     "material-icon-theme": "^5.33.1",
     "mathjax-full": "^3.2.2",

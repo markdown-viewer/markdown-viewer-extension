@@ -2,7 +2,7 @@
 // Functions for syntax highlighting in DOCX export
 
 import { TextRun } from 'docx';
-import hljs from 'highlight.js/lib/common';
+import hljs from '../utils/highlight-registry';
 import type { DOCXThemeStyles } from '../types/docx';
 
 export interface CodeHighlighter {

@@ -229,6 +229,59 @@ describe('markdown-processor', () => {
       assert.ok(preTag.includes('color:'), 'Should keep the Shiki foreground on the pre');
       assert.ok(/<span[^>]*style="[^"]*color:/.test(output), 'Should keep inline token colours');
     });
+
+    // `rehype-highlight` defaults to lowlight's `common` grammar set, which has
+    // no Erlang. The `languages` option REPLACES that default rather than
+    // extending it, so the regression this guards is two-sided: Erlang must
+    // gain token spans AND the pre-existing common languages must keep theirs.
+    const tokenSpanCount = (html, language) => {
+      const block = html.match(new RegExp(`language-${language}[\\s\\S]*?</code>`));
+      if (!block) return -1;
+      return (block[0].match(/<span class="hljs-[a-z_-]+"/g) ?? []).length;
+    };
+
+    it('should highlight erlang fences (grammar is outside lowlight common)', async () => {
+      const processor = createMarkdownProcessor(
+        { render: async () => null },
+        new AsyncTaskManager(),
+      );
+
+      const input = ['```erlang', '-module(counter).', 'start(N) ->', '    {ok, N + 1}.', '```'].join('\n');
+      const output = String(await processor.process(input));
+
+      assert.ok(output.includes('class="hljs language-erlang"'), 'Should tag the code element as erlang');
+      assert.ok(tokenSpanCount(output, 'erlang') > 0, 'Should emit highlight.js token spans for erlang');
+      assert.ok(output.includes('hljs-keyword'), 'Should tokenise erlang keywords');
+    });
+
+    it('should not drop the default common languages when adding erlang', async () => {
+      const processor = createMarkdownProcessor(
+        { render: async () => null },
+        new AsyncTaskManager(),
+      );
+
+      const input = [
+        '```erlang',
+        '-module(counter).',
+        '```',
+        '',
+        '```bash',
+        'echo hello',
+        '```',
+        '',
+        '```python',
+        'def add(a, b): pass',
+        '```',
+        '',
+      ].join('\n');
+      const output = String(await processor.process(input));
+
+      // Passing `{ languages: { erlang } }` instead of spreading `common` would
+      // zero these out while still satisfying the erlang assertion above.
+      assert.ok(tokenSpanCount(output, 'erlang') > 0, 'erlang should be highlighted');
+      assert.ok(tokenSpanCount(output, 'bash') > 0, 'bash should still be highlighted');
+      assert.ok(tokenSpanCount(output, 'python') > 0, 'python should still be highlighted');
+    });
   });
 
   describe('hashCode', () => {
