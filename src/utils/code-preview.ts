@@ -3,7 +3,7 @@
  * Used by both workspace mode and standalone file browsing.
  */
 
-import hljs from 'highlight.js/lib/common';
+import hljs from './highlight-registry';
 import { renderMarkdownCodeBlockHtml } from '../core/markdown-processor';
 import { EXT_LANG_MAP, CODE_PREVIEW_EXTENSIONS } from './extension-categories';
 import { stripUrlQueryAndHash } from './document-url';

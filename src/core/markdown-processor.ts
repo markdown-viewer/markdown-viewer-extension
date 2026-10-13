@@ -16,6 +16,8 @@ import rehypeSlugShared from './rehype-slug-shared';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeStringify from 'rehype-stringify';
+import { common as commonGrammars } from 'lowlight';
+import erlang from 'highlight.js/lib/languages/erlang';
 import { codeToHast, createShikiInternalSync, type ShikiTransformer } from '@shikijs/core';
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript';
 import langMarkdown from '@shikijs/langs/markdown';
@@ -693,7 +695,7 @@ export function createMarkdownProcessor(
     .use(rehypeSlugShared, { slugger })
     .use(rehypeImageUri)  // Rewrite relative image paths for VS Code webview
     .use(rehypeTableMerge, { enabled: tableMergeEmpty })  // Auto-merge empty table cells
-    .use(rehypeHighlight)
+    .use(rehypeHighlight, { languages: { ...commonGrammars, erlang } })
     .use(rehypeEnhanceMarkdownCode)
     .use(rehypeKatex)
     .use(rehypeStringify, { allowDangerousHtml: true });
