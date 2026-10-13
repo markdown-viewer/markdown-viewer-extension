@@ -174,8 +174,8 @@ export class ChromeDocumentService extends BaseDocumentService {
   }
 
   async readRelativeFile(relativePath: string, options?: ReadFileOptions): Promise<string> {
-    // In workspace mode, use workspace file reader (File System Access API via parent)
-    if (this._workspaceFileReader) {
+    // Workspace handles read local files; network URLs use the normal browser/worker path.
+    if (this._workspaceFileReader && !isNetworkUrl(relativePath)) {
       return this._workspaceFileReader(relativePath, options?.binary ?? false);
     }
 

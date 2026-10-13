@@ -7,6 +7,7 @@ import hljs from './highlight-registry';
 import { renderMarkdownCodeBlockHtml } from '../core/markdown-processor';
 import { EXT_LANG_MAP, CODE_PREVIEW_EXTENSIONS } from './extension-categories';
 import { stripUrlQueryAndHash } from './document-url';
+import { isOpenapiFile } from './openapi';
 
 export function getCodePreviewMatchedExtension(path: string): string | null {
   // Match on the file name: a remote URL keeps its query (`.../logs.txt?sv=…`)
@@ -55,6 +56,7 @@ export interface CodeReadingRenderResult {
  * Returns null when the target path should not be rendered as code-reading mode.
  */
 export function buildCodeReadingRender(content: string, path: string): CodeReadingRenderResult | null {
+  if (isOpenapiFile(content, path)) return null;
   const language = getCodeFenceLanguageForPath(path);
   if (!language) {
     return null;
