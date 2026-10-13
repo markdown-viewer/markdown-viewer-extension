@@ -49,6 +49,7 @@ const icons = [
   ['perl', 'perl'],
   ['r', 'r'],
   ['zig', 'zig'],
+  ['erlang', 'erlang'],
   ['image', 'image'],
   ['video', 'video'],
   ['audio', 'audio'],

@@ -16,6 +16,9 @@ export const EXT_LANG_MAP: Record<string, string> = {
   'tsx': 'typescript', 'd.ts': 'typescript',
 
   // ── Web Frameworks ──
+  // vue/svelte (and zig/fish/csv below) are not grammars in highlight.js at
+  // any bundle size, so these files get an icon and a language class but no
+  // token colouring. Kept so file-icons still shows the right logo.
   'vue': 'vue', 'svelte': 'svelte',
 
   // ── Systems Languages ──
@@ -25,6 +28,9 @@ export const EXT_LANG_MAP: Record<string, string> = {
   'h': 'c', 'hpp': 'cpp', 'hh': 'cpp', 'hxx': 'cpp',
   'cs': 'csharp', 'php': 'php', 'lua': 'lua', 'r': 'r',
   'scala': 'scala', 'zig': 'zig', 'pl': 'perl', 'perl': 'perl',
+  // `erl` resolves to erlang through the grammar's declared `erl` alias
+  // (registered in extra-highlight-grammars.ts).
+  'erl': 'erl', 'hrl': 'erl', 'escript': 'erl',
 
   // ── Web ──
   'html': 'html', 'htm': 'html',

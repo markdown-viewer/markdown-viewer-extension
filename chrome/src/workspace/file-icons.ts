@@ -43,6 +43,7 @@ const LANG_ICON: Record<string, string> = {
   'r': mi.r,
   'scala': mi.scala,
   'zig': mi.zig,
+  'erl': mi.erlang,
   'perl': mi.perl,
   'vue': mi.vue,
   'svelte': mi.javascript,

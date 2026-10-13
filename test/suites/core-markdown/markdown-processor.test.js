@@ -40,12 +40,32 @@ import {
 } from '../../../src/core/markdown-processor.ts';
 import { hashCode, generateContentHash } from '../../../src/utils/hash.ts';
 import { sanitizeHtml } from '../../../src/utils/html-sanitizer.ts';
+import { EXTRA_HIGHLIGHT_GRAMMARS } from '../../../src/utils/extra-highlight-grammars.ts';
+import hljs from '../../../src/utils/highlight-registry.ts';
 import { replacePlaceholderWithImage, convertPluginResultToHTML } from '../../../src/plugins/plugin-html-utils.ts';
 
 // Create a container for DOM tests
 const container = htmlDoc.createElement('div');
 container.setAttribute('id', 'markdown-content');
 htmlDoc.body.appendChild(container);
+
+// [language, a snippet that grammar tokenises] for every grammar in
+// src/utils/extra-highlight-grammars.ts, plus `bat` — which is not a grammar
+// name but the alias EXT_LANG_MAP routes .bat/.cmd to (the grammar ships as
+// `dos`). See there for why these live outside lowlight's `common` set.
+const EXTRA_FENCE_SAMPLES = [
+  ['erlang', '-module(counter).\nstart(N) -> {ok, N + 1}.'],
+  ['scala', 'def add(a: Int, b: Int): Int = a + b'],
+  ['dart', 'void main() { print("hi"); }'],
+  ['powershell', '$items = Get-ChildItem'],
+  ['bat', 'echo off'],
+  ['latex', '\\documentclass{article}'],
+  ['haskell', 'add :: Int -> Int -> Int'],
+  ['elixir', 'defmodule Counter do'],
+  ['clojure', '(defn add [a b] (+ a b))'],
+  ['fsharp', 'let add a b = a + b'],
+  ['graphql', 'type Query { hello: String }'],
+];
 
 describe('markdown-processor', () => {
   describe('normalizeMathBlocks', () => {
@@ -232,12 +252,13 @@ describe('markdown-processor', () => {
 
     // `rehype-highlight` defaults to lowlight's `common` grammar set, which has
     // no Erlang. The `languages` option REPLACES that default rather than
-    // extending it, so the regression this guards is two-sided: Erlang must
-    // gain token spans AND the pre-existing common languages must keep theirs.
+    // extending it, so the regression this guards is two-sided: the extra
+    // grammars must gain token spans AND the pre-existing common languages must
+    // keep theirs.
     const tokenSpanCount = (html, language) => {
       const block = html.match(new RegExp(`language-${language}[\\s\\S]*?</code>`));
       if (!block) return -1;
-      return (block[0].match(/<span class="hljs-[a-z_-]+"/g) ?? []).length;
+      return (block[0].match(/<span class="hljs-[a-z0-9_-]+"/g) ?? []).length;
     };
 
     it('should highlight erlang fences (grammar is outside lowlight common)', async () => {
@@ -254,7 +275,35 @@ describe('markdown-processor', () => {
       assert.ok(output.includes('hljs-keyword'), 'Should tokenise erlang keywords');
     });
 
-    it('should not drop the default common languages when adding erlang', async () => {
+    it('should highlight fences for every extra grammar and the bat alias', async () => {
+      const processor = createMarkdownProcessor(
+        { render: async () => null },
+        new AsyncTaskManager(),
+      );
+
+      // Every registered grammar must be exercised here — a new entry in
+      // extra-highlight-grammars.ts that skips this table would go untested.
+      // Some entries are reachable through a fence alias rather than their
+      // registered name (`dos` → `bat`, `erlang` → `erl`), so match either.
+      const coveredNames = new Set(EXTRA_FENCE_SAMPLES.map(([language]) => language));
+      const uncovered = Object.keys(EXTRA_HIGHLIGHT_GRAMMARS).filter((registered) => {
+        if (coveredNames.has(registered)) return false;
+        const aliases = hljs.getLanguage(registered)?.aliases ?? [];
+        return !aliases.some((alias) => coveredNames.has(alias));
+      });
+      assert.deepStrictEqual(uncovered, [], `EXTRA_FENCE_SAMPLES is missing: ${uncovered.join(', ')}`);
+
+      for (const [language, sample] of EXTRA_FENCE_SAMPLES) {
+        const output = String(await processor.process(['```' + language, sample, '```'].join('\n')));
+
+        assert.ok(
+          tokenSpanCount(output, language) > 0,
+          `${language} should emit highlight.js token spans`,
+        );
+      }
+    });
+
+    it('should not drop the default common languages when adding the extra grammars', async () => {
       const processor = createMarkdownProcessor(
         { render: async () => null },
         new AsyncTaskManager(),
@@ -276,8 +325,8 @@ describe('markdown-processor', () => {
       ].join('\n');
       const output = String(await processor.process(input));
 
-      // Passing `{ languages: { erlang } }` instead of spreading `common` would
-      // zero these out while still satisfying the erlang assertion above.
+      // Passing `{ languages: EXTRA_HIGHLIGHT_GRAMMARS }` instead of spreading
+      // `common` would zero these out while still satisfying the assertions above.
       assert.ok(tokenSpanCount(output, 'erlang') > 0, 'erlang should be highlighted');
       assert.ok(tokenSpanCount(output, 'bash') > 0, 'bash should still be highlighted');
       assert.ok(tokenSpanCount(output, 'python') > 0, 'python should still be highlighted');

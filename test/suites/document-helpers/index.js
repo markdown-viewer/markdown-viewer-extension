@@ -1,4 +1,5 @@
 // Suite group: URL / document helpers (fibjs test runner).
+import './code-reading-language.test.ts';
 import './document-url.test.js';
 import './document-utils.test.js';
 import './file-delivery.test.ts';
