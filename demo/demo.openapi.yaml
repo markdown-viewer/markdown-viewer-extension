@@ -1,0 +1,282 @@
+openapi: 3.1.0
+
+info:
+  title: Markdown Viewer Demo API
+  version: 1.2.0
+  summary: 独立 `.yaml` 文件的 OpenAPI 预览演示
+  description: |
+    该文件用于验证「OpenAPI 文件 → Redoc 预览」这条能力，
+    与 [openapi-demo.md](./openapi-demo.md) 里的内嵌围栏互为对照。
+
+    * 文件名后缀是 `.yaml`，但**内容**决定它是否是 OpenAPI 文档
+      （判定见 `src/utils/openapi.ts` 的 `isOpenapiSource`）。
+    * 描述支持 Markdown：`code`、**粗体**、列表、表格。
+  termsOfService: https://docu.md/terms
+  contact:
+    name: Markdown Viewer Team
+    url: https://docu.md
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.example.com/v1
+    description: 生产环境
+  - url: http://localhost:3000/v1
+    description: 本地开发
+
+tags:
+  - name: documents
+    description: 文档的增删改查
+  - name: render
+    description: 渲染与导出
+
+x-tagGroups:
+  - name: 文档
+    tags: [documents]
+  - name: 渲染
+    tags: [render]
+
+paths:
+  /documents:
+    get:
+      tags: [documents]
+      summary: 分页列出文档
+      operationId: listDocuments
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: tag
+          in: query
+          description: 按标签过滤，可重复传递
+          schema:
+            type: array
+            items:
+              type: string
+            maxItems: 8
+          explode: true
+      responses:
+        '200':
+          description: 文档列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [documents]
+      summary: 创建文档
+      operationId: createDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewDocument'
+            examples:
+              minimal:
+                summary: 只给标题与正文
+                value:
+                  title: 新的想法
+                  content: "# intake\n\n原始想法……"
+      responses:
+        '201':
+          description: 已创建
+          headers:
+            Location:
+              description: 新文档的资源地址
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /documents/{documentId}:
+    get:
+      tags: [documents]
+      summary: 读取单个文档
+      operationId: getDocument
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: 文档内容
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [documents]
+      summary: 删除文档
+      operationId: deleteDocument
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '204':
+          description: 已删除
+
+  /documents/{documentId}/render:
+    post:
+      tags: [render]
+      summary: 渲染文档为指定格式
+      operationId: renderDocument
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderRequest'
+      responses:
+        '202':
+          description: 渲染任务已排队
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderJob'
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]{4,64}$'
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: [string, 'null']
+
+  responses:
+    Unauthorized:
+      description: 缺少或过期的访问令牌
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 文档不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: 参数校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Theme:
+      type: string
+      enum: [light, dark, auto]
+      default: auto
+      description: 渲染主题，`auto` 跟随文档主题。
+    Document:
+      type: object
+      required: [id, title, content, createdAt]
+      properties:
+        id:
+          type: string
+          examples: [doc-8f21]
+        title:
+          type: string
+          maxLength: 120
+        content:
+          type: string
+          description: Markdown 原文
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+    NewDocument:
+      type: object
+      required: [title, content]
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+    DocumentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+        nextCursor:
+          type: [string, 'null']
+    RenderRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [docx, pdf, epub, html]
+          default: docx
+        theme:
+          $ref: '#/components/schemas/Theme'
+        options:
+          type: object
+          additionalProperties: true
+          description: 传给导出器的可选参数
+    RenderJob:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        resultUrl:
+          type: [string, 'null']
+          format: uri
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          examples: [not_found]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true

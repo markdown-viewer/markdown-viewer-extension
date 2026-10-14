@@ -39,6 +39,8 @@ tags: [markdown, test, demo]
 17. **脚注** - 脚注引用和定义语法
 18. **边界测试** - 错误处理、极端情况
 19. **Inline HTML 详测** - [完整演示](./inline-html-test.md)
+20. **Erlang 语法高亮** - [完整演示](./erlang-demo.md)，独立文件 [demo.erl](./demo.erl)
+21. **OpenAPI 预览** - [完整演示](./openapi-demo.md)，独立文件 [demo.openapi.yaml](./demo.openapi.yaml)
 
 ---
 
