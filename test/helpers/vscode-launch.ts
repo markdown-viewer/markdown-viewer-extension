@@ -268,6 +268,13 @@ const TEST_PROFILE_SETTINGS: Record<string, unknown> = {
  * workbench to be interactive. The returned page is the workbench renderer;
  * webview content is reachable through `page.frames()`.
  */
+/**
+ * The app handle currently driving a window, so a helper that only holds the
+ * page can still raise that window (see ensureWorkbenchFocus). Suites run in a
+ * single process and one window at a time.
+ */
+let launchedApp: ElectronApplication | null = null;
+
 export async function launchVSCode(options: VSCodeLaunchOptions): Promise<VSCodeHarness> {
   assertVscodeBuilt();
 
@@ -311,6 +318,7 @@ export async function launchVSCode(options: VSCodeLaunchOptions): Promise<VSCode
   }
 
   const page = await app.firstWindow();
+  launchedApp = app;
   installWorkbenchDiagnostics(page);
   await waitFor(page, WORKBENCH_READY_JS, 120000);
   // `visibilityState` is the canary for occlusion throttling: 'hidden' here
@@ -332,6 +340,7 @@ export async function launchVSCode(options: VSCodeLaunchOptions): Promise<VSCode
       try {
         await app.close();
       } finally {
+        launchedApp = null;
         if (process.env.MV_VSCODE_KEEP_PROFILE === '1') {
           // eslint-disable-next-line no-console
           console.log(`[vscode-e2e] kept profile: ${userDataDir}`);
@@ -455,9 +464,13 @@ export const COMMANDS = {
 export type CommandKey = keyof typeof COMMANDS;
 
 /** Run one of the extension's commands, by ID. */
-export async function runExtensionCommand(page: Page, key: CommandKey): Promise<void> {
+export async function runExtensionCommand(
+  page: Page,
+  key: CommandKey,
+  options?: { requireEditorFocus?: boolean },
+): Promise<void> {
   const entry = COMMANDS[key];
-  await runPaletteCommand(page, entry.id, entry.label);
+  await runPaletteCommand(page, entry.id, entry.label, options);
 }
 
 /**
@@ -470,7 +483,10 @@ export async function runExtensionCommand(page: Page, key: CommandKey): Promise<
  */
 export async function previewFile(page: Page, fileName: string): Promise<void> {
   await openFileFromQuickOpen(page, fileName);
-  await runExtensionCommand(page, 'preview');
+  // `preview` is offered only for a supported TEXT EDITOR (`when` clause), so
+  // the editor — not a preview panel from an earlier document — must own the
+  // keyboard when the palette opens.
+  await runExtensionCommand(page, 'preview', { requireEditorFocus: true });
   await waitFor(
     page,
     `() => (${PREVIEW_TAB_LABELS_JS})().includes(${JSON.stringify(`Preview: ${fileName}`)})`,
@@ -485,10 +501,18 @@ export async function previewFile(page: Page, fileName: string): Promise<void> {
 
 /**
  * The palette's query field — the element that owns the query and the Enter.
- * `.last()` because nested quick picks stack widgets.
+ *
+ * Only the VISIBLE widget's field: VS Code keeps a closed quick input in the DOM
+ * (`display: none`), and `.last()` over every field resolves to that stale input
+ * just as happily. That is not a cosmetic detail — measured on the
+ * `previewToSide` case, where the palette never opened because the preview
+ * webview had the keyboard: every probe resolved to the stale hidden field, so a
+ * 30s wait reported "hidden" for a widget that was never shown, and the retry
+ * read "input: \">\"" — a query nobody typed. `.last()` is still needed because
+ * nested quick picks (quick open inside a palette flow) stack widgets.
  */
 function paletteInput(page: Page) {
-  return page.locator('.quick-input-box input').last();
+  return page.locator(`${PALETTE_SCOPE}:visible .quick-input-box input`).last();
 }
 
 /**
@@ -542,8 +566,9 @@ export async function setPaletteQuery(
     check: readBack,
   }).catch(async (error: Error) => {
     throw new Error(
-      `palette input never held the ${mode} query "${wanted}" (holds: "${held}")` +
-        ` | ui state: ${await describeUiState(page)}`,
+      `palette input never held the ${mode} query "${wanted}" (holds: "${held}")`
+        + ` | palette state: ${await describePaletteState(page)}`
+        + ` | ui state: ${await describeUiState(page)}`,
       { cause: error },
     );
   });
@@ -566,6 +591,8 @@ function describeUiState(page: Page): Promise<string> {
     `() => {
       const compact = (node) => (node?.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 200) || null;
       return JSON.stringify({
+        windowFocused: document.hasFocus(),
+        visibility: document.visibilityState,
         dialog: compact(document.querySelector('.monaco-dialog-box')),
         toasts: compact(document.querySelector('.notifications-toasts')),
         groups: (${EDITOR_GROUP_TABS_JS})(),
@@ -633,15 +660,30 @@ async function submitPaletteQuery(
     expectation: string;
     waitForInitialList: boolean;
     mode: 'command' | 'file';
+    /**
+     * The command's `when` clause keys off the active TEXT EDITOR, and the
+     * keyboard has to be there too. Set this for editor-scoped commands: a
+     * preview panel's `reveal()` that lands after the tab click takes both
+     * away, the palette shortcut then goes to the webview, and the palette
+     * never opens (measured on `previewToSide`). Panel-scoped commands
+     * (`openSettings`, `openExportMenu`) must leave this off — focusing an
+     * editor would un-offer them.
+     */
+    requireEditorFocus?: boolean;
   },
 ): Promise<void> {
-  const { query, rowMatchesJs, targetLabel, expectation, waitForInitialList, mode } = options;
+  const { query, rowMatchesJs, targetLabel, expectation, waitForInitialList, mode, requireEditorFocus } = options;
   const widget = mode === 'command' ? 'command palette' : 'quick open';
   trace(`palette (${mode}): "${query}" → expect ${expectation}`);
 
   await retryInteraction({
     label: `${widget} query "${query}"`,
     attempt: async () => {
+      if (requireEditorFocus) {
+        // Re-asserted inside every attempt because the retry is what wins this
+        // race — the panel's reveal is a one-shot that lands slightly late.
+        await waitForEditorFocus(page, 5000);
+      }
       if (mode === 'command') {
         await openCommandPalette(page);
       } else {
@@ -677,6 +719,19 @@ export async function describePaletteState(page: Page): Promise<string> {
     page,
     `() => JSON.stringify({
       input: document.querySelector('.quick-input-box input')?.value ?? null,
+      // Every field, in DOM order, with focus and visibility: the "last field"
+      // rule targets the newest widget, and a *stale* widget that still answers
+      // visible is how a read ends up describing a query nobody typed.
+      inputs: Array.from(document.querySelectorAll('.quick-input-box input')).map((el) => ({
+        value: el.value,
+        visible: el.offsetParent !== null,
+        focused: document.activeElement === el,
+      })),
+      activeElement: (() => {
+        const el = document.activeElement;
+        if (!el) return null;
+        return el.tagName.toLowerCase() + (el.className ? '.' + String(el.className).split(' ').join('.') : '');
+      })(),
       widgets: Array.from(document.querySelectorAll('${PALETTE_SCOPE}')).map((widget) => ({
         cls: widget.className,
         rows: Array.from(widget.querySelectorAll('.monaco-list-row')).map((row) => (row.textContent || '').trim()),
@@ -760,18 +815,79 @@ async function isQuickInputVisible(page: Page): Promise<boolean> {
   return paletteInput(page).isVisible().catch(() => false);
 }
 
+/**
+ * How long one attempt waits for the widget to appear.
+ *
+ * Deliberately far below `retryInteraction`'s 20s budget: an attempt that
+ * outlasts the budget makes the retry loop unreachable (the first attempt throws
+ * after the deadline), which is what turned "the keystroke went to the webview"
+ * into a 30s mystery instead of a second attempt that wins the race.
+ */
+const PALETTE_OPEN_TIMEOUT_MS = 6000;
+
+/**
+ * Try to give the workbench window the keyboard before a keybinding is sent.
+ *
+ * Advisory, never fatal: VS Code ignores keybindings while another window owns
+ * the keyboard, but CDP keystrokes usually still arrive, and `hasFocus()` is
+ * **false in normal local runs that pass** — a hard gate here would fail healthy
+ * runs. So this raises the window when it can and lets the *failure* name the
+ * focus state instead (see openCommandPalette).
+ */
+async function attemptWorkbenchFocus(page: Page): Promise<boolean> {
+  if (await evalJs<boolean>(page, `() => document.hasFocus()`).catch(() => false)) {
+    return true;
+  }
+
+  await page.bringToFront().catch(() => undefined);
+  // Electron windows do not always honour `bringToFront()`; asking the app is
+  // the reliable way to raise one.
+  await launchedApp
+    ?.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      window?.show();
+      window?.focus();
+    })
+    .catch(() => undefined);
+
+  return evalJs<boolean>(page, `() => document.hasFocus()`).catch(() => false);
+}
+
 /** Open the command palette from a clean slate. */
 async function openCommandPalette(page: Page): Promise<void> {
   await dismissQuickInput(page);
-  await page.keyboard.press(PALETTE_SHORTCUT);
-  await paletteInput(page).waitFor({ state: 'visible', timeout: 30000 });
+  await attemptWorkbenchFocus(page);
+  await pressPaletteShortcut(page, PALETTE_SHORTCUT);
 }
 
 /** Open quick open (file search) from a clean slate. */
 async function openFileSearch(page: Page): Promise<void> {
   await dismissQuickInput(page);
-  await page.keyboard.press(`${MOD}+P`);
-  await paletteInput(page).waitFor({ state: 'visible', timeout: 30000 });
+  await attemptWorkbenchFocus(page);
+  await pressPaletteShortcut(page, `${MOD}+P`);
+}
+
+/**
+ * Press a quick-input shortcut and wait for the widget it opens.
+ *
+ * A shortcut that opens nothing is the failure this names: no widget appears,
+ * and every probe then resolves to the stale closed widget's field (the same
+ * element the *previous* query left behind). The reason is usually the keyboard
+ * belonging to another window — which the message reports instead of leaving a
+ * bare 6s timeout.
+ */
+async function pressPaletteShortcut(page: Page, shortcut: string): Promise<void> {
+  await page.keyboard.press(shortcut);
+  await paletteInput(page)
+    .waitFor({ state: 'visible', timeout: PALETTE_OPEN_TIMEOUT_MS })
+    .catch(async (error: Error) => {
+      throw new Error(
+        `the quick input did not open after "${shortcut}" — the workbench must own the keyboard `
+          + 'for keybindings (another window holding it is the usual cause)'
+          + ` | ui state: ${await describeUiState(page)}`,
+        { cause: error },
+      );
+    });
 }
 
 /** Tab/group counts, which also say whether an editor is dirty. */
@@ -865,6 +981,7 @@ export async function runPaletteCommand(
   page: Page,
   commandId: string,
   label: string,
+  options?: { requireEditorFocus?: boolean },
 ): Promise<void> {
   await submitPaletteQuery(page, {
     query: commandId,
@@ -873,6 +990,7 @@ export async function runPaletteCommand(
     expectation: `"${label}"`,
     waitForInitialList: true,
     mode: 'command',
+    requireEditorFocus: options?.requireEditorFocus,
   });
 }
 

@@ -103,27 +103,33 @@ describe('VS Code extension: commands and panels', { skip: reason ?? false }, ()
     // The preview above left the panel holding the active tab, so the source
     // tab is brought back to the front first — the same step a user takes.
     await focusEditorTab(page, 'smoke.md');
-    await runExtensionCommand(page, 'previewToSide');
+    // Editor-scoped command: the helper re-asserts editor focus on every
+    // attempt, because the panel's reveal can take the keyboard back after the
+    // tab click (the palette shortcut then lands in the webview and the palette
+    // never opens — measured as a 30s "stale hidden input" timeout).
+    await runExtensionCommand(page, 'previewToSide', { requireEditorFocus: true });
     await waitForPreviewFrame(page);
 
-    // `ViewColumn.Beside` is a layout claim: the source keeps its group and the
-    // preview lands in a new group next to it.
+    // `ViewColumn.Beside` is a layout claim: the source keeps a group of its
+    // own and the preview lands in another one. Which side is which is the
+    // editor's choice — assert the split, not the order.
     await waitFor(
       page,
       `() => {
         const groups = (${EDITOR_GROUP_TABS_JS})();
-        return groups.length === 2
-          && groups[0].some((tab) => tab.includes('smoke.md'))
-          && !groups[0].some((tab) => tab.includes('Preview:'))
-          && groups[1].some((tab) => tab.includes('Preview:'));
+        if (groups.length !== 2) return false;
+        const sourceIndex = groups.findIndex((tabs) => tabs.some((tab) => tab === 'smoke.md'));
+        const previewIndex = groups.findIndex((tabs) => tabs.some((tab) => tab.includes('Preview:')));
+        return sourceIndex !== -1 && previewIndex !== -1 && sourceIndex !== previewIndex;
       }`,
       30000,
     );
 
     const groups = await evalJs<string[][]>(page, EDITOR_GROUP_TABS_JS);
+    const previewGroup = groups.find((tabs) => tabs.some((tab) => tab.includes('Preview:'))) ?? [];
     assert.ok(
-      groups[1].some((tab) => tab.includes('Preview: smoke.md')),
-      `preview group: ${JSON.stringify(groups[1])}`,
+      previewGroup.some((tab) => tab.includes('Preview: smoke.md')),
+      `preview group: ${JSON.stringify(previewGroup)}`,
     );
     assert.deepEqual(
       await evalJs<string[]>(page, PREVIEW_TAB_LABELS_JS),
