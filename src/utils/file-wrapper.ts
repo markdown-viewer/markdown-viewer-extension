@@ -5,13 +5,13 @@
 
 import { EXTENSION_TO_FILE_TYPE } from '../types/formats';
 import { stripUrlQueryAndHash } from './document-url';
-import { isOpenapiSource } from './openapi';
+import { isYamlFilePath } from './openapi';
 import { toFencedCode } from './code-preview';
 
 /**
  * Get the file type from extension
  * @param filePath - The file path or URL
- * @returns The file type (mermaid, vega, vega-lite, dot, infographic, svg, or markdown)
+ * @returns The file type (mermaid, vega, vega-lite, dot, infographic, or markdown)
  */
 export function getFileType(filePath: string): string {
   // The extension is the last segment of the *file name*: a remote URL carries
@@ -30,14 +30,21 @@ export function getFileType(filePath: string): string {
  */
 export function wrapFileContent(content: string, filePath: string): string {
   const fileType = getFileType(filePath);
-  
+
+  // YAML is not a registered format and carries no special wrapper: an OpenAPI
+  // *document* mounts its rendered reference directly (see openapi-view.ts),
+  // and this function's job for it is only the code representation used by
+  // DOCX export and `renderedMarkdown` bookkeeping.
+  if (isYamlFilePath(filePath)) {
+    return toFencedCode(content, 'yaml');
+  }
+
   // If already markdown, return as-is
   if (fileType === 'markdown') {
     return content;
   }
-  
+
   // Wrap the content in appropriate code block based on file type
-  if (fileType === 'openapi') return toFencedCode(content, isOpenapiSource(content) ? 'openapi' : 'yaml');
   return `\`\`\`${fileType}\n${content}\n\`\`\``;
 }
 

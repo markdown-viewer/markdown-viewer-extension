@@ -419,6 +419,10 @@
     "message": "Адкрыць файл",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Гэта не дакумент OpenAPI — паказаны зыходны код YAML.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Ацаніць",
     "description": "Link text to rate and review the extension"

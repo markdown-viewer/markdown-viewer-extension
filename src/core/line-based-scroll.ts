@@ -51,16 +51,16 @@ function getBlockTop(block: HTMLElement, scrollContainer?: HTMLElement): number 
   return block.getBoundingClientRect().top - containerRect.top + scrollContainer.scrollTop;
 }
 
-function getCodeViewLineElements(block: HTMLElement): HTMLElement[] {
-  return Array.from(block.querySelectorAll<HTMLElement>(':scope .mv-code-line'));
+function getSourceLineElements(block: HTMLElement): HTMLElement[] {
+  return Array.from(block.querySelectorAll<HTMLElement>(':scope .mv-source-line'));
 }
 
-function getCodeViewLogicalLine(
+function getSourceLogicalLine(
   block: HTMLElement,
   effectiveScrollTop: number,
   scrollContainer?: HTMLElement,
 ): number | null {
-  const lineElements = getCodeViewLineElements(block);
+  const lineElements = getSourceLineElements(block);
   if (lineElements.length === 0) {
     return null;
   }
@@ -82,13 +82,13 @@ function getCodeViewLogicalLine(
   return targetIndex + lineProgress;
 }
 
-function getProgressFromCodeViewLines(
+function getProgressFromSourceLines(
   block: HTMLElement,
   effectiveScrollTop: number,
   scrollContainer?: HTMLElement,
 ): number | null {
-  const logicalLine = getCodeViewLogicalLine(block, effectiveScrollTop, scrollContainer);
-  const lineElements = getCodeViewLineElements(block);
+  const logicalLine = getSourceLogicalLine(block, effectiveScrollTop, scrollContainer);
+  const lineElements = getSourceLineElements(block);
   if (logicalLine === null || lineElements.length === 0) {
     return null;
   }
@@ -96,12 +96,12 @@ function getProgressFromCodeViewLines(
   return Math.max(0, Math.min(1, logicalLine / lineElements.length));
 }
 
-function scrollToCodeViewLogicalLine(
+function scrollToSourceLogicalLine(
   block: HTMLElement,
   logicalLine: number,
   options: ScrollOptions,
 ): boolean {
-  const lineElements = getCodeViewLineElements(block);
+  const lineElements = getSourceLineElements(block);
   if (lineElements.length === 0) {
     return false;
   }
@@ -119,12 +119,12 @@ function scrollToCodeViewLogicalLine(
   return true;
 }
 
-function scrollToCodeViewLine(
+function scrollToSourceLine(
   block: HTMLElement,
   progress: number,
   options: ScrollOptions,
 ): boolean {
-  const lineElements = getCodeViewLineElements(block);
+  const lineElements = getSourceLineElements(block);
   if (lineElements.length === 0) {
     return false;
   }
@@ -176,9 +176,9 @@ export function getBlockAtScrollPosition(options: ScrollOptions): { blockId: str
   const blockId = targetBlock.getAttribute('data-block-id');
   if (!blockId) return null;
 
-  const codeViewProgress = getProgressFromCodeViewLines(targetBlock, effectiveScrollTop, scrollContainer);
-  if (codeViewProgress !== null) {
-    return { blockId, progress: codeViewProgress };
+  const sourceProgress = getProgressFromSourceLines(targetBlock, effectiveScrollTop, scrollContainer);
+  if (sourceProgress !== null) {
+    return { blockId, progress: sourceProgress };
   }
   
   // Calculate progress within block
@@ -206,7 +206,7 @@ export function scrollToBlock(
   const block = container.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
   if (!block) return false;
 
-  if (scrollToCodeViewLine(block, progress, options)) {
+  if (scrollToSourceLine(block, progress, options)) {
     return true;
   }
   
@@ -250,9 +250,9 @@ export function getLineForScrollPosition(
   }
 
   if (targetBlock) {
-    const codeViewLogicalLine = getCodeViewLogicalLine(targetBlock, effectiveScrollTop, options.scrollContainer);
-    if (codeViewLogicalLine !== null) {
-      return codeViewLogicalLine;
+    const sourceLogicalLine = getSourceLogicalLine(targetBlock, effectiveScrollTop, options.scrollContainer);
+    if (sourceLogicalLine !== null) {
+      return sourceLogicalLine;
     }
   }
   
@@ -293,9 +293,9 @@ export function scrollToLine(
 
   const block = options.container.querySelector<HTMLElement>(`[data-block-id="${pos.blockId}"]`);
   if (block) {
-    const codeViewLineCount = getCodeViewLineElements(block).length;
-    if (codeViewLineCount > 0) {
-      return scrollToCodeViewLogicalLine(block, line, options);
+    const sourceLineCount = getSourceLineElements(block).length;
+    if (sourceLineCount > 0) {
+      return scrollToSourceLogicalLine(block, line, options);
     }
   }
   

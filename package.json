@@ -189,7 +189,6 @@
     "onLanguage:canvas",
     "onLanguage:drawio",
     "onLanguage:echarts",
-    "onLanguage:yaml",
     "onLanguage:xml"
   ],
   "contributes": {
@@ -289,17 +288,6 @@
         ],
         "extensions": [
           ".echarts"
-        ]
-      },
-      {
-        "id": "yaml",
-        "aliases": [
-          "OpenAPI",
-          "openapi"
-        ],
-        "extensions": [
-          ".yaml",
-          ".yml"
         ]
       }
     ],

@@ -419,6 +419,10 @@
     "message": "Åbn fil",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Ikke et OpenAPI-dokument — viser YAML-kildekoden.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Bedøm",
     "description": "Link text to rate and review the extension"

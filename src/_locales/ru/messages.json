@@ -419,6 +419,10 @@
     "message": "Открыть файл",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Это не документ OpenAPI — показан исходный текст YAML.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Оценить",
     "description": "Текст ссылки для оценки расширения"

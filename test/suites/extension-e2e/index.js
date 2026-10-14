@@ -10,5 +10,6 @@ import './remote-document-images.test.ts';
 import './query-string-preview.test.ts';
 import './save-file-name.test.ts';
 import './code-view.test.ts';
+import './diagram-source.test.ts';
 import './workspace-file-switch.test.ts';
 import './openapi.test.ts';

@@ -665,14 +665,14 @@ body.toc-position-right.toc-hidden #markdown-wrapper {
   margin-right: 0;
 }
 
-html[data-code-view] #markdown-wrapper,
-html[data-code-view] body.remark-panel-open #markdown-wrapper,
-html[data-code-view] body.remark-panel-open.toc-position-right #markdown-wrapper {
+html[data-source-view] #markdown-wrapper,
+html[data-source-view] body.remark-panel-open #markdown-wrapper,
+html[data-source-view] body.remark-panel-open.toc-position-right #markdown-wrapper {
   transition: none;
 }
 
-html[data-code-view] #table-of-contents,
-html[data-code-view] #remark-sidebar {
+html[data-source-view] #table-of-contents,
+html[data-source-view] #remark-sidebar {
   transition: none;
 }
 
@@ -1011,43 +1011,48 @@ body.remark-panel-open.toc-position-right #markdown-wrapper {
   color: var(--color-danger-text);
 }
 
-/* Code-view mode: the code surface *is* the page + line numbers.
-   The card chrome (surface background, 20px shadow, 48px gutter) is dropped
-   here: in code view the content is a single code block that already fills the
-   container, so the card only paints a second frame — a page-coloured band
-   (and a paper shadow) wrapping a block that is itself the whole document.
-   The reading measure is dropped as well (and needs !important: the toolbar
-   writes the layout width inline): a line-length cap is a prose rule, code
-   wants the window — which is why the layout control hides while code view is
-   active (viewer-main setLayoutControlVisible).
+/* Source surface: the independent face that shows a document's raw text.
+   It is a sibling of the content root — so a document exported while its
+   source is on screen still exports the rendered page — and the rules below
+   are keyed off the state flag rather than the code block's own DOM.
+
+   In source mode the code surface *is* the page: the card chrome (surface
+   background, 20px shadow, 48px gutter) only paints a second frame around it,
+   and the reading measure is a prose rule (it needs !important because the
+   toolbar writes the layout width inline) — which is why the layout control
+   hides while source is active (viewer-main setLayoutControlVisible).
    Print and .mv-embed already neutralise the card the same way (with
    !important, so they keep winning where they apply). */
-html[data-code-view] #markdown-page {
+html[data-source-view] #markdown-content {
+  display: none;
+}
+html[data-source-view] #markdown-page {
   background: transparent;
   box-shadow: none;
   padding: 0;
   max-width: none !important;
 }
-html[data-code-view] #markdown-content {
-  padding: 0;
-}
-html[data-code-view] #markdown-content pre {
+#mv-source-view .mv-source-pre {
   margin: 0;
   border-radius: 0;
   padding: 16px;
-  overflow: visible;
   position: relative;
+  /* Long lines scroll horizontally instead of wrapping: wrapping re-flows a
+     line number against text that is no longer one line (R1). */
+  overflow-x: auto;
 }
-html[data-code-view] #markdown-content pre code {
+#mv-source-view .mv-source-pre code {
   display: block;
+  width: max-content;
+  min-width: 100%;
 }
-html[data-code-view] #markdown-content pre code .mv-code-line {
+#mv-source-view .mv-source-line {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
   column-gap: 16px;
   align-items: start;
 }
-html[data-code-view] #markdown-content pre code .mv-code-line::before {
+#mv-source-view .mv-source-line::before {
   content: attr(data-line-number);
   text-align: right;
   white-space: pre;
@@ -1058,14 +1063,11 @@ html[data-code-view] #markdown-content pre code .mv-code-line::before {
   font: inherit;
   line-height: inherit;
 }
-html[data-code-view] #markdown-content pre code .mv-code-line-content {
+#mv-source-view .mv-source-line-content {
   min-width: 0;
-  padding-right: 16px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: pre;
 }
-html[data-code-view] #markdown-content pre code .mv-code-line-content:empty::before {
+#mv-source-view .mv-source-line-content:empty::before {
   content: ' ';
   visibility: hidden;
 }

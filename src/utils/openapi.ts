@@ -1,6 +1,15 @@
 import { stripUrlQueryAndHash } from './document-url';
 import { parse } from 'yaml';
 
+/**
+ * Is this path spelled as a YAML document? `.ya?ml` is not a registered format
+ * (OpenAPI is a document capability), so its extension is decided here and in
+ * the hosts that offer a preview for it.
+ */
+export function isYamlFilePath(path: string): boolean {
+  return /\.ya?ml$/i.test(stripUrlQueryAndHash(path));
+}
+
 export function isOpenapiSource(content: string): boolean {
   try {
     const spec = parse(content);
@@ -12,5 +21,5 @@ export function isOpenapiSource(content: string): boolean {
 }
 
 export function isOpenapiFile(content: string, path: string): boolean {
-  return /\.ya?ml$/i.test(stripUrlQueryAndHash(path)) && isOpenapiSource(content);
+  return isYamlFilePath(path) && isOpenapiSource(content);
 }

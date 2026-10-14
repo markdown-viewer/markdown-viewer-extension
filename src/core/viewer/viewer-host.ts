@@ -17,7 +17,8 @@
 import { createScrollSyncController, type ScrollSyncController } from '../line-based-scroll';
 import { getDocument, renderMarkdownDocument } from './viewer-controller';
 import { AsyncTaskManager } from '../markdown-processor';
-import { renderCodeViewBlock } from '../../utils/code-preview';
+import { renderSourceView, setSourceViewActive } from './source-view';
+import { mountOpenapiDocument } from './openapi-view';
 import { toMarkdownFilename } from '../document-utils';
 import type { PluginRenderer, PlatformAPI } from '../../types/index';
 import { normalizeSetting, DEFAULT_SETTINGS } from '../../config/settings.generated';
@@ -139,9 +140,18 @@ export interface MountedViewerRenderOptions {
   forceRender?: boolean;
   targetLine?: number;
   zoomLevel?: number;
-  directCodeView?: {
+  /** Show `content` on the independent source surface instead of rendering markdown. */
+  sourceView?: {
     content: string;
     language: string;
+  };
+  /**
+   * Mount the rendered OpenAPI reference for `content` into the container. A
+   * document whose rendered face is a reference never enters the markdown
+   * pipeline (see openapi-view.ts).
+   */
+  openapiView?: {
+    content: string;
   };
 }
 
@@ -256,18 +266,7 @@ export function createMountedViewer(options: MountedViewerOptions): MountedViewe
       zoomLevel = renderOptions.zoomLevel;
     }
 
-    if (renderOptions?.directCodeView) {
-      abortActiveRenders();
-
-      renderCodeViewBlock(
-        container,
-        renderOptions.directCodeView.content,
-        renderOptions.directCodeView.language,
-      );
-      return;
-    }
-
-    await renderMarkdownFlow({
+    const markdownFlow = {
       markdown,
       container,
       fileChanged: renderOptions?.fileChanged ?? false,
@@ -288,7 +287,37 @@ export function createMountedViewer(options: MountedViewerOptions): MountedViewe
       beforeProcessAll,
       afterProcessAll,
       afterRender,
-    });
+    };
+
+    if (renderOptions?.openapiView) {
+      abortActiveRenders();
+      setSourceViewActive(false);
+      await mountOpenapiDocument(container, renderOptions.openapiView.content);
+      return;
+    }
+
+    if (renderOptions?.sourceView) {
+      abortActiveRenders();
+
+      // A source-only document (a code file) still renders its markdown
+      // representation — the fenced block — into the content root. That copy is
+      // what print and the DOM-serialising exporters read, and rendering it
+      // replaces the previous document's DOM. Markdown *source* mode has no
+      // such representation (its rendered form is the mounted page itself) and
+      // leaves the content root untouched, so switching modes on a document
+      // keeps it exportable.
+      if (markdown) {
+        await renderMarkdownFlow(markdownFlow);
+      }
+
+      renderSourceView(renderOptions.sourceView);
+      setSourceViewActive(true);
+      return;
+    }
+
+    setSourceViewActive(false);
+
+    await renderMarkdownFlow(markdownFlow);
   };
 
   return {

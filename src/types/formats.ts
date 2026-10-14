@@ -139,19 +139,6 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
       "echarts"
     ],
     "isDiagram": true
-  },
-  {
-    "fileType": "openapi",
-    "extensions": [
-      "yaml",
-      "yml"
-    ],
-    "languageId": "yaml",
-    "codeBlockLanguages": [
-      "openapi",
-      "swagger"
-    ],
-    "isDiagram": false
   }
 ];
 

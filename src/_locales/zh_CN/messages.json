@@ -291,26 +291,6 @@
     "message": "启用本地文件访问",
     "description": "Button that requests local file access"
   },
-  "local_file_access_title": {
-    "message": "无法读取本地图片",
-    "description": "Title of the local file access prompt"
-  },
-  "local_file_access_message": {
-    "message": "Firefox 不允许扩展读取本地文件，因此「{0}」中的图片无法嵌入。请选择包含这些图片的文件夹——文件不会被上传，仅用于本文档的读取。",
-    "description": "Prompt shown when the folder name is known"
-  },
-  "local_file_access_message_generic": {
-    "message": "Firefox 不允许扩展读取本地文件，因此本文档中的本地图片无法嵌入。请选择包含这些图片的文件夹——文件不会被上传，仅用于本文档的读取。",
-    "description": "Prompt shown without a folder name"
-  },
-  "local_file_access_pick": {
-    "message": "选择文件夹",
-    "description": "Button that opens the folder picker"
-  },
-  "local_file_access_skip": {
-    "message": "本次不带图片导出",
-    "description": "Button that exports without embedding local images"
-  },
   "file_access_settings_link": {
     "message": "扩展设置页面",
     "description": "Link text to extension settings"
@@ -395,6 +375,26 @@
     "message": "缩小",
     "description": "Tooltip for zooming out in the diagram lightbox"
   },
+  "local_file_access_message": {
+    "message": "Firefox 不允许扩展读取本地文件，因此「{0}」中的图片无法嵌入。请选择包含这些图片的文件夹——文件不会被上传，仅用于本文档的读取。",
+    "description": "Prompt shown when the folder name is known"
+  },
+  "local_file_access_message_generic": {
+    "message": "Firefox 不允许扩展读取本地文件，因此本文档中的本地图片无法嵌入。请选择包含这些图片的文件夹——文件不会被上传，仅用于本文档的读取。",
+    "description": "Prompt shown without a folder name"
+  },
+  "local_file_access_pick": {
+    "message": "选择文件夹",
+    "description": "Button that opens the folder picker"
+  },
+  "local_file_access_skip": {
+    "message": "本次不带图片导出",
+    "description": "Button that exports without embedding local images"
+  },
+  "local_file_access_title": {
+    "message": "无法读取本地图片",
+    "description": "Title of the local file access prompt"
+  },
   "more": {
     "message": "更多",
     "description": "More options menu"
@@ -418,6 +418,10 @@
   "open_file": {
     "message": "打开文件",
     "description": "Menu item to open file"
+  },
+  "plugin_openapi_not_spec": {
+    "message": "这不是 OpenAPI 文档 — 已显示 YAML 源码。",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
   },
   "popup_review_link": {
     "message": "评分",

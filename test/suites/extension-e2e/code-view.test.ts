@@ -1,9 +1,9 @@
 /**
- * Code view (source view + code/text files) — frame geometry and toolbar state.
+ * Code view (source surface + code/text files) — frame geometry and toolbar state.
  *
- * Two regressions are pinned here:
+ * Three regressions are pinned here:
  *
- *   1. **One frame, not two.** In code view the code block *is* the document,
+ *   1. **One frame, not two.** In code view the code surface *is* the document,
  *      so the page card (theme page colour + paper shadow + 48px gutter) only
  *      painted a second frame around it. Code view now drops the card chrome
  *      *and* the reading measure (a line-length cap is a prose rule), i.e. the
@@ -14,6 +14,13 @@
  *      so opening any non-markdown file first left every later `.md` without a
  *      source toggle. The icon/title also used to stay stale after clicking
  *      (the mode switch is async).
+ *   3. **Source is its own surface.** Source used to be a markdown code block
+ *      injected into the content root, which meant reading a file's source
+ *      replaced the rendered document — an export (EPUB/HTML/PDF serialise the
+ *      content root) taken while the user read source came back empty. The
+ *      source surface is now `#mv-source-view`, a sibling of the content root
+ *      *outside* `#markdown-page`, and switching to it hides the rendered page
+ *      instead of clearing it.
  *
  * It also pins the reading card end to end (1360px), the number the toolbar
  * writes inline and test/suites/project-gates/reading-measure.test.ts guards
@@ -61,8 +68,8 @@ const TEXT_LINES = [
 
 const MARKDOWN_BODY = '# Standalone doc\n\nBody text.\n';
 
-/** Code view is decorated once the block has been split into lines. */
-const CODE_VIEW_READY_JS = `() => Boolean(document.querySelector('#markdown-content pre code[data-code-view-decorated="1"]'))`;
+/** Source surface is decorated once the content has been split into lines. */
+const SOURCE_VIEW_READY_JS = `() => Boolean(document.querySelector('#mv-source-view pre code[data-source-view-decorated="1"]'))`;
 
 /**
  * Click the source toggle and wait for the mode to actually change.
@@ -77,8 +84,8 @@ const CODE_VIEW_READY_JS = `() => Boolean(document.querySelector('#markdown-cont
 async function toggleSourceView(target: E2ETarget): Promise<void> {
   await waitFor(target, VIEWER_UNVEILED_JS, 10000);
   await evalJs(target, `() => { document.getElementById('toggle-source-view-btn').click(); return true; }`);
-  await waitFor(target, `() => document.documentElement.dataset.codeView === '1'`, 10000);
-  await waitFor(target, CODE_VIEW_READY_JS);
+  await waitFor(target, `() => document.documentElement.dataset.sourceView === '1'`, 10000);
+  await waitFor(target, SOURCE_VIEW_READY_JS);
 }
 
 /**
@@ -112,7 +119,7 @@ const TOOLBAR_STATE_JS = `() => {
     cardWidth: card ? Math.round(card.getBoundingClientRect().width) : null,
     cardMaxWidth: card ? getComputedStyle(card).maxWidth : null,
     readingAreaWidth: wrapper ? Math.round(wrapper.getBoundingClientRect().width) : null,
-    codeView: document.documentElement.dataset.codeView,
+    sourceView: document.documentElement.dataset.sourceView,
   };
 }`;
 
@@ -162,10 +169,10 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
     await activate(page);
     await page.goto(fileUrl('notes.txt'), { waitUntil: 'load' });
     await waitFor(page, WAIT_STANDALONE_READY_JS);
-    await waitFor(page, CODE_VIEW_READY_JS);
+    await waitFor(page, SOURCE_VIEW_READY_JS);
 
     const report = await evalJs<{
-      codeView: string | undefined;
+      sourceView: string | undefined;
       cardBackground: string;
       cardShadow: string;
       cardPadding: string;
@@ -176,11 +183,11 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
       lineCount: number;
     }>(page, `() => {
       const card = document.getElementById('markdown-page');
-      const code = document.querySelector('#markdown-content pre');
+      const code = document.querySelector('#mv-source-view .mv-source-pre');
       const cardStyle = getComputedStyle(card);
       const codeRect = code.getBoundingClientRect();
       return {
-        codeView: document.documentElement.dataset.codeView,
+        sourceView: document.documentElement.dataset.sourceView,
         cardBackground: cardStyle.backgroundColor,
         cardShadow: cardStyle.boxShadow,
         cardPadding: cardStyle.padding,
@@ -188,11 +195,11 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
         codeX: Math.round(codeRect.x),
         codeWidth: Math.round(codeRect.width),
         viewportWidth: window.innerWidth,
-        lineCount: document.querySelectorAll('#markdown-content .mv-code-line-content').length,
+        lineCount: document.querySelectorAll('#mv-source-view .mv-source-line-content').length,
       };
     }`);
 
-    assert.equal(report.codeView, '1', 'expected the code-view presentation');
+    assert.equal(report.sourceView, '1', 'expected the source-surface presentation');
     assert.equal(report.lineCount, TEXT_LINES.length, 'every line must keep its own code line');
 
     // Single frame: the card is gone, the code surface is the page.
@@ -217,7 +224,7 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
       sourceToggleVisible: boolean;
       sourceToggleTitle: string | null;
       layoutVisible: boolean;
-      codeView: string | undefined;
+      sourceView: string | undefined;
     }>(page, TOOLBAR_STATE_JS);
 
     // The card asks for the reading measure; the docked TOC leaves less room,
@@ -231,7 +238,7 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
     assert.equal(rendered.layoutVisible, true, 'the width control is available while reading');
     assert.equal(rendered.sourceToggleVisible, true, 'markdown offers the source toggle');
     assert.equal(rendered.sourceToggleTitle, 'Source Mode');
-    assert.equal(rendered.codeView, undefined);
+    assert.equal(rendered.sourceView, undefined);
 
     await toggleSourceView(page);
 
@@ -241,13 +248,24 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
       hasSourceText: boolean;
       codeWidth: number;
       viewportWidth: number;
+      renderedBlocks: number;
+      renderedText: boolean;
+      surfaceOutsideCard: boolean;
+      surfaceOutsideExportedRoot: boolean;
     }>(page, `() => {
       const state = (${TOOLBAR_STATE_JS})();
+      const sourceRoot = document.getElementById('mv-source-view');
+      const contentRoot = document.getElementById('markdown-content');
+      const pageRoot = document.getElementById('markdown-page');
       return {
         ...state,
-        hasSourceText: (document.querySelector('#markdown-content pre code')?.textContent || '').includes('# Standalone doc'),
-        codeWidth: Math.round(document.querySelector('#markdown-content pre').getBoundingClientRect().width),
+        hasSourceText: (sourceRoot?.querySelector('pre code')?.textContent || '').includes('# Standalone doc'),
+        codeWidth: Math.round(sourceRoot.querySelector('.mv-source-pre').getBoundingClientRect().width),
         viewportWidth: window.innerWidth,
+        renderedBlocks: contentRoot ? contentRoot.children.length : 0,
+        renderedText: (contentRoot?.textContent || '').includes('Body text'),
+        surfaceOutsideCard: !pageRoot.contains(sourceRoot),
+        surfaceOutsideExportedRoot: sourceRoot.parentElement === pageRoot.parentElement,
       };
     }`);
 
@@ -255,6 +273,14 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
     assert.equal(source.sourceToggleTitle, 'Preview Mode', 'the toggle must flip once source view is active');
     assert.equal(source.layoutVisible, false, 'the width control hides in the full-bleed code view');
     assert.equal(source.codeWidth, source.viewportWidth, 'source view is full-bleed like any code view');
+    // Source is additive, not destructive: the rendered page is hidden, not
+    // cleared, and the surface sits outside the exported page root — so
+    // EPUB/HTML/PDF exports taken while the user reads source still carry the
+    // document.
+    assert.ok(source.renderedBlocks > 0, 'the rendered surface stays mounted while source is shown');
+    assert.equal(source.renderedText, true, 'the rendered document is still in the DOM');
+    assert.equal(source.surfaceOutsideCard, true, 'the source surface lives outside #markdown-page');
+    assert.equal(source.surfaceOutsideExportedRoot, true, 'the source surface is a sibling of the exported page root');
   });
 
   it('offers the source toggle per file in workspace mode', async () => {
@@ -298,16 +324,16 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
     // A text file first: that is what used to freeze the toggle as "missing"
     // for the rest of the session.
     const txtFrame = await openFile('notes.txt');
-    const txtState = await evalJs<{ sourceToggleVisible: boolean; codeView: string | undefined }>(txtFrame, TOOLBAR_STATE_JS);
-    assert.equal(txtState.codeView, '1', 'the .txt renders as a code surface');
+    const txtState = await evalJs<{ sourceToggleVisible: boolean; sourceView: string | undefined }>(txtFrame, TOOLBAR_STATE_JS);
+    assert.equal(txtState.sourceView, '1', 'the .txt renders on the source surface');
     assert.equal(txtState.sourceToggleVisible, false, 'a code file has no source toggle');
 
     const mdFrame = await openFile('README.md');
-    const mdState = await evalJs<{ sourceToggleVisible: boolean; sourceToggleTitle: string | null; codeView: string | undefined }>(
+    const mdState = await evalJs<{ sourceToggleVisible: boolean; sourceToggleTitle: string | null; sourceView: string | undefined }>(
       mdFrame,
       TOOLBAR_STATE_JS,
     );
-    assert.equal(mdState.codeView, undefined, 'the .md renders as markdown');
+    assert.equal(mdState.sourceView, undefined, 'the .md renders as markdown');
     assert.equal(mdState.sourceToggleVisible, true, 'the .md must offer the source toggle after a non-markdown file');
     assert.equal(mdState.sourceToggleTitle, 'Source Mode');
 
@@ -317,7 +343,7 @@ describe('installed Chrome extension — code view frame & source toggle', { ski
       const state = (${TOOLBAR_STATE_JS})();
       return {
         ...state,
-        hasSourceText: (document.querySelector('#markdown-content pre code')?.textContent || '').includes('# Standalone doc'),
+        hasSourceText: (document.querySelector('#mv-source-view pre code')?.textContent || '').includes('# Standalone doc'),
       };
     }`);
     assert.equal(toggled.hasSourceText, true, 'workspace source view shows the raw markdown');

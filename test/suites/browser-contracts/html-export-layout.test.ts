@@ -144,8 +144,8 @@ describe('HTML export layout contract (single CSS source)', () => {
       'Exported HTML must not contain responsive width media queries',
     );
     assert.ok(
-      !styles.includes('data-code-view'),
-      'Exported HTML must not carry live-viewer state rules (html[data-code-view])',
+      !styles.includes('data-source-view') && !styles.includes('mv-source-view'),
+      'Exported HTML must not carry live-viewer state rules (source surface)',
     );
   });
 

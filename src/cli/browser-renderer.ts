@@ -4,6 +4,8 @@ import { exportToHtml } from '../exporters/html-exporter';
 import { collectEpubCss } from '../exporters/export-styles';
 import { exportEpubFlow } from '../core/viewer/viewer-host';
 import { renderMarkdownDocument, resetDocument } from '../core/viewer/viewer-controller';
+import { mountOpenapiDocument } from '../core/viewer/openapi-view';
+import { isOpenapiFile } from '../utils/openapi';
 import { clearRenderDiagnostics, getRenderDiagnostics, type RenderDiagnostic } from '../core/render-diagnostics';
 import { clearDiagramExports, getDiagramExport } from '../ui/diagram-export-registry';
 import { handleRender, initRenderEnvironment } from '../renderers/render-worker-core';
@@ -374,9 +376,26 @@ async function renderContent(request: CliBrowserRenderRequest): Promise<void> {
     `diagram-layout-${request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout}`,
   );
 
+  await renderRequestInto(markdownContent, request);
+  await document.fonts?.ready;
+}
+
+/**
+ * Render the request's document into `container`, then run its async passes.
+ *
+ * A `.yaml`/`.yml` spec is a document, not markdown: it mounts its rendered
+ * reference directly (the embedded-fence route is gone, so ```openapi fences
+ * stay code). Everything else goes through the markdown pipeline.
+ */
+async function renderRequestInto(container: HTMLElement, request: CliBrowserRenderRequest): Promise<void> {
+  if (isOpenapiFile(request.markdown, request.filename)) {
+    await mountOpenapiDocument(container, request.markdown, { key: request.filename });
+    return;
+  }
+
   const result = await renderMarkdownDocument({
     markdown: request.markdown,
-    container: markdownContent,
+    container,
     renderer: globalThis.platform!.renderer,
     translate: (key) => key,
     frontmatterDisplay: request.frontmatterDisplay || DEFAULT_RENDER_SETTINGS.frontmatterDisplay,
@@ -385,7 +404,6 @@ async function renderContent(request: CliBrowserRenderRequest): Promise<void> {
   });
 
   await result.taskManager.processAll();
-  await document.fonts?.ready;
 }
 
 async function render(request: CliBrowserRenderRequest): Promise<string> {
@@ -442,17 +460,7 @@ async function snapshotDom(request: CliBrowserRenderRequest): Promise<CliBrowser
     `diagram-layout-${request.diagramLayout || DEFAULT_RENDER_SETTINGS.diagramLayout}`,
   );
 
-  const result = await renderMarkdownDocument({
-    markdown: request.markdown,
-    container: markdownContent,
-    renderer: globalThis.platform!.renderer,
-    translate: (key) => key,
-    frontmatterDisplay: request.frontmatterDisplay || DEFAULT_RENDER_SETTINGS.frontmatterDisplay,
-    tableMergeEmpty: request.tableMergeEmpty ?? false,
-    tableLayout: request.tableLayout || DEFAULT_RENDER_SETTINGS.tableLayout,
-  });
-
-  await result.taskManager.processAll();
+  await renderRequestInto(markdownContent, request);
   await document.fonts?.ready;
 
   return {

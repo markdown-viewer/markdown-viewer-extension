@@ -33,9 +33,15 @@ export interface ViewerDocumentDescriptor {
   documentKey: string;
   displayName: string;
   sourcePath?: string;
-  format: 'markdown' | 'code' | 'diagram' | 'html-converted';
+  format: 'markdown' | 'code' | 'diagram' | 'openapi' | 'html-converted';
   language?: string;
   sourceToggleSupported: boolean;
+  /**
+   * Mode the document opens in when the user has no persisted choice of their
+   * own. OpenAPI documents open as source: the spec text is what a `.yaml`
+   * file was opened for, and the rendered Redoc reference is one toggle away.
+   */
+  defaultModeIntent?: ViewerModeIntent;
   containerMode: ViewerContainerMode;
   embedded: boolean;
 }
@@ -50,10 +56,23 @@ export interface ViewerPersistedState {
 }
 
 export interface ViewerRenderModel {
+  /** Markdown for the rendered surface. Empty while a source surface is shown. */
   markdown: string;
-  directCodeView?: {
+  /**
+   * Browser/workspace source surface payload. Panel hosts (VS Code, Obsidian,
+   * embeds) never produce it: their source view is the host editor.
+   */
+  source?: {
     content: string;
     language: string;
+  };
+  /**
+   * Rendered OpenAPI reference for a `.yaml`/`.yml` document. Replaces the
+   * markdown render entirely — a reference is not markdown, and the
+   * spec-in-a-code-block route is gone (R5).
+   */
+  openapi?: {
+    content: string;
   };
 }
 

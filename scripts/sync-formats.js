@@ -34,7 +34,6 @@ const config = JSON.parse(
 
 /** 'vega-lite' → 'Vega-Lite', 'mermaid' → 'Mermaid' */
 function capitalize(s) {
-  if (s === 'openapi') return 'OpenAPI';
   return s.replace(/(^|-)(\w)/g, (_, dash, c) => (dash ? '-' : '') + c.toUpperCase());
 }
 
@@ -271,19 +270,6 @@ function updatePackageJson() {
 
     if (pkg.contributes) {
       pkg.contributes.languages = Array.from(langMap.values());
-      // YAML uses VS Code's existing language while adding OpenAPI preview actions.
-      const yamlCondition = 'editorLangId == yaml || resourceExtname == .yaml || resourceExtname == .yml';
-      if (uniqueLangIds.includes('yaml')) {
-        const actions = [
-          ...Object.values(pkg.contributes.menus || {}).flat(),
-          ...(pkg.contributes.keybindings || []),
-        ];
-        for (const action of actions) {
-          if (action.when?.includes('editorLangId == markdown') && !action.when.includes('editorLangId == yaml')) {
-            action.when += ` || ${yamlCondition}`;
-          }
-        }
-      }
     }
   });
 }

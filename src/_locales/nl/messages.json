@@ -419,6 +419,10 @@
     "message": "Bestand openen",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Geen OpenAPI-document — YAML-bron wordt weergegeven.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Beoordelen",
     "description": "Link text to rate and review the extension"

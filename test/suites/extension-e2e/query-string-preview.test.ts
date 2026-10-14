@@ -50,7 +50,8 @@ const LOG_LINES = [
 
 const MARKDOWN_BODY = '# Remote document\n\nA query string must not change how this renders.\n';
 
-const CODE_VIEW_READY_JS = `() => Boolean(document.querySelector('#markdown-content [data-block-id="mv-code-view"] pre code[data-code-view-decorated="1"]'))`;
+/** The source surface is ready once the file's lines are laid out one per row. */
+const SOURCE_VIEW_READY_JS = `() => Boolean(document.querySelector('#mv-source-view pre code[data-source-view-decorated="1"]'))`;
 
 describe('installed Chrome extension — query-string document URLs', { skip: SKIP_EXT }, () => {
   let harness: ExtensionContextHarness;
@@ -102,24 +103,24 @@ describe('installed Chrome extension — query-string document URLs', { skip: SK
   it('renders a .txt URL with a query string as a plain-text code view', async () => {
     await page.goto(txtUrl(), { waitUntil: 'load' });
     await waitFor(page, WAIT_STANDALONE_READY_JS);
-    await waitFor(page, CODE_VIEW_READY_JS);
+    await waitFor(page, SOURCE_VIEW_READY_JS);
 
     const report = await evalJs<{
-      codeView: string | undefined;
+      sourceView: string | undefined;
       lines: string[];
       paragraphCount: number;
       fileName: string;
     }>(page, `() => {
-      const root = document.getElementById('markdown-content');
+      const root = document.getElementById('mv-source-view');
       return {
-        codeView: document.documentElement.dataset.codeView,
-        lines: Array.from(root.querySelectorAll('.mv-code-line-content')).map((line) => line.textContent || ''),
+        sourceView: document.documentElement.dataset.sourceView,
+        lines: Array.from(root.querySelectorAll('.mv-source-line-content')).map((line) => line.textContent || ''),
         paragraphCount: root.querySelectorAll('p').length,
         fileName: document.getElementById('file-name')?.textContent || '',
       };
     }`);
 
-    assert.strictEqual(report.codeView, '1', 'expected the code-view presentation to be active');
+    assert.strictEqual(report.sourceView, '1', 'expected the source surface to be active');
     assert.deepStrictEqual(
       report.lines,
       LOG_LINES,
@@ -139,14 +140,14 @@ describe('installed Chrome extension — query-string document URLs', { skip: SK
     );
 
     const report = await evalJs<{
-      codeView: string | undefined;
+      sourceView: string | undefined;
       tocDisabled: string | undefined;
       heading: string;
       sourceToggle: boolean;
       fileName: string;
     }>(page, `() => {
       return {
-        codeView: document.documentElement.dataset.codeView,
+        sourceView: document.documentElement.dataset.sourceView,
         tocDisabled: document.documentElement.dataset.tocDisabled,
         heading: document.querySelector('#markdown-content h1')?.textContent || '',
         sourceToggle: Boolean(document.getElementById('toggle-source-view-btn')),
@@ -154,7 +155,7 @@ describe('installed Chrome extension — query-string document URLs', { skip: SK
       };
     }`);
 
-    assert.strictEqual(report.codeView, undefined, 'markdown files are not rendered as code');
+    assert.strictEqual(report.sourceView, undefined, 'markdown files are not rendered as code');
     assert.strictEqual(report.heading, 'Remote document');
     assert.notStrictEqual(report.tocDisabled, '1', 'a .md URL keeps its TOC when it carries a query');
     assert.strictEqual(report.sourceToggle, true, 'a .md URL keeps the source toggle');

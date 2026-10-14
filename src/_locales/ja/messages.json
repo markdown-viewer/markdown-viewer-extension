@@ -419,6 +419,10 @@
     "message": "ファイルを開く",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "OpenAPI ドキュメントではありません。YAML ソースを表示しています。",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "評価",
     "description": "拡張機能を評価するリンクテキスト"

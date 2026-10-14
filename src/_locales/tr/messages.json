@@ -419,6 +419,10 @@
     "message": "Dosya aç",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "OpenAPI belgesi değil — YAML kaynağı gösteriliyor.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Puanla",
     "description": "Link text to rate and review the extension"

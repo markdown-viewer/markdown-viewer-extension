@@ -711,6 +711,12 @@ function generateCodeCSS(
     : 1;
   const codeBackground = colorScheme.background.code;
 
+  // The surface (`#mv-source-view`) opts into these rules by carrying the
+  // `.markdown-viewer-content` class, exactly like the embed/book/custom-element
+  // roots: `expandCssContentRoots` duplicates every `#markdown-content` rule for
+  // that class, so the surface needs no rules of its own — and no selector of
+  // its own, which matters because the export filter drops anything carrying
+  // live-viewer tokens.
   css.push(`#markdown-content code {
   font-family: ${codeFontFamily};
   font-size: ${inlineCodeScale}em;

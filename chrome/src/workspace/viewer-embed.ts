@@ -6,7 +6,7 @@ import { getViewerMainRuntime, startViewer } from '../webview/viewer-main';
 import { initializeViewerBase } from '../../../src/core/viewer/viewer-bootstrap';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import Localization from '../../../src/utils/localization';
-import { applyCodeViewPresentation } from '../../../src/utils/code-preview';
+import { setSourceViewActive } from '../../../src/core/viewer/source-view';
 import { createWorkspaceEmbedBridge } from './workspace-embed-bridge';
 import { arrowLeft, arrowRight } from './file-icons';
 import {
@@ -234,7 +234,7 @@ function applyOpenDocumentMetadata(message: ViewerOpenDocumentMessage): void {
     document.body.classList.add('toc-hidden');
   }
 
-  applyCodeViewPresentation(codeView);
+  setSourceViewActive(codeView);
 
   const fileNameSpan = document.getElementById('file-name');
   if (fileNameSpan) {

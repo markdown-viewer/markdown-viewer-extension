@@ -151,6 +151,47 @@ export function withNodeSourceInfo(
 }
 
 /**
+ * Severity of a block a plugin could not render the way it wanted to. The
+ * element is one element for every level (see createPluginMessageHTML) — the
+ * level only decides its colours.
+ */
+export type PluginMessageLevel = 'info' | 'warning' | 'error';
+
+/** Inline colours per level. */
+const PLUGIN_LEVEL_STYLE: Record<PluginMessageLevel, string> = {
+  // Explicit colour + background so the block stays readable under both light
+  // and dark themes (inherited text colour would otherwise be light in dark
+  // themes and become illegible on a light background).
+  error: 'background: #fee; color: #8b0000; border-left: 4px solid #f00;',
+  warning: 'background: #fff8e1; color: #7a4f01; border-left: 4px solid #f0a000;',
+  info: 'background: #eef4fb; color: #1f4b73; border-left: 4px solid #4a90d9;',
+};
+
+/**
+ * Create the plugin message element.
+ *
+ * One element serves every level: it always carries `data-plugin-level`, and a
+ * `error` message *also* carries the historical `mv-plugin-error` class, which
+ * hosts and the CLI report on. A message is never a silent placeholder — it is
+ * what the plugin reported instead of the block it could not produce.
+ *
+ * @param message - Localized message text
+ * @param info - Block context (type, source line, stage, level)
+ */
+export function createPluginMessageHTML(
+  message: string,
+  info?: (PluginErrorInfo & { level?: PluginMessageLevel }) | null,
+): string {
+  const level = info?.level ?? 'error';
+  const attrs = pluginErrorAttributes(info);
+  const contextAttrs = attrs ? ` ${attrs}` : '';
+  const classes = level === 'error' ? 'mv-plugin-error mv-plugin-message' : 'mv-plugin-message';
+  return `<pre class="${classes}" data-plugin-level="${level}"${contextAttrs} `
+    + `style="${PLUGIN_LEVEL_STYLE[level]} padding: 10px; font-size: 12px; `
+    + `white-space: pre-wrap; word-break: break-word;">${message}</pre>`;
+}
+
+/**
  * Create error HTML
  * @param errorMessage - Localized error message
  * @param info - Block context (type, source line, stage), exposed as data-
@@ -158,12 +199,7 @@ export function withNodeSourceInfo(
  * @returns Error HTML
  */
 export function createErrorHTML(errorMessage: string, info?: PluginErrorInfo | null): string {
-  const attrs = pluginErrorAttributes(info);
-  const contextAttrs = attrs ? ` ${attrs}` : '';
-  // Explicit color + background so the block stays readable under both light
-  // and dark themes (inherited text color would otherwise be light in dark
-  // themes and become illegible on the light pink background).
-  return `<pre class="mv-plugin-error"${contextAttrs} style="background: #fee; color: #8b0000; border-left: 4px solid #f00; padding: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-word;">${errorMessage}</pre>`;
+  return createPluginMessageHTML(errorMessage, { ...info, level: 'error' });
 }
 
 // PluginRenderer is defined in src/types/plugin.ts

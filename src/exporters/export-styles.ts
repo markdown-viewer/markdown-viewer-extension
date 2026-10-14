@@ -37,9 +37,12 @@ const HOST_STATE_TOKENS = [
   // attributes. Exported documents are always plain Web documents with no such
   // host and no such state, so those rules must not leak into HTML / EPUB
   // stylesheets: the embed card-strip would zero out the EPUB content gutter,
-  // and the code-view rules would strip the exported card's max-width.
+  // and the source-surface rules would strip the exported card's max-width.
   '.mv-embed',
-  'html[data-code-view]',
+  // The source surface lives outside the content root; its rules and the flag
+  // that shows it are live-viewer state only.
+  '#mv-source-view',
+  'html[data-source-view]',
 ];
 
 function shouldKeepSelector(selector: string): boolean {

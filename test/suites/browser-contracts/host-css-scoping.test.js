@@ -90,8 +90,8 @@ describe('CSS scoping: selector rewrite rules', () => {
     assert.deepEqual(scoped('body.toc-hidden #markdown-wrapper'), [`body.toc-hidden ${SCOPE} #markdown-wrapper`]);
     assert.deepEqual(scoped(':root.dark ::-webkit-scrollbar-thumb'), [`:root.dark ${SCOPE} ::-webkit-scrollbar-thumb`]);
     assert.deepEqual(
-      scoped('html[data-code-view] body.remark-panel-open #markdown-wrapper'),
-      [`html[data-code-view] body.remark-panel-open ${SCOPE} #markdown-wrapper`],
+      scoped('html[data-source-view] body.remark-panel-open #markdown-wrapper'),
+      [`html[data-source-view] body.remark-panel-open ${SCOPE} #markdown-wrapper`],
     );
   });
 
@@ -139,7 +139,7 @@ describe('CSS scoping: stylesheet transform', () => {
       '* { box-sizing: border-box }',
       'body { color: var(--gray-700) }',
       'body.toc-position-right #table-of-contents { display: none }',
-      'html[data-code-view] #markdown-content { padding: 0 }',
+      'html[data-source-view] #markdown-content { padding: 0 }',
       '.mv-embed #toolbar { display: none }',
       '#markdown-content { color: red }',
     ].join('\n');
@@ -154,7 +154,7 @@ describe('CSS scoping: stylesheet transform', () => {
     assert.ok(selectors.includes(SCOPE), ':root / body must collapse onto the container');
     assert.ok(selectors.includes(`:root.dark ${SCOPE}`));
     assert.ok(selectors.includes(`body.toc-position-right ${SCOPE} #table-of-contents`));
-    assert.ok(selectors.includes(`html[data-code-view] ${SCOPE} #markdown-content`));
+    assert.ok(selectors.includes(`html[data-source-view] ${SCOPE} #markdown-content`));
     assert.ok(selectors.includes(`${SCOPE}.mv-embed #toolbar`));
   });
 });

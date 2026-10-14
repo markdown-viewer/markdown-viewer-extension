@@ -419,6 +419,10 @@
     "message": "Apri file",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Non è un documento OpenAPI: viene mostrato il sorgente YAML.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Valuta",
     "description": "Testo del link per valutare l'estensione"

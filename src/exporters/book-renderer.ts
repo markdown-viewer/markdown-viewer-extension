@@ -9,6 +9,8 @@
  */
 
 import { AsyncTaskManager, createMarkdownProcessor, sanitizeRenderedHtml } from '../core/markdown-processor';
+import { mountOpenapiDocument } from '../core/viewer/openapi-view';
+import { isOpenapiFile } from '../utils/openapi';
 import { parseFootnotes } from '../core/footnote-model.ts';
 import { applyFootnotes } from '../core/footnote-postprocessor.ts';
 import { rewriteObsidianLinks } from '../utils/obsidian-link-rewrite';
@@ -97,6 +99,15 @@ export async function renderBookForPrint(options: RenderBookForPrintOptions): Pr
 
       try {
         const raw = await fetchPage(page.href);
+
+        // A chapter that *is* an OpenAPI document mounts its reference; the
+        // spec never rides a fenced code block (R5).
+        if (isOpenapiFile(raw, page.href)) {
+          await mountOpenapiDocument(chapterContent, raw, { key: page.href });
+          onProgress?.('render', i + 1, total);
+          continue;
+        }
+
         const processed = preprocessPage(raw, page.href, { depth: page.depth, chapterTitle: page.title });
 
         const taskManager = new AsyncTaskManager(translate);

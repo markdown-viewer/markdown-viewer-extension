@@ -7,4 +7,5 @@
 // and is the one case allowed to be slow, so it goes last.
 import './preview-panel.test.ts';
 import './commands-and-panels.test.ts';
+import './panel-surface.test.ts';
 import './diagram-preview.test.ts';

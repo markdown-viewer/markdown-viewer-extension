@@ -419,6 +419,10 @@
     "message": "Avaa tiedosto",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Ei ole OpenAPI-asiakirja — näytetään YAML-lähdekoodi.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Arvostele",
     "description": "Link text to rate and review the extension"

@@ -3,7 +3,7 @@
  *
  * The workspace reuses ONE viewer (one toolbar, one session) for every file, so
  * each switch has to reset everything that is per-document: rendered content,
- * the code-view presentation (`data-code-view`), the card chrome, the TOC, and
+ * the source surface (`data-source-view`), the card chrome, the TOC, and
  * the toolbar's per-file controls. Both switch directions are covered because
  * they take different paths in the viewer:
  *
@@ -77,11 +77,11 @@ const CONTENT: Record<string, string> = {
 /** Everything a switch has to get right, as the user sees it. */
 interface ViewerState {
   fileName: string;
-  codeView: string | undefined;
+  sourceView: string | undefined;
   tocDisabled: string | undefined;
   headings: string[];
-  codeText: string;
-  hasPre: boolean;
+  sourceText: string;
+  hasSourceText: boolean;
   cardMaxWidth: string;
   cardShadow: string;
   cardBackground: string;
@@ -93,16 +93,16 @@ interface ViewerState {
 const READ_STATE_JS = `() => {
   const content = document.getElementById('markdown-content');
   const card = document.getElementById('markdown-page');
-  const code = content.querySelector('pre code');
+  const sourceCode = document.querySelector('#mv-source-view pre code');
   const sourceBtn = document.getElementById('toggle-source-view-btn');
   const layoutBtn = document.getElementById('layout-toggle-btn');
   return {
     fileName: document.getElementById('file-name')?.textContent || '',
-    codeView: document.documentElement.dataset.codeView,
+    sourceView: document.documentElement.dataset.sourceView,
     tocDisabled: document.documentElement.dataset.tocDisabled,
     headings: Array.from(content.querySelectorAll('h1')).map((el) => el.textContent || ''),
-    codeText: code ? code.textContent || '' : '',
-    hasPre: Boolean(content.querySelector('pre')),
+    sourceText: sourceCode ? sourceCode.textContent || '' : '',
+    hasSourceText: Boolean(sourceCode),
     cardMaxWidth: getComputedStyle(card).maxWidth,
     cardShadow: getComputedStyle(card).boxShadow,
     cardBackground: getComputedStyle(card).backgroundColor,
@@ -115,10 +115,10 @@ const READ_STATE_JS = `() => {
 /** A markdown document: reading card, TOC allowed, source toggle offered. */
 function assertMarkdownState(state: ViewerState, heading: string, label: string): void {
   assert.equal(state.fileName, label.split(':')[0], `${label}: toolbar name`);
-  assert.equal(state.codeView, undefined, `${label}: markdown is not rendered as code`);
+  assert.equal(state.sourceView, undefined, `${label}: markdown is rendered, not shown as source`);
+  assert.equal(state.hasSourceText, false, `${label}: no source surface in the rendered view`);
   assert.equal(state.tocDisabled, undefined, `${label}: markdown keeps its TOC`);
   assert.deepEqual(state.headings, [heading], `${label}: rendered heading`);
-  assert.equal(state.hasPre, false, `${label}: no code block in the rendered view`);
   assert.equal(state.cardMaxWidth, `${READING_MAX_WIDTH}px`, `${label}: reading measure`);
   assert.notEqual(state.cardShadow, 'none', `${label}: the reading card keeps its shadow`);
   assert.notEqual(state.cardBackground, 'rgba(0, 0, 0, 0)', `${label}: the reading card keeps its surface`);
@@ -127,16 +127,16 @@ function assertMarkdownState(state: ViewerState, heading: string, label: string)
   assert.equal(state.layoutDisplay, 'flex', `${label}: width control available`);
 }
 
-/** A code/text document: full-bleed code surface, no card, no TOC, no toggle. */
+/** A code/text document: full-bleed source surface, no card, no TOC, no toggle. */
 function assertCodeState(state: ViewerState, firstLine: string, label: string): void {
   assert.equal(state.fileName, label.split(':')[0], `${label}: toolbar name`);
-  assert.equal(state.codeView, '1', `${label}: code-view presentation`);
+  assert.equal(state.sourceView, '1', `${label}: source-surface presentation`);
   assert.equal(state.tocDisabled, '1', `${label}: code view has no TOC`);
   assert.deepEqual(state.headings, [], `${label}: nothing is rendered as markdown`);
-  assert.ok(state.hasPre, `${label}: code block rendered`);
+  assert.ok(state.hasSourceText, `${label}: source surface rendered`);
   assert.ok(
-    state.codeText.replace(/\s+/g, ' ').includes(firstLine.replace(/\s+/g, ' ')),
-    `${label}: code text is the file's own (got "${state.codeText.slice(0, 60)}")`,
+    state.sourceText.replace(/\s+/g, ' ').includes(firstLine.replace(/\s+/g, ' ')),
+    `${label}: source text is the file's own (got "${state.sourceText.slice(0, 60)}")`,
   );
   assert.equal(state.cardMaxWidth, 'none', `${label}: code surface is full-bleed`);
   assert.equal(state.cardShadow, 'none', `${label}: no card shadow in code view`);
@@ -269,12 +269,12 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
       // A timeout here means "the pane did not end up showing this file"; the
       // timelines say who wrote last, which is the part no snapshot can show.
       const pane = frame
-        ? await evalJs<{ filename?: string; opened?: string; codeView?: string; children?: number; text?: string }>(
+        ? await evalJs<{ filename?: string; opened?: string; sourceView?: string; children?: number; text?: string }>(
             frame,
             `() => ({
               filename: document.documentElement.dataset.viewerFilename,
               opened: document.documentElement.dataset.viewerOpenedFilename,
-              codeView: document.documentElement.dataset.codeView,
+              sourceView: document.documentElement.dataset.sourceView,
               children: document.getElementById('markdown-content')?.children.length,
               text: (document.getElementById('markdown-content')?.textContent || '').slice(0, 80),
             })`,
@@ -298,8 +298,8 @@ describe('installed Chrome extension — workspace file switching', { skip: SKIP
   /** Put the current document into source view (idempotent per test). */
   const enterSourceView = async (frame: Frame): Promise<void> => {
     await evalJs(frame, `() => { document.getElementById('toggle-source-view-btn').click(); return true; }`);
-    await waitFor(frame, `() => document.documentElement.dataset.codeView === '1'`, 10000);
-    await waitFor(frame, `() => Boolean(document.querySelector('#markdown-content pre code[data-code-view-decorated="1"]'))`, 10000);
+    await waitFor(frame, `() => document.documentElement.dataset.sourceView === '1'`, 10000);
+    await waitFor(frame, `() => Boolean(document.querySelector('#mv-source-view pre code[data-source-view-decorated="1"]'))`, 10000);
   };
 
   it('switches between two markdown files (same extension)', async () => {

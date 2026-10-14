@@ -13,6 +13,8 @@ let cacheStorage: CacheStorage;
 let renderStatusBarItem: vscode.StatusBarItem;
 let renderStatusTimeout: ReturnType<typeof setTimeout> | null = null;
 
+const YAML_FILE_RE = /\.ya?ml$/i;
+
 /**
  * Helper to check if a document is supported for preview
  * Also supports .md files that may have different languageId (e.g., prompt files in .github/)
@@ -21,9 +23,11 @@ export const isSupportedDocument = (document: vscode.TextDocument): boolean => {
   if (SUPPORTED_LANGUAGE_IDS.includes(document.languageId)) {
     return true;
   }
-  // Also support .md files regardless of languageId
+  // `.yaml`/`.yml` are not a registered format: OpenAPI preview is reachable from
+  // the editor menu only, and the extension is not activated by the language.
+  // `.md` files are supported regardless of languageId (e.g. prompt files).
   const fileName = document.fileName;
-  return fileName.endsWith('.md');
+  return YAML_FILE_RE.test(fileName) || fileName.endsWith('.md');
 };
 
 /**

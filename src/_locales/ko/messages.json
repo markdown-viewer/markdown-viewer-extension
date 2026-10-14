@@ -419,6 +419,10 @@
     "message": "파일 열기",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "OpenAPI 문서가 아닙니다. YAML 소스를 표시합니다.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "평가",
     "description": "확장 프로그램 평가 링크 텍스트"

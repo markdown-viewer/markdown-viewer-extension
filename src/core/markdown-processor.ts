@@ -27,7 +27,6 @@ import { visit } from 'unist-util-visit';
 import rehypeImageUri from '../plugins/rehype-image-uri';
 import rehypeTableMerge from '../plugins/rehype-table-merge';
 import { registerRemarkPlugins } from '../plugins/index';
-import { registerOpenapiPlugin } from '../plugins/openapi-plugin';
 import { createErrorHTML, createPlaceholderElement } from '../plugins/plugin-content-utils';
 import { replacePlaceholderWithImageUrl } from '../plugins/plugin-html-utils';
 import { recordRenderDiagnostic } from './render-diagnostics';
@@ -689,7 +688,6 @@ export function createMarkdownProcessor(
   // Register all plugins from plugin registry
   // Cast via unknown due to unified's complex generic constraints
   registerRemarkPlugins(processor as unknown as Processor, renderer, asyncTask, translate, escapeHtml, visit);
-  registerOpenapiPlugin(processor as unknown as Processor, asyncTask);
 
   // Continue with rehype processing
   processor

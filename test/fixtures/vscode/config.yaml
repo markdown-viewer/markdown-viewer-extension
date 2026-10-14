@@ -1,0 +1,7 @@
+# Ordinary configuration — no OpenAPI/Swagger key, so it must stay a code block.
+server:
+  host: 127.0.0.1
+  port: 3000
+features:
+  - redoc
+  - source-view

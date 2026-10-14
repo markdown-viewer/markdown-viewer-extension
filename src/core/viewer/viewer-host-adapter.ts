@@ -37,7 +37,6 @@ export interface ViewerHostAdapter {
   getMountContainer(): HTMLElement;
   getScrollContainer(): HTMLElement | undefined;
 
-  applyCodeViewPresentation?(enabled: boolean): void;
   applyPredictedTocLayout?(hasHeadings: boolean): void;
   applyFinalTocLayout?(): Promise<void> | void;
   applyHostLayout?(state: ViewerLayoutState): Promise<void> | void;

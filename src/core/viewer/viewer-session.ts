@@ -69,10 +69,15 @@ function buildRenderModel(
 
   if (resolvedMode === 'source') {
     return {
-      markdown: toFencedCode(rawContent, 'markdown'),
-      directCodeView: {
+      // Markdown source mode has no rendered representation to keep: the
+      // rendered form of the document is the page that is already mounted and
+      // is only hidden (see viewer-host), so `markdown` stays empty.
+      markdown: '',
+      source: {
         content: rawContent,
-        language: 'markdown',
+        // A markdown document's source is markdown; an OpenAPI document's is
+        // YAML (its descriptor carries the language).
+        language: document.language ?? 'markdown',
       },
     };
   }
@@ -80,11 +85,26 @@ function buildRenderModel(
   if (resolvedMode === 'code-reading') {
     const language = document.language || 'text';
     return {
+      // A code-reading document does have one: its fenced block. It is rendered
+      // into the (hidden) rendered surface, which is what print and the
+      // DOM-serialising exporters read — and rendering it replaces the previous
+      // document's DOM, so no stale page survives a file switch.
       markdown: toFencedCode(rawContent, language),
-      directCodeView: {
+      source: {
         content: rawContent,
         language,
       },
+    };
+  }
+
+  if (document.format === 'openapi') {
+    // The rendered face of an OpenAPI file is its Redoc reference, mounted
+    // directly into the content root — the spec is not crammed into an
+    // `openapi` fence for a plugin to pick up, so an embedded ```openapi fence
+    // in markdown stays ordinary code (R5).
+    return {
+      markdown: '',
+      openapi: { content: rawContent },
     };
   }
 
@@ -193,15 +213,24 @@ function openDocument(
   // viewer wires it as soon as its markup exists, so its buttons are not dead
   // while the page boots). A source-toggle click in that window has to survive
   // the open that follows — resetting the intent here discarded it, which read
-  // as "the button does nothing" and needed a second click. A persisted
-  // per-file intent still wins, and once a document is loaded the intent stays
-  // per-document as before.
-  const pendingIntent = state.document === null ? state.modeIntent : undefined;
+  // as "the button does nothing" and needed a second click. Only a *changed*
+  // intent counts as such a click: the initial value is the viewer default, and
+  // treating it as a click would shadow the document's own default (an OpenAPI
+  // file opens as source) on every first open.
+  const pendingIntent = state.document === null && state.modeIntent !== DEFAULT_MODE_INTENT
+    ? state.modeIntent
+    : undefined;
 
   state.document = command.document;
   state.rawContent = command.content;
   state.revision += 1;
-  state.modeIntent = command.persistedState?.modeIntent ?? pendingIntent ?? DEFAULT_MODE_INTENT;
+  // Precedence: the user's persisted choice for this file, an early click's
+  // intent, the document's own default (OpenAPI opens as source), then the
+  // viewer default.
+  state.modeIntent = command.persistedState?.modeIntent
+    ?? pendingIntent
+    ?? command.document.defaultModeIntent
+    ?? DEFAULT_MODE_INTENT;
   state.targetLine = command.targetLine ?? command.persistedState?.scrollLine;
   state.currentLine = undefined;
   state.pendingAnchor = command.anchor;

@@ -419,6 +419,10 @@
     "message": "Ava fail",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Ei ole OpenAPI dokument — kuvatakse YAML-i lähtekoodi.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Hinda",
     "description": "Link text to rate and review the extension"

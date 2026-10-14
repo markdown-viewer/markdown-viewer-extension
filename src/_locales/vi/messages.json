@@ -419,6 +419,10 @@
     "message": "Mở tệp",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Không phải tài liệu OpenAPI — đang hiển thị mã nguồn YAML.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Đánh giá",
     "description": "Link text to rate and review the extension"

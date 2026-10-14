@@ -8,6 +8,7 @@
 import { Plugin, WorkspaceLeaf, TFile, MarkdownView, Menu, addIcon } from 'obsidian';
 import { MarkdownPreviewView, VIEW_TYPE, ViewerLeafState } from './preview-view';
 import { getFileType } from '../../../src/utils/file-wrapper';
+import { isYamlFilePath } from '../../../src/utils/openapi';
 import { ALL_FORMAT_EXTENSIONS } from '../../../src/types/formats';
 
 /**
@@ -37,8 +38,12 @@ function injectScopedViewStyles(): () => void {
  */
 function isSupportedFile(file: TFile): boolean {
   const fileType = getFileType(file.name);
-  // 'markdown' is the default/fallback, only match explicit types + md
-  return fileType !== 'markdown' || file.extension === 'md' || file.extension === 'markdown';
+  // 'markdown' is the default/fallback, only match explicit types + md.
+  // `.yaml`/`.yml` are not a registered format (OpenAPI preview is a document
+  // capability): they still get the menu, so a spec can be previewed, but no
+  // extension is registered for them.
+  return fileType !== 'markdown' || file.extension === 'md' || file.extension === 'markdown'
+    || isYamlFilePath(file.name);
 }
 
 export default class MarkdownViewerPlugin extends Plugin {

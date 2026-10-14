@@ -419,6 +419,10 @@
     "message": "Datei öffnen",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "Kein OpenAPI-Dokument – YAML-Quelltext wird angezeigt.",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "Bewerten",
     "description": "Linktext zur Bewertung der Erweiterung"

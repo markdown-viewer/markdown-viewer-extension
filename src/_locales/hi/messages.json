@@ -419,6 +419,10 @@
     "message": "फ़ाइल खोलें",
     "description": "Menu item to open file"
   },
+  "plugin_openapi_not_spec": {
+    "message": "यह OpenAPI दस्तावेज़ नहीं है — YAML स्रोत दिखाया जा रहा है।",
+    "description": "Info message shown in panel hosts when a .yaml/.yml preview is not an OpenAPI document"
+  },
   "popup_review_link": {
     "message": "रेटिंग",
     "description": "Link text to rate and review the extension"

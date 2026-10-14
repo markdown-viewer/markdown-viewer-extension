@@ -1,6 +1,8 @@
 // Table of Contents Manager
 // Handles TOC generation, toggle, and active item tracking
 
+import { isSourceViewActive } from '../../../../src/core/viewer/source-view';
+
 interface FileState {
   tocVisible?: boolean;
   [key: string]: unknown;
@@ -108,7 +110,7 @@ export function createTocManager(
 
     if (!contentDiv || !tocDiv) return;
 
-    if (document.documentElement.dataset.codeView === '1') {
+    if (isSourceViewActive()) {
       tocDiv.style.display = 'none';
       tocDiv.classList.add('hidden');
       document.body.classList.add('toc-hidden');
@@ -188,7 +190,7 @@ export function createTocManager(
       return;
     }
 
-    if (document.documentElement.dataset.codeView === '1') {
+    if (isSourceViewActive()) {
       tocDiv.style.display = 'none';
       tocDiv.classList.add('hidden');
       document.body.classList.add('toc-hidden');

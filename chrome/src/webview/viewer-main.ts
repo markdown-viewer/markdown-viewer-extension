@@ -13,7 +13,10 @@ import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localiz
 import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { wrapFileContent } from '../../../src/utils/file-wrapper';
-import { buildCodeReadingRender, applyCodeViewPresentation } from '../../../src/utils/code-preview';
+import { buildCodeReadingRender } from '../../../src/utils/code-preview';
+import { isOpenapiFile } from '../../../src/utils/openapi';
+import { getFileType } from '../../../src/utils/file-wrapper';
+import { setSourceViewActive } from '../../../src/core/viewer/source-view';
 import { deliverFile } from '../../../src/utils/file-download';
 import { stripUrlQueryAndHash } from '../../../src/utils/document-url';
 import { LAYOUT_MAX_WIDTHS } from '../../../src/ui/layout-presets';
@@ -432,7 +435,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const applyResolvedModePresentation = (resolvedMode: ViewerResolvedMode): void => {
     markdownViewerAdapter?.setDisplayMode(mapResolvedModeToDisplayMode(resolvedMode));
     traceViewer('pres', { mode: resolvedMode, rev: getViewerSnapshot()?.revision ?? -1 });
-    applyCodeViewPresentation(resolvedMode !== 'rendered');
+    setSourceViewActive(resolvedMode !== 'rendered');
     // Source toggle + layout control are per-document state. Workspace mode
     // reuses one toolbar across files, so both have to follow the *current*
     // document and resolved mode instead of whatever was true when the toolbar
@@ -445,7 +448,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     // render while the toolbar already shows the new file name.
     try {
       toolbarManager?.setSourceToggleState({
-        supported: isMarkdownSourceToggleEnabled(),
+        supported: isSourceToggleSupportedForCurrentFile(),
         sourceMode: resolvedMode === 'source',
       });
       toolbarManager?.setLayoutControlVisible(resolvedMode === 'rendered');
@@ -518,15 +521,26 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const buildViewerDocumentDescriptor = (content: string): ViewerDocumentDescriptor => {
     const documentKey = getActiveDocumentUrl();
     const sourcePath = getViewerDocumentLocation();
-    const codeReading = !htmlConverted ? buildCodeReadingRender(content, sourcePath) : null;
-    const sourceToggleSupported = isMarkdownSourceToggleEnabled();
+    // OpenAPI wins over code-reading: a `.yaml` spec is a document with two
+    // faces (its source and the rendered reference), not a code file.
+    const openapi = !htmlConverted && isOpenapiFile(content, sourcePath);
+    const codeReading = !htmlConverted && !openapi ? buildCodeReadingRender(content, sourcePath) : null;
+    const markdownToggle = isMarkdownSourceToggleEnabled();
+    // A registered non-markdown format (mermaid, plantuml, dot, vega, canvas,
+    // drawio, echarts, infographic, svg) is a *diagram document*: it renders as
+    // a figure, and its own source sits behind the same toggle. Unknown
+    // extensions previewed as markdown are not diagram documents.
+    const diagramFileType = getFileType(sourcePath);
+    const diagram = !htmlConverted && !openapi && !codeReading && diagramFileType !== 'markdown';
 
     let format: ViewerDocumentDescriptor['format'] = 'diagram';
     if (htmlConverted) {
       format = 'html-converted';
+    } else if (openapi) {
+      format = 'openapi';
     } else if (codeReading) {
       format = 'code';
-    } else if (sourceToggleSupported) {
+    } else if (markdownToggle) {
       format = 'markdown';
     }
 
@@ -535,11 +549,26 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       displayName: getDocumentDisplayName(),
       sourcePath,
       format,
-      language: codeReading?.language,
-      sourceToggleSupported,
+      // The source surface highlights with this identifier; an unknown grammar
+      // degrades to plain text (see source-view.ts), it never fails.
+      language: openapi
+        ? 'yaml'
+        : codeReading?.language ?? (diagram ? (diagramFileType === 'svg' ? 'xml' : diagramFileType) : undefined),
+      sourceToggleSupported: openapi || markdownToggle || diagram,
+      defaultModeIntent: openapi ? 'source' : undefined,
       containerMode: 'browser',
       embedded: window.parent !== window,
     };
+  };
+
+  //
+  /**
+   * Whether the *current* document offers the source toggle. The descriptor is
+   * the single source of truth (markdown and OpenAPI files do, code files do
+   * not); the markdown check is only the pre-document fallback.
+   */
+  const isSourceToggleSupportedForCurrentFile = (): boolean => {
+    return getViewerSnapshot()?.document?.sourceToggleSupported ?? isMarkdownSourceToggleEnabled();
   };
 
   const isSourceModeEnabled = (): boolean => {
@@ -891,7 +920,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
     let attemptsRemaining = 6;
     const retry = (): void => {
-      const lineElements = document.querySelectorAll<HTMLElement>('#markdown-content .mv-code-line');
+      const lineElements = document.querySelectorAll<HTMLElement>('#mv-source-view .mv-source-line');
       if (lineElements.length === 0 && attemptsRemaining > 0) {
         logViewerDebug('codeview.restore.retry', {
           requestedLine: line,
@@ -948,6 +977,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       return rawContent;
     }
     const documentLocation = getViewerDocumentLocation();
+    // An OpenAPI file renders as a reference, so the toolbar's raw-markdown
+    // fallback is the reference wrapper — not a plain YAML fence.
+    if (isOpenapiFile(rawContent, documentLocation)) {
+      return wrapFileContent(rawContent, documentLocation);
+    }
     const codeReading = buildCodeReadingRender(rawContent, documentLocation);
     return codeReading ? codeReading.markdown : wrapFileContent(rawContent, documentLocation);
   })();
@@ -1018,7 +1052,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         logThenPermissionError('tocVisibility.failed', error, { visible });
       });
     },
-    enableSourceToggle: isMarkdownSourceToggleEnabled(),
+    enableSourceToggle: true,
     onExportBookDocx: async ({ onProgress }) => {
       const pages = getGitbookNavItems();
       if (pages.length === 0) {
@@ -1153,7 +1187,12 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     initialTocClass,
     initialMaxWidth,
     initialZoom,
-    enableSourceToggle: isMarkdownSourceToggleEnabled(),
+    // Built unconditionally: whether the *current* document offers the toggle
+    // (markdown and OpenAPI do, code files do not) is per-document state
+    // applied by the presentation effect. Gating it here would decide from
+    // whatever was open at boot — a `.yml` file opened first used to have no
+    // button to show when its own state asked for one.
+    enableSourceToggle: true,
     enableRemarkMode: true,
   });
   if (!initialTocVisible) {
@@ -1205,7 +1244,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         rev: effect.revision,
         preserve: effect.preserveViewport,
         len: effect.renderModel.markdown.length,
-        code: Boolean(effect.renderModel.directCodeView),
+        code: Boolean(effect.renderModel.source),
         // Which document this render belongs to: the pane's failures are
         // "older document's render landed last", which needs names, not sizes.
         doc: getViewerDocumentLocation().split('/').pop() || '',
@@ -1217,7 +1256,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         revision: effect.revision,
         preserveViewport: effect.preserveViewport,
         targetLine: effect.targetLine,
-        hasDirectCodeView: Boolean(effect.renderModel.directCodeView),
+        hasSourceView: Boolean(effect.renderModel.source),
         markdownLength: effect.renderModel.markdown.length,
         snapshot: getViewerSnapshot(),
       });
@@ -1235,28 +1274,25 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         forceRender: false,
         targetLine: effect.targetLine,
         zoomLevel: toolbarManager.getZoomLevel() / 100,
-        directCodeView: effect.renderModel.directCodeView,
+        sourceView: effect.renderModel.source,
+        openapiView: effect.renderModel.openapi,
       });
 
-      if (effect.renderModel.directCodeView) {
+      if (effect.renderModel.source) {
         traceViewer('render.end', { rev: effect.revision, code: true });
-        logViewerDebug('surface.render.directCodeView', {
+        logViewerDebug('surface.render.source', {
           targetLine: effect.targetLine,
-          language: effect.renderModel.directCodeView.language,
-          contentLength: effect.renderModel.directCodeView.content.length,
+          language: effect.renderModel.source.language,
+          contentLength: effect.renderModel.source.content.length,
         });
         hideTocForCodeView();
-        // Re-apply code view presentation after render so line numbers are
-        // decorated on the *new* code block. The earlier call (from the
-        // apply-presentation effect) may have found the *old* code block
-        // during code→code switches and skipped setting up the observer.
-        applyCodeViewPresentation(true);
         restoreDirectCodeViewScrollAfterRender(effect.targetLine);
         return;
       }
 
       logViewerDebug('surface.render.preview', {
         targetLine: effect.targetLine,
+        openapi: Boolean(effect.renderModel.openapi),
       });
       traceViewer('render.end', { rev: effect.revision, code: false });
       if (isTocDisabledForCurrentFile()) {
@@ -1398,7 +1434,8 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           }
         } else {
           const content = document.getElementById('markdown-content');
-          if (content && content.children.length > 0) {
+          const sourceLines = document.querySelector('#mv-source-view .mv-source-line');
+          if ((content && content.children.length > 0) || sourceLines) {
             resolve();
             return;
           }

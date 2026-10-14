@@ -11,6 +11,7 @@
 import { ItemView, WorkspaceLeaf, TFile, Menu, Notice, ViewStateResult } from 'obsidian';
 import type MarkdownViewerPlugin from './main';
 import { getFileType } from '../../../src/utils/file-wrapper';
+import { isYamlFilePath } from '../../../src/utils/openapi';
 import { rewriteObsidianSvgEmbeds } from './obsidian-svg-embed-rewrite';
 import { expandObsidianMarkdownEmbeds } from './obsidian-markdown-embed-rewrite';
 import { getEmbeddedAsset } from './embedded-assets';
@@ -731,5 +732,8 @@ export class MarkdownPreviewView extends ItemView {
  */
 function isSupportedFile(file: TFile): boolean {
   const fileType = getFileType(file.name);
-  return fileType !== 'markdown' || file.extension === 'md' || file.extension === 'markdown';
+  // Same rule as the plugin entry point: `.yaml`/`.yml` are previewable (and
+  // therefore appear in the menu) without being a registered format.
+  return fileType !== 'markdown' || file.extension === 'md' || file.extension === 'markdown'
+    || isYamlFilePath(file.name);
 }

@@ -38,7 +38,7 @@ export function createViewerKernel(options: MountedViewerOptions): ViewerKernel 
     currentMarkdown = markdown;
     targetLine = renderOptions?.targetLine;
     lastRenderOptions = renderOptions;
-    if (renderOptions?.directCodeView) {
+    if (renderOptions?.sourceView) {
       if (displayMode !== 'source') {
         displayMode = 'auto-code';
       }

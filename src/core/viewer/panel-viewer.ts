@@ -18,6 +18,8 @@
  */
 
 import { wrapFileContent } from '../../utils/file-wrapper';
+import { isOpenapiFile, isYamlFilePath } from '../../utils/openapi';
+import { mountOpenapiNotice } from './openapi-view';
 import { createMountedViewer, setCurrentFileKey } from './viewer-host';
 import type { TranslateFn } from './viewer-host';
 import type { HeadingInfo } from '../markdown-processor';
@@ -195,6 +197,19 @@ export function createPanelViewer(options: PanelViewerOptions): PanelViewerContr
     // only controls whether user scrolls are written to fileState here.
     setCurrentFileKey(newDocumentKey);
 
+    // An OpenAPI document is a document with two faces, and the reference is
+    // not markdown: mount it directly (R5 keeps embedded ```openapi fences as
+    // code, so the reference can no longer ride the fence/plugin route).
+    if (isOpenapiFile(content, newFilename)) {
+      await mountedViewer.render('', {
+        fileChanged,
+        forceRender: updateOptions?.forceRender ?? false,
+        targetLine: updateOptions?.scrollLine,
+        openapiView: { content },
+      });
+      return;
+    }
+
     const wrapped = wrapContent(content, newFilename);
 
     await mountedViewer.render(wrapped, {
@@ -202,6 +217,14 @@ export function createPanelViewer(options: PanelViewerOptions): PanelViewerContr
       forceRender: updateOptions?.forceRender ?? false,
       targetLine: updateOptions?.scrollLine,
     });
+
+    // A `.yaml`/`.yml` document that is not a spec still previews (as a YAML
+    // code block), and the OpenAPI capability says why it did not become a
+    // reference. Panels only: in the browser a plain YAML file is a code
+    // document whose source *is* the preview, so there is nothing to explain.
+    if (isYamlFilePath(newFilename)) {
+      mountOpenapiNotice(container, translate('plugin_openapi_not_spec'));
+    }
   }
 
   return {
