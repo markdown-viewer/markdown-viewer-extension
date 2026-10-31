@@ -1,7 +1,7 @@
 {
   "id": "markdown-viewer-extension",
   "name": "docu.md Markdown Viewer",
-  "version": "5.3.0",
+  "version": "6.0.0",
   "minAppVersion": "1.0.0",
   "description": "Preview Markdown in Obsidian and export polished Word documents with diagrams, editable math, code highlighting, and local processing.",
   "author": "Markdown Viewer Team",
