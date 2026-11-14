@@ -1,27 +1,23 @@
-// Progress Indicator
-// Handles showing/hiding and updating progress indicators
+// Render Progress Indicator
+// The ring next to the file name: shown while a document's async tasks
+// (diagrams, charts, images) are running, advanced once per finished task.
+
+import { ringOffsetFor } from './progress-ring';
 
 /**
- * Update progress circle based on completed vs total tasks
+ * Update the ring from a batch of tasks.
  * @param completed - Number of completed tasks
- * @param total - Total number of tasks
+ * @param total - Total number of tasks in this batch
  */
 export function updateProgress(completed: number, total: number): void {
-  const progressCircle = document.querySelector('.progress-circle-progress') as SVGCircleElement | null;
+  const progressCircle = document.querySelector<SVGCircleElement>('.progress-circle-progress');
   if (!progressCircle) return;
 
-  // Calculate progress percentage
-  const progress = completed / total;
-  const circumference = 43.98; // 2 * PI * 7 (radius)
-
-  // Calculate stroke-dashoffset (starts at full circle, decreases as progress increases)
-  const offset = circumference * (1 - progress);
-
-  progressCircle.style.strokeDashoffset = String(offset);
+  progressCircle.style.strokeDashoffset = String(ringOffsetFor(completed, total));
 }
 
 /**
- * Show processing indicator in TOC header
+ * Show the render indicator in the toolbar
  */
 export function showProcessingIndicator(): void {
   const indicator = document.getElementById('processing-indicator');
@@ -32,7 +28,7 @@ export function showProcessingIndicator(): void {
 }
 
 /**
- * Hide processing indicator in TOC header
+ * Hide the render indicator in the toolbar
  */
 export function hideProcessingIndicator(): void {
   const indicator = document.getElementById('processing-indicator');

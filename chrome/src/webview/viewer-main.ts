@@ -36,7 +36,7 @@ import {
   toSaveFilename,
 } from '../../../src/core/document-utils';
 import type { FileState } from '../../../src/types/core';
-import { showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator';
+import { updateProgress, showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator';
 import { createTocManager } from './ui/toc-manager';
 import { setupHeadingAnchors, type HeadingAnchorsController } from './ui/heading-anchors';
 import { createGitbookPanel } from './ui/gitbook-panel';
@@ -608,6 +608,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
           }
           void generateTOC();
         },
+        // Async tasks (diagrams, charts, images) report per finished task; this
+        // is the ring next to the file name. The kernel forwards it to the
+        // processAll() callback, exactly like the pre-adapter code did.
+        onProgress: (completed, total) => updateProgress(completed, total),
         afterRender: () => {
           updateActiveTocItem();
           refreshHeadingAnchors();

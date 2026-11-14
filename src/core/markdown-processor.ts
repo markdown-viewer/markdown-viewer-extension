@@ -404,6 +404,12 @@ export class AsyncTaskManager {
     const totalTasks = tasks.length;
     let completedTasks = 0;
 
+    // Emit the empty state up front: callers reuse one indicator across renders,
+    // so a previous batch's final offset would otherwise linger.
+    if (onProgress && totalTasks > 0) {
+      onProgress(0, totalTasks);
+    }
+
     const waitForNextFrame = async (): Promise<void> => {
       await new Promise<void>((resolve) => {
         if (typeof requestAnimationFrame === 'function') {

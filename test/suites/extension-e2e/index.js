@@ -10,6 +10,7 @@ import './remote-document-images.test.ts';
 import './query-string-preview.test.ts';
 import './save-file-name.test.ts';
 import './export-menu.test.ts';
+import './render-progress.test.ts';
 import './code-view.test.ts';
 import './diagram-source.test.ts';
 import './workspace-file-switch.test.ts';
