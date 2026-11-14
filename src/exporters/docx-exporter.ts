@@ -446,7 +446,10 @@ class DocxExporter {
   private countResources(ast: DOCXASTNode): number {
     let count = 0;
     const countNode = (node: DOCXASTNode): void => {
-      if (node.type === 'image') count++;
+      // `imageReference` becomes an embedded image too (the definition URL is
+      // resolved by the inline converter), so it must count like an `image`
+      // or the export progress denominator would exceed the report count.
+      if (node.type === 'image' || node.type === 'imageReference') count++;
       if (getPluginForNode(node)) count++;
       if (node.children) node.children.forEach(countNode);
     };

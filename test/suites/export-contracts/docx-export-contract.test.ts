@@ -80,4 +80,43 @@ describe('DOCX export contract (real pipeline)', () => {
     assert.match(warning.text, /line 3/, 'the warning must name the real document line');
     assert.ok(!/at [A-Za-z]/.test(warning.text), 'the warning must not include a stack trace');
   });
+
+  // The viewer resolves reference links per block (see
+  // src/core/link-reference-definitions.ts); DOCX export parses the whole
+  // document at once and resolves them through `linkDefinitions`. Both paths
+  // must land on the same destination, so this guards the export side of
+  // issue #136 — including reference *images*, which used to be dropped.
+  it('resolves reference-style links and images defined in other blocks', async () => {
+    const referenceFixture = path.resolve('test/fixtures/layout/reference-links.md');
+    const { base64 } = await harness.renderDocx(referenceFixture, FIXED_PARAMS);
+    const zip = await JSZip.loadAsync(Buffer.from(base64, 'base64'));
+    const documentXml = await zip.files['word/document.xml'].async('string');
+    const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+
+    assert.ok(
+      relsXml.includes('https://example.com/docs'),
+      'the reference link destination must become a real hyperlink relationship',
+    );
+    assert.ok(
+      /relationships\/image/.test(relsXml),
+      'the reference image must be embedded, not dropped',
+    );
+    assert.strictEqual(
+      (documentXml.match(/<w:drawing>/g) || []).length,
+      4,
+      'all four reference images (plain, in a reference link, in an inline link, in a table cell) must be drawn',
+    );
+    assert.ok(
+      /Example Site/.test(documentXml),
+      'the link text must appear as visible content',
+    );
+    assert.ok(
+      !documentXml.includes('][site]'),
+      'resolved references must not leak their markdown markup into the document',
+    );
+    assert.ok(
+      documentXml.includes('][missing-label]') || documentXml.includes('[missing-label]'),
+      'an undefined label must stay literal, as CommonMark renders it',
+    );
+  });
 });

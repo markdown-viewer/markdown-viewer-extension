@@ -133,6 +133,12 @@ interface ImageNode extends BaseNode {
   title?: string;
 }
 
+interface ImageReferenceNode extends BaseNode {
+  type: 'imageReference';
+  identifier: string;
+  alt?: string;
+}
+
 interface InlineMathNode extends BaseNode {
   type: 'inlineMath';
   value: string;
@@ -166,6 +172,7 @@ export type InlineNode =
   | LinkNode 
   | LinkReferenceNode 
   | ImageNode 
+  | ImageReferenceNode
   | InlineMathNode 
   | BreakNode 
   | HtmlNode
@@ -406,6 +413,9 @@ export function createInlineConverter({
       case 'image':
         return await convertImage(node);
 
+      case 'imageReference':
+        return await convertImageReference(node);
+
       case 'inlineMath':
         return await convertInlineMath(node, parentStyle);
 
@@ -433,17 +443,54 @@ export function createInlineConverter({
    * @returns DOCX ExternalHyperlink
    */
   async function convertLink(node: LinkNode, parentStyle: ParentStyle): Promise<ExternalHyperlink | ImageRun | TextRun> {
-    const url = node.url || '#';
-
-    // Check if link contains an image (e.g., [![alt](img-url)](link-url))
-    const imageChild = node.children?.find((child: InlineNode) => child.type === 'image') as ImageNode | undefined;
-    if (imageChild) {
-      // For image links, just render the image (DOCX doesn't support clickable images well)
-      return await convertImage(imageChild);
+    // `[![alt](img-url)](link-url)` / `[![alt][label]](link-url)` put an image
+    // (inline or reference-style) in a link; DOCX cannot make a picture
+    // clickable, so the image wins.
+    const image = await convertChildImage(node.children);
+    if (image) {
+      return image;
     }
 
-    const text = extractText(node);
+    return buildHyperlink(extractText(node), node.url || '#', parentStyle);
+  }
 
+  /**
+   * Convert link reference node
+   * @param node - LinkReference AST node
+   * @param parentStyle - Parent style
+   * @returns DOCX ExternalHyperlink
+   */
+  async function convertLinkReference(node: LinkReferenceNode, parentStyle: ParentStyle): Promise<ExternalHyperlink | ImageRun | TextRun> {
+    // `[![alt][img]][link]` puts a *reference* image inside a reference link;
+    // same rule as convertLink: the image wins.
+    const image = await convertChildImage(node.children);
+    if (image) {
+      return image;
+    }
+
+    const definition = linkDefinitions?.get(node.identifier.toLowerCase());
+    return buildHyperlink(extractText(node), definition?.url || '#', parentStyle);
+  }
+
+  /**
+   * Render the image a link wraps, if any. A link cannot contain a clickable
+   * picture in DOCX, so the caller shows the picture and drops the hyperlink.
+   */
+  async function convertChildImage(
+    children: InlineNode[] | undefined
+  ): Promise<ImageRun | TextRun | null> {
+    const imageChild = children?.find(
+      (child: InlineNode) => child.type === 'image' || child.type === 'imageReference'
+    );
+    if (!imageChild) {
+      return null;
+    }
+    return imageChild.type === 'imageReference'
+      ? await convertImageReference(imageChild as ImageReferenceNode)
+      : await convertImage(imageChild as ImageNode);
+  }
+
+  function buildHyperlink(text: string, url: string, parentStyle: ParentStyle): ExternalHyperlink {
     const linkStyle = {
       ...parentStyle,
       style: 'Hyperlink' as const,
@@ -461,31 +508,18 @@ export function createInlineConverter({
   }
 
   /**
-   * Convert link reference node
-   * @param node - LinkReference AST node
-   * @param parentStyle - Parent style
-   * @returns DOCX ExternalHyperlink
+   * Convert image reference node (`![alt][label]`)
+   * @param node - ImageReference AST node
+   * @returns DOCX ImageRun or error TextRun
    */
-  async function convertLinkReference(node: LinkReferenceNode, parentStyle: ParentStyle): Promise<ExternalHyperlink> {
-    const text = extractText(node);
-    const identifier = node.identifier.toLowerCase();
-    const definition = linkDefinitions?.get(identifier);
-    const url = definition?.url || '#';
-
-    const linkStyle = {
-      ...parentStyle,
-      style: 'Hyperlink' as const,
-      color: linkColor,
-      underline: { type: 'single' as const, color: linkColor },
-    };
-
-    // Handle emoji in link text
-    const textRuns = convertTextWithEmoji(text, linkStyle);
-
-    return new ExternalHyperlink({
-      children: Array.isArray(textRuns) ? textRuns : [textRuns],
-      link: url,
-    });
+  async function convertImageReference(node: ImageReferenceNode): Promise<ImageRun | TextRun> {
+    const definition = linkDefinitions?.get(node.identifier.toLowerCase());
+    if (!definition?.url) {
+      // Undefined label: CommonMark renders the markup literally, and so do we
+      // (an empty run would silently swallow the author's text).
+      return new TextRun({ text: `![${node.alt ?? ''}][${node.identifier}]` });
+    }
+    return await convertImage({ type: 'image', url: definition.url, alt: node.alt, title: definition.title ?? undefined });
   }
 
   /**
@@ -707,11 +741,23 @@ export function createInlineConverter({
   }
 
   function isBlockImageNode(node: InlineNode): boolean {
-    return node.type === 'image';
+    return node.type === 'image' || node.type === 'imageReference';
   }
 
+  /**
+   * A reference image counts as a diagram when its *definition* points at an
+   * SVG (that is how `![diagram][mermaid-1]` renders), so the definition has
+   * to be resolved before the URL check.
+   */
   function isBlockDiagramNode(node: InlineNode): boolean {
-    return node.type === 'image' && isSvgImage(node.url);
+    if (node.type === 'image') {
+      return isSvgImage(node.url);
+    }
+    if (node.type === 'imageReference') {
+      const definition = linkDefinitions?.get(node.identifier.toLowerCase());
+      return typeof definition?.url === 'string' && isSvgImage(definition.url);
+    }
+    return false;
   }
 
   return { 
