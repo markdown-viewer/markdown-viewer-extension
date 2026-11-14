@@ -2,6 +2,7 @@
 import './code-reading-language.test.ts';
 import './document-url.test.js';
 import './document-utils.test.js';
+import './download-permission.test.ts';
 import './file-delivery.test.ts';
 import './gitbook-panel.test.ts';
 import './url-extension-matching.test.ts';

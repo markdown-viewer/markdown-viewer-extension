@@ -4,7 +4,7 @@
  */
 
 import { getFilenameFromURL, getDocumentFilename, toMarkdownFilename } from '../../../../src/core/document-utils';
-import { deliverFile } from '../../../../src/utils/file-download';
+import { deliverFile, documentCannotDownload } from '../../../../src/utils/file-download';
 import { applyZoom as applyZoomCore, exportEpubFlow, exportHtmlFlow } from '../../../../src/core/viewer/viewer-host';
 import { createExportMenu } from '../../../../src/ui/export-menu';
 import { showActionMenu } from '../../../../src/ui/action-menu';
@@ -24,6 +24,7 @@ import { createRemarkMode } from '../../../../src/ui/remark-mode';
 import type { RemarkModeController } from '../../../../src/ui/remark-mode';
 import { LAYOUT_MAX_WIDTHS } from '../../../../src/ui/layout-presets';
 import { BookExportProgressModel } from './book-export-progress';
+import { requestDownloadsPermission } from '../download-permission';
 
 // SVG icons for different layouts
 export const layoutIcons: Record<string, string> = {
@@ -127,13 +128,11 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Request downloads permission only for remote files (local files use <a download> fallback)
-    if (!window.location.protocol.startsWith('file')) {
-      try {
-        await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
-      } catch {
-        // Ignore - background will fall back if permission denied
-      }
+    // Sandboxed documents need the optional "downloads" permission; everything
+    // else downloads through an anchor, so asking there only spends time on a
+    // prompt the service worker cannot show.
+    if (documentCannotDownload()) {
+      await requestDownloadsPermission();
     }
 
     try {
@@ -207,13 +206,11 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Request downloads permission only for remote files (local files use <a download> fallback)
-    if (!window.location.protocol.startsWith('file')) {
-      try {
-        await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
-      } catch {
-        // Ignore - background will fall back if permission denied
-      }
+    // Sandboxed documents need the optional "downloads" permission; everything
+    // else downloads through an anchor, so asking there only spends time on a
+    // prompt the service worker cannot show.
+    if (documentCannotDownload()) {
+      await requestDownloadsPermission();
     }
 
     const originalContent = downloadBtn.innerHTML;
@@ -276,12 +273,11 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    if (!window.location.protocol.startsWith('file')) {
-      try {
-        await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
-      } catch {
-        // Ignore - background will fall back if permission denied
-      }
+    // Sandboxed documents need the optional "downloads" permission; everything
+    // else downloads through an anchor, so asking there only spends time on a
+    // prompt the service worker cannot show.
+    if (documentCannotDownload()) {
+      await requestDownloadsPermission();
     }
 
     const originalContent = downloadBtn.innerHTML;
@@ -690,13 +686,11 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Request downloads permission only for remote files (local files use <a download> fallback)
-    if (kind !== 'pdf' && !window.location.protocol.startsWith('file')) {
-      try {
-        await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
-      } catch {
-        // Ignore - background will fall back if permission denied
-      }
+    // Sandboxed documents need the optional "downloads" permission; everything
+    // else downloads through an anchor, so asking there only spends time on a
+    // prompt the service worker cannot show.
+    if (kind !== 'pdf' && documentCannotDownload()) {
+      await requestDownloadsPermission();
     }
 
     const originalContent = btn.innerHTML;

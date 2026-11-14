@@ -20,6 +20,7 @@ import {
 import type { LocaleMessages } from '../../../src/services';
 
 import { OffscreenRenderHost } from './hosts/offscreen-render-host';
+import { requestDownloadsPermission } from './download-permission';
 
 import { ServiceChannel } from '../../../src/messaging/channels/service-channel';
 import { ChromeRuntimeTransport } from '../transports/chrome-runtime-transport';
@@ -73,16 +74,9 @@ const storageService = new StorageService(serviceChannel);
  */
 class ChromeFileService extends FileService {
   requestDownloadPermission(): Promise<boolean> {
-    return new Promise((resolve) => {
-      try {
-        chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' }, (response) => {
-          void chrome.runtime.lastError;
-          resolve(Boolean((response as { granted?: boolean } | undefined)?.granted));
-        });
-      } catch {
-        resolve(false);
-      }
-    });
+    // Bounded: a prompt the service worker cannot show never answers, and its
+    // caller is the last-ditch download path of a sandboxed document.
+    return requestDownloadsPermission();
   }
 }
 

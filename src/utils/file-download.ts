@@ -59,7 +59,7 @@ export function anchorDownloadFile(file: FileDelivery): void {
  *
  * `file://` documents are opaque too, but they do download with an anchor.
  */
-function documentCannotDownload(): boolean {
+export function documentCannotDownload(): boolean {
   if (typeof window === 'undefined') return false;
   if (window.location?.protocol === 'file:') return false;
   return String(window.origin) === 'null';

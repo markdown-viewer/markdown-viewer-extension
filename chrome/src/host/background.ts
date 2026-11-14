@@ -793,9 +793,16 @@ chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendRe
 
   // Handle downloads permission request (from content script user gesture)
   if (message && (message as Record<string, unknown>).type === 'REQUEST_DOWNLOADS_PERMISSION') {
-    chrome.permissions.request({ permissions: ['downloads'] }, (granted) => {
-      sendResponse({ granted: !!granted });
-    });
+    try {
+      chrome.permissions.request({ permissions: ['downloads'] }, (granted) => {
+        // A refused/deferred request reports through lastError; the caller
+        // treats both as "not granted".
+        void chrome.runtime.lastError;
+        sendResponse({ granted: !!granted });
+      });
+    } catch {
+      sendResponse({ granted: false });
+    }
     return true;
   }
 
