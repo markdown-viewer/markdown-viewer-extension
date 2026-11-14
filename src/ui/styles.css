@@ -1267,12 +1267,12 @@ html[data-source-view] #markdown-page {
   stroke: var(--gray-500);
 }
 
-.progress-circle-progress {
-  stroke: var(--color-theme-accent);
-}
-
+/* Both toolbar rings (render indicator and export) report progress in bursts —
+   one update per finished task or block — so the stroke is eased. */
+.progress-circle-progress,
 .download-progress-circle {
   stroke: var(--color-theme-accent);
+  transition: stroke-dashoffset 0.2s linear;
 }
 
 /* Async content placeholder */

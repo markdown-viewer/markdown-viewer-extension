@@ -25,6 +25,7 @@ import type { RemarkModeController } from '../../../../src/ui/remark-mode';
 import { LAYOUT_MAX_WIDTHS } from '../../../../src/ui/layout-presets';
 import { BookExportProgressModel } from './book-export-progress';
 import { requestDownloadsPermission } from '../download-permission';
+import { PROGRESS_RING_CIRCUMFERENCE, ringOffsetFor } from './progress-ring';
 
 // SVG icons for different layouts
 export const layoutIcons: Record<string, string> = {
@@ -41,6 +42,56 @@ export const layoutIcons: Record<string, string> = {
     <line x1="6" y1="6" x2="14" y2="6" stroke-width="2"/>
   </svg>`
 };
+
+const DOWNLOAD_ICON_HTML = `
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+`;
+
+const PROGRESS_ICON_HTML = `
+  <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
+    <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+    <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
+            stroke-dasharray="${PROGRESS_RING_CIRCUMFERENCE}" stroke-dashoffset="${PROGRESS_RING_CIRCUMFERENCE}" transform="rotate(-90 9 9)"/>
+  </svg>
+`;
+
+/**
+ * Turn the toolbar's download button into the export progress ring.
+ *
+ * The ring is the only feedback an export has: the click closes the menu, and
+ * the download only reports once it lands. Every export handler therefore
+ * drives it from its pipeline's `(completed, total)` callback and restores the
+ * button verbatim on success, failure or cancellation.
+ *
+ * @param button - Toolbar button that opened the export menu
+ * @returns Handles to repaint the ring and to restore the button
+ */
+function beginExportProgress(button: HTMLButtonElement): {
+  update: (completed: number, total: number) => void;
+  restore: () => void;
+} {
+  const originalContent = button.innerHTML;
+  button.setAttribute('data-original-content', originalContent);
+  button.disabled = true;
+  button.classList.add('downloading');
+  button.innerHTML = PROGRESS_ICON_HTML;
+
+  return {
+    update(completed: number, total: number): void {
+      const circle = button.querySelector<SVGCircleElement>('.download-progress-circle');
+      if (!circle) return;
+      circle.style.strokeDashoffset = String(ringOffsetFor(completed, total));
+    },
+    restore(): void {
+      button.innerHTML = button.getAttribute('data-original-content') || DOWNLOAD_ICON_HTML;
+      button.disabled = false;
+      button.classList.remove('downloading');
+      button.removeAttribute('data-original-content');
+    },
+  };
+}
 
 /**
  * Creates a toolbar manager for handling toolbar functionality.
@@ -128,49 +179,28 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Sandboxed documents need the optional "downloads" permission; everything
-    // else downloads through an anchor, so asking there only spends time on a
-    // prompt the service worker cannot show.
+    // The optional "downloads" permission is only the delivery mechanism for a
+    // document Chrome refuses to download from (a sandboxed page). Everything
+    // else downloads through an anchor, so asking there would only spend time
+    // on a prompt the service worker cannot show.
     if (documentCannotDownload()) {
       await requestDownloadsPermission();
     }
 
+    let progressUi: ReturnType<typeof beginExportProgress> | null = null;
     try {
-      downloadBtn.disabled = true;
-      downloadBtn.classList.add('downloading');
-
-      const originalContent = downloadBtn.innerHTML;
-      downloadBtn.setAttribute('data-original-content', originalContent);
-      const progressHTML = `
-        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
-          <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
-                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-        </svg>
-      `;
-      downloadBtn.innerHTML = progressHTML;
+      progressUi = beginExportProgress(downloadBtn);
 
       const markdown = rawMarkdown;
       const filename = getDocumentFilename();
       const exportErrorFallback = translate('docx_export_failed_default');
       const result = await docxExporter.exportToDocx(markdown, filename, (completed, total) => {
-        const progressCircle = downloadBtn.querySelector('.download-progress-circle');
-        if (progressCircle && total > 0) {
-          const progress = completed / total;
-          const circumference = 43.98;
-          const offset = circumference * (1 - progress);
-          (progressCircle as SVGCircleElement).style.strokeDashoffset = String(offset);
-        }
+        progressUi?.update(completed, total);
       });
 
       if (!result.success) {
         throw new Error(result.error || exportErrorFallback);
       }
-
-      downloadBtn.innerHTML = originalContent;
-      downloadBtn.disabled = false;
-      downloadBtn.classList.remove('downloading');
-      downloadBtn.removeAttribute('data-original-content');
     } catch (error) {
       const errorMessage = (error as Error)?.message || '';
       // A cancelled export is not a failure: the user backed out of the prompt
@@ -182,16 +212,8 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
           || `Export failed${alertDetail}`;
         alert(alertMessage);
       }
-
-      const originalContent = downloadBtn.getAttribute('data-original-content') || `
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `;
-      downloadBtn.innerHTML = originalContent;
-      downloadBtn.disabled = false;
-      downloadBtn.classList.remove('downloading');
-      downloadBtn.removeAttribute('data-original-content');
+    } finally {
+      progressUi?.restore();
     }
   }
 
@@ -206,28 +228,17 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Sandboxed documents need the optional "downloads" permission; everything
-    // else downloads through an anchor, so asking there only spends time on a
-    // prompt the service worker cannot show.
+    // Sandboxed documents need the permission; anchor downloads do not.
+    // Bounded on purpose — see requestDownloadsPermission().
     if (documentCannotDownload()) {
       await requestDownloadsPermission();
     }
 
-    const originalContent = downloadBtn.innerHTML;
     let exportError: string | null = null;
+    let progressUi: ReturnType<typeof beginExportProgress> | null = null;
 
     try {
-      downloadBtn.disabled = true;
-      downloadBtn.classList.add('downloading');
-      downloadBtn.setAttribute('data-original-content', originalContent);
-      const progressHTML = `
-        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
-          <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
-                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-        </svg>
-      `;
-      downloadBtn.innerHTML = progressHTML;
+      progressUi = beginExportProgress(downloadBtn);
 
       await exportHtmlFlow({
         container: page,
@@ -235,13 +246,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         title: document.title || getFilenameFromURL(),
         platform: globalThis.platform,
         onProgress: (completed, total) => {
-          const progressCircle = downloadBtn.querySelector('.download-progress-circle');
-          if (progressCircle && total > 0) {
-            const progress = completed / total;
-            const circumference = 43.98;
-            const offset = circumference * (1 - progress);
-            (progressCircle as SVGCircleElement).style.strokeDashoffset = String(offset);
-          }
+          progressUi?.update(completed, total);
         },
         onError: (error) => {
           exportError = error;
@@ -255,15 +260,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       const message = error instanceof Error ? error.message : String(error);
       alert(`Export HTML failed: ${message}`);
     } finally {
-      const fallbackIcon = `
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `;
-      downloadBtn.innerHTML = downloadBtn.getAttribute('data-original-content') || fallbackIcon;
-      downloadBtn.disabled = false;
-      downloadBtn.classList.remove('downloading');
-      downloadBtn.removeAttribute('data-original-content');
+      progressUi?.restore();
     }
   }
 
@@ -273,28 +270,17 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Sandboxed documents need the optional "downloads" permission; everything
-    // else downloads through an anchor, so asking there only spends time on a
-    // prompt the service worker cannot show.
+    // Sandboxed documents need the permission; anchor downloads do not.
+    // Bounded on purpose — see requestDownloadsPermission().
     if (documentCannotDownload()) {
       await requestDownloadsPermission();
     }
 
-    const originalContent = downloadBtn.innerHTML;
     let exportError: string | null = null;
+    let progressUi: ReturnType<typeof beginExportProgress> | null = null;
 
     try {
-      downloadBtn.disabled = true;
-      downloadBtn.classList.add('downloading');
-      downloadBtn.setAttribute('data-original-content', originalContent);
-      const progressHTML = `
-        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
-          <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
-                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-        </svg>
-      `;
-      downloadBtn.innerHTML = progressHTML;
+      progressUi = beginExportProgress(downloadBtn);
 
       const page = document.getElementById('markdown-page') as HTMLElement | null;
       if (!page) {
@@ -307,13 +293,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         title: document.title || getFilenameFromURL(),
         platform: globalThis.platform,
         onProgress: (completed, total) => {
-          const progressCircle = downloadBtn.querySelector('.download-progress-circle');
-          if (progressCircle && total > 0) {
-            const progress = completed / total;
-            const circumference = 43.98;
-            const offset = circumference * (1 - progress);
-            (progressCircle as SVGCircleElement).style.strokeDashoffset = String(offset);
-          }
+          progressUi?.update(completed, total);
         },
         onError: (error) => {
           exportError = error;
@@ -327,15 +307,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       const message = error instanceof Error ? error.message : String(error);
       alert(`Export EPUB failed: ${message}`);
     } finally {
-      const fallbackIcon = `
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `;
-      downloadBtn.innerHTML = downloadBtn.getAttribute('data-original-content') || fallbackIcon;
-      downloadBtn.disabled = false;
-      downloadBtn.classList.remove('downloading');
-      downloadBtn.removeAttribute('data-original-content');
+      progressUi?.restore();
     }
   }
 
@@ -657,17 +629,6 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
   // Whole-book export (GitBook SUMMARY panel)
   // ========================================================================
 
-  function setBookExportProgressRatio(btn: HTMLElement, ratio: number): void {
-    const circle = btn.querySelector('.download-progress-circle');
-    if (!circle) {
-      return;
-    }
-
-    const clamped = Math.max(0, Math.min(1, ratio));
-    const circumference = 43.98;
-    (circle as SVGCircleElement).style.strokeDashoffset = String(circumference * (1 - clamped));
-  }
-
   /**
    * Run a whole-book export (DOCX, EPUB or PDF) with the button progress ring.
    */
@@ -686,39 +647,29 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       return;
     }
 
-    // Sandboxed documents need the optional "downloads" permission; everything
-    // else downloads through an anchor, so asking there only spends time on a
-    // prompt the service worker cannot show.
+    // Sandboxed documents need the permission; anchor downloads do not.
+    // Bounded on purpose — see requestDownloadsPermission().
     if (kind !== 'pdf' && documentCannotDownload()) {
       await requestDownloadsPermission();
     }
 
-    const originalContent = btn.innerHTML;
-    const progressHTML = `
-      <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-        <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
-        <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
-                stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-      </svg>
-    `;
+    const progressUi = beginExportProgress(btn);
+    const renderRatio = (ratio: number): void => progressUi.update(ratio, 1);
     let timerId: number | null = null;
 
     try {
-      btn.disabled = true;
-      btn.classList.add('downloading');
-      btn.innerHTML = progressHTML;
       const progressModel = new BookExportProgressModel(kind);
       timerId = window.setInterval(() => {
-        setBookExportProgressRatio(btn, progressModel.tick(performance.now()));
+        renderRatio(progressModel.tick(performance.now()));
       }, 100);
 
       const onProgress = (phase: BookExportPhase, done: number, total: number): void => {
-        setBookExportProgressRatio(btn, progressModel.onPhaseProgress(phase, done, total, performance.now()));
+        renderRatio(progressModel.onPhaseProgress(phase, done, total, performance.now()));
       };
 
       if (kind === 'docx') {
         const result = await onExportBookDocx!({ onProgress });
-        setBookExportProgressRatio(btn, progressModel.complete());
+        renderRatio(progressModel.complete());
         if (!result.success) {
           const detail = result.error ? `: ${result.error}` : '';
           alert(translate('book_export_failed', [detail]));
@@ -729,7 +680,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         }
       } else if (kind === 'epub') {
         const result = await onExportBookEpub!({ onProgress });
-        setBookExportProgressRatio(btn, progressModel.complete());
+        renderRatio(progressModel.complete());
         if (!result.success) {
           const detail = result.error ? `: ${result.error}` : '';
           alert(translate('book_export_failed', [detail]));
@@ -740,7 +691,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         }
       } else {
         const result = await onExportBookPdf!({ onProgress });
-        setBookExportProgressRatio(btn, progressModel.complete());
+        renderRatio(progressModel.complete());
         if (!result.success) {
           const detail = result.error ? `: ${result.error}` : '';
           alert(translate('book_export_failed', [detail]));
@@ -758,9 +709,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       if (timerId !== null) {
         window.clearInterval(timerId);
       }
-      btn.innerHTML = originalContent;
-      btn.disabled = false;
-      btn.classList.remove('downloading');
+      progressUi.restore();
     }
   }
 
@@ -1023,7 +972,7 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
             <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
               <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="#666" stroke-width="2" fill="none"/>
               <circle class="progress-circle-progress" cx="9" cy="9" r="7" stroke="#00d4aa" stroke-width="2" fill="none"
-                      stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
+                      stroke-dasharray="${PROGRESS_RING_CIRCUMFERENCE}" stroke-dashoffset="${PROGRESS_RING_CIRCUMFERENCE}" transform="rotate(-90 9 9)"/>
             </svg>
           </div>
         </div>

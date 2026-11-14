@@ -68,6 +68,42 @@ import { ResourceEmbedder } from './resource-embedder';
 export { convertPluginResultToDOCX, withBlockImageAlignment } from './docx-image-utils';
 
 /**
+ * Progress budget for a DOCX export, in percent.
+ *
+ * Conversion is the phase with real progress to report (each diagram render
+ * and each image fetch completion is one step), and it is where the wall time
+ * goes, so it owns almost the whole bar. Packing is opaque — `Packer.toBlob`
+ * reports nothing — so its slice is estimated from the render time. The final
+ * download reports real upload progress.
+ */
+const PROGRESS = {
+  /** Bar enters the conversion phase here (parse and theme happen below it). */
+  conversionStart: 2,
+  conversionEnd: 88,
+  packEnd: 98,
+  uploadEnd: 100,
+} as const;
+
+/** How often the conversion creep refreshes the bar. */
+const PROGRESS_TICK_MS = 250;
+
+/**
+ * How long conversion may go without a real report before the creep starts.
+ *
+ * Resource steps arrive every time a diagram render or an image fetch finishes;
+ * the creep is only there for the gap when one of them takes a long time (a
+ * slow host, a stalled image), so it must not race ahead of real progress.
+ */
+const PROGRESS_IDLE_GRACE_MS = 2000;
+
+/**
+ * Slowest creep step per tick (0.2%/s), used once the bar nears the phase end.
+ * The base rate is ~0.8%/s while there is room: the creep exists so a stalled
+ * resource never looks like a dead button, not to replace real progress.
+ */
+const PROGRESS_CREEP_STEP = 0.05;
+
+/**
  * DOCX helpers for plugins
  */
 interface DOCXHelpers {
@@ -96,6 +132,16 @@ class DocxExporter {
   private progressCallback: DOCXProgressCallback | null = null;
   private totalResources = 0;
   private processedResources = 0;
+  /** Last published percentage (integer); progress never goes back. */
+  private progressPercent = 0;
+  /** Unrounded progress, so sub-percent creep steps can accumulate. */
+  private progressValue = 0;
+  private totalBlocks = 0;
+  private processedBlocks = 0;
+  /** When the last real (counts-based) progress report arrived. */
+  private lastProgressReportAt = 0;
+  /** Nudges the bar while a slow block (image, diagram) is being converted. */
+  private conversionCreepTimer: ReturnType<typeof setInterval> | null = null;
   private resourceEmbedder: ResourceEmbedder;
 
   private docxHrDisplay: 'pageBreak' | 'line' | 'hide' = 'hide';
@@ -307,14 +353,21 @@ class DocxExporter {
       this.progressCallback = onProgress;
       this.totalResources = 0;
       this.processedResources = 0;
+      this.totalBlocks = 0;
+      this.processedBlocks = 0;
+      this.progressPercent = 0;
+      this.progressValue = 0;
 
       await this.initializeMathJax();
 
       const ast = this.parseMarkdown(markdown);
       this.totalResources = this.countResources(ast);
+      this.totalBlocks = ast.children?.length ?? 0;
 
-      // Report initial progress (0%)
-      // Progress is split: 0-20% for rendering, 20-80% for packing, 80-100% for upload
+      // Report initial progress (0%).
+      // Progress is split: conversion (real: one step per diagram/image), packing
+      // (estimated from the render time, because the packer reports nothing) and
+      // the download (real upload progress).
       if (onProgress) {
         onProgress(0, 100);
       }
@@ -323,7 +376,10 @@ class DocxExporter {
       this.initializeConverters();
 
       const tRenderStart = performance.now();
+      this.startConversionCreep();
       const docChildren = await this.convertAstToDocx(ast);
+      this.stopConversionCreep();
+      this.reportPercent(PROGRESS.conversionEnd);
       const renderTime = performance.now() - tRenderStart;
 
       const paragraphStyles = Object.values(this.themeStyles.paragraphStyles).map((style) => ({
@@ -385,21 +441,20 @@ class DocxExporter {
         ],
       });
 
-      // Phase 2: Packing DOCX (30-85%)
+      // Phase 2: Packing DOCX (88-98%)
       // Estimate toBlob time based on render time (empirically ~1.8x)
       const estimatedToBlobTime = renderTime * 1.8;
       const t0 = performance.now();
-      
-      // Simulate progress with timer, stop at 84% to avoid jumping backward
-      let simulatedProgress = 30;
-      const progressInterval = onProgress ? setInterval(() => {
+
+      // Simulate progress with a timer, stopping one step short of the phase
+      // end so the real completion call below is always the one that closes it.
+      const progressInterval = this.progressCallback ? setInterval(() => {
         const elapsed = performance.now() - t0;
-        // Calculate expected progress based on elapsed time
-        const expectedProgress = Math.min(84, 30 + (elapsed / estimatedToBlobTime) * 55);
-        if (expectedProgress > simulatedProgress) {
-          simulatedProgress = Math.round(expectedProgress);
-          onProgress!(simulatedProgress, 100);
-        }
+        const expectedProgress = Math.min(
+          PROGRESS.packEnd - 1,
+          PROGRESS.conversionEnd + (elapsed / Math.max(1, estimatedToBlobTime)) * (PROGRESS.packEnd - 1 - PROGRESS.conversionEnd),
+        );
+        this.reportPercent(expectedProgress);
       }, 100) : null;
 
       const blob = await Packer.toBlob(doc);
@@ -408,18 +463,14 @@ class DocxExporter {
       if (progressInterval) {
         clearInterval(progressInterval);
       }
+      this.reportPercent(PROGRESS.packEnd);
 
-      // Phase 3: Upload (85-100%)
-      if (onProgress) {
-        onProgress(85, 100);
-      }
-
-      await downloadBlob(blob, filename, onProgress
+      // Phase 3: Upload/download (92-100%)
+      await downloadBlob(blob, filename, this.progressCallback
         ? (uploaded: number, total: number) => {
-            // Map upload progress to 85-100%
+            // Map upload progress to the last slice of the bar
             const uploadProgress = total > 0 ? (uploaded / total) : 1;
-            const overallProgress = 85 + Math.round(uploadProgress * 15);
-            onProgress(overallProgress, 100);
+            this.reportPercent(PROGRESS.packEnd + uploadProgress * (PROGRESS.uploadEnd - PROGRESS.packEnd));
           }
         : undefined
       );
@@ -437,20 +488,33 @@ class DocxExporter {
       console.error('DOCX export error:', errMsg, errStack);
       return { success: false, error: errMsg };
     } finally {
+      this.stopConversionCreep();
       this.progressCallback = null;
       this.totalResources = 0;
-      this.processedResources = 0;  
+      this.processedResources = 0;
+      this.totalBlocks = 0;
+      this.processedBlocks = 0;
     }
   }
 
   private countResources(ast: DOCXASTNode): number {
     let count = 0;
     const countNode = (node: DOCXASTNode): void => {
+      // One count per progress event. An `image` is reported by the inline
+      // converter (including SVG, which it rasterises itself via the
+      // renderer), so it must NOT also be counted through `getPluginForNode`:
+      // a `.svg` image matches the SVG plugin, and counting it twice made the
+      // denominator larger than the number of reports — the bar then stopped
+      // at a fraction of the conversion phase and jumped to the end.
       // `imageReference` becomes an embedded image too (the definition URL is
-      // resolved by the inline converter), so it must count like an `image`
-      // or the export progress denominator would exceed the report count.
-      if (node.type === 'image' || node.type === 'imageReference') count++;
-      if (getPluginForNode(node)) count++;
+      // resolved by the inline converter), so it counts the same way.
+      if (node.type === 'image' || node.type === 'imageReference') {
+        count++;
+      } else if (getPluginForNode(node)) {
+        // Diagrams, charts and HTML blocks are converted by their plugin and
+        // report one step when that conversion finishes.
+        count++;
+      }
       if (node.children) node.children.forEach(countNode);
     };
     if (ast.children) ast.children.forEach(countNode);
@@ -459,11 +523,75 @@ class DocxExporter {
 
   private reportResourceProgress(): void {
     this.processedResources++;
-    if (this.progressCallback && this.totalResources > 0) {
-      // Phase 1: Rendering resources (0-30%)
-      const renderProgress = this.processedResources / this.totalResources;
-      const overallProgress = Math.round(renderProgress * 30);
-      this.progressCallback(overallProgress, 100);
+    this.reportConversionProgress();
+  }
+
+  /**
+   * Publish a monotonic percentage (0-100).
+   *
+   * The callback contract is `(percent, 100)` — the same shape the toolbar and
+   * the export flows use to drive their progress UI.
+   */
+  private reportPercent(percent: number): void {
+    if (!this.progressCallback) return;
+    this.progressValue = Math.max(this.progressValue, Math.min(100, percent));
+    const rounded = Math.round(this.progressValue);
+    if (rounded <= this.progressPercent) return;
+    this.progressPercent = rounded;
+    this.progressCallback(rounded, 100);
+  }
+
+  /**
+   * Conversion progress (until the DOCX tree is assembled).
+   *
+   * Resources are the accurate denominator and the historical signal: every
+   * diagram render and every image fetch reports exactly one step, so the bar
+   * advances in proportion to real work. Only a document with no resources at
+   * all falls back to counting converted top-level blocks — without it, a pure
+   * text export had no progress to show until packing.
+   */
+  private reportConversionProgress(): void {
+    this.lastProgressReportAt = performance.now();
+    const share = this.totalResources > 0
+      ? this.processedResources / this.totalResources
+      : (this.totalBlocks > 0 ? this.processedBlocks / this.totalBlocks : 0);
+    this.reportPercent(
+      PROGRESS.conversionStart + Math.min(1, share) * (PROGRESS.conversionEnd - PROGRESS.conversionStart),
+    );
+  }
+
+  /**
+   * Keep the ring moving during a long block (a stalled image, a diagram
+   * render) instead of freezing until that block finishes.
+   *
+   * It stays out of the way while real reports keep arriving (resource steps
+   * are accurate and must not be pre-empted) and only starts after a grace
+   * period. The step shrinks as it approaches the phase end, so it can never
+   * claim that conversion finished; when the real report for that resource
+   * lands, the bar jumps to the true value.
+   */
+  private startConversionCreep(): void {
+    this.stopConversionCreep();
+    if (!this.progressCallback) return;
+
+    this.lastProgressReportAt = performance.now();
+    const cap = PROGRESS.conversionEnd - 1;
+    this.conversionCreepTimer = setInterval(() => {
+      if (performance.now() - this.lastProgressReportAt < PROGRESS_IDLE_GRACE_MS) {
+        return;
+      }
+      const remaining = cap - this.progressValue;
+      if (remaining <= 0) return;
+      // ~0.8%/s while there is room, tapering to the floor near the cap.
+      const step = Math.max(PROGRESS_CREEP_STEP, remaining * 0.0025);
+      this.reportPercent(Math.min(cap, this.progressValue + step));
+    }, PROGRESS_TICK_MS);
+  }
+
+  private stopConversionCreep(): void {
+    if (this.conversionCreepTimer) {
+      clearInterval(this.conversionCreepTimer);
+      this.conversionCreepTimer = null;
     }
   }
 
@@ -812,6 +940,11 @@ class DocxExporter {
           elements.push(converted);
         }
       }
+
+      // One tick per top-level block: this is the progress the reader sees when
+      // the document has no images or diagrams to count at all.
+      this.processedBlocks++;
+      this.reportConversionProgress();
 
       if (isContainerNode(node.type) && nextNodeType && !isContainerNode(nextNodeType) && nextNodeType !== 'pagebreak') {
         pushBlockSpacer(bodyBoundaryGaps.afterContainer);
