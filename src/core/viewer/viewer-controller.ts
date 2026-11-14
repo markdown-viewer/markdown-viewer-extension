@@ -29,6 +29,11 @@ import {
 import { hasHeadingBlocks } from '../markdown-block-splitter';
 import { parseFootnotes } from '../footnote-model.ts';
 import { applyFootnotes } from '../footnote-postprocessor.ts';
+import {
+  appendDefinitionsForBlock,
+  collectLinkReferenceDefinitions,
+  type LinkReferenceDefinitionMap,
+} from '../link-reference-definitions.ts';
 
 import GithubSlugger from 'github-slugger';
 import { rewriteObsidianLinks } from '../../utils/obsidian-link-rewrite';
@@ -184,6 +189,13 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   const footnotes = parseFootnotes(normalizedMarkdown);
   const renderMarkdown = footnotes.bodyMarkdown;
 
+  // CommonMark reference links/images resolve while a block is parsed, so a
+  // definition living in another block is invisible to the block that uses it
+  // (issue #136). Collect them document-wide and hand each block the ones it
+  // needs; footnote definitions were already extracted above, so they cannot
+  // be mistaken for link definitions here.
+  const linkDefinitions = collectLinkReferenceDefinitions(renderMarkdown);
+
   // Check if this is a fresh render
   const isFirstRender = container.childNodes.length === 0 || clearContainer;
   
@@ -195,9 +207,13 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
   
   // Get or create document
   const doc = getDocument();
-  
-  // Update document and get DOM commands
-  const updateResult = doc.update(renderMarkdown);
+
+  // Update document and get DOM commands. The hash a block is diffed by
+  // includes the definitions it references, so editing `[label]: url` rebuilds
+  // exactly the blocks that use that label — their own text never changes.
+  const updateResult = doc.update(renderMarkdown, {
+    blockHashInput: (content) => appendDefinitionsForBlock(content, linkDefinitions),
+  });
   onHeadingPresenceKnown?.(hasHeadingBlocks(doc.getBlocks()));
   
   // Create shared slugger for unique heading IDs across blocks
@@ -221,16 +237,16 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
 
   if (isFirstRender) {
     // First render: render all blocks with streaming (slugger accumulates state)
-    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, onHeadings, onChunkComplete);
+    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, linkDefinitions, onHeadings, onChunkComplete);
   } else if (!containerMatchesDocument()) {
     // The DOM no longer mirrors the document (partial blocks or a stale
     // footnote section left behind by an aborted render). A diff would be
     // wrong — rebuild the body from scratch.
     container.innerHTML = '';
-    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, onHeadings, onChunkComplete);
+    await renderAllBlocksStreaming(doc, processor, container, taskManager, frontmatterDisplay, linkDefinitions, onHeadings, onChunkComplete);
   } else {
     // Incremental update: apply DOM commands
-    await applyIncrementalUpdate(doc, processor, container, updateResult.commands, taskManager, frontmatterDisplay);
+    await applyIncrementalUpdate(doc, processor, container, updateResult.commands, taskManager, frontmatterDisplay, linkDefinitions);
     if (!taskManager.isAborted()) {
       // Normalize heading IDs after incremental DOM changes to ensure
       // uniqueness. Skip when aborted — the container may already belong to a
@@ -251,7 +267,7 @@ export async function renderMarkdownDocument(options: RenderMarkdownOptions): Pr
     };
   }
 
-  await applyFootnotes(container, footnotes, processor);
+  await applyFootnotes(container, footnotes, processor, linkDefinitions);
 
   // Notify streaming complete
   onStreamingComplete?.();
@@ -286,6 +302,7 @@ async function renderAllBlocksStreaming(
   container: HTMLElement,
   taskManager: AsyncTaskManager,
   frontmatterDisplay: FrontmatterDisplay,
+  linkDefinitions: LinkReferenceDefinitionMap,
   onHeadings?: (headings: HeadingInfo[]) => void,
   onChunkComplete?: () => void
 ): Promise<void> {
@@ -327,10 +344,18 @@ async function renderAllBlocksStreaming(
     }
     
     // Render block content
-    const html = await renderBlockContent(block.content, processor, taskManager, block.startLine);    // The render may have been aborted while this block was processing (a
+    const html = await renderBlockContent(
+      block.content,
+      processor,
+      taskManager,
+      block.startLine,
+      linkDefinitions
+    );
+    // The render may have been aborted while this block was processing (a
     // newer render is now filling the container). Do not append this stale
     // block into the new render's DOM.
-    if (taskManager.isAborted()) return;    doc.setBlockHtml(i, html);
+    if (taskManager.isAborted()) return;
+    doc.setBlockHtml(i, html);
     
     // Create and append DOM element
     const div = document.createElement('div');
@@ -372,7 +397,8 @@ async function applyIncrementalUpdate(
   container: HTMLElement,
   commands: DOMCommand[],
   taskManager: AsyncTaskManager,
-  frontmatterDisplay: FrontmatterDisplay
+  frontmatterDisplay: FrontmatterDisplay,
+  linkDefinitions: LinkReferenceDefinitionMap
 ): Promise<void> {
   // First, render HTML for all blocks that need it
   for (const cmd of commands) {
@@ -398,7 +424,7 @@ async function applyIncrementalUpdate(
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         } else {
-          const html = await renderBlockContent(block.content, processor, taskManager, block.startLine);
+          const html = await renderBlockContent(block.content, processor, taskManager, block.startLine, linkDefinitions);
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         }
@@ -420,7 +446,7 @@ async function applyIncrementalUpdate(
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         } else {
-          const html = await renderBlockContent(block.content, processor, taskManager, block.startLine);
+          const html = await renderBlockContent(block.content, processor, taskManager, block.startLine, linkDefinitions);
           doc.setBlockHtmlById(cmd.blockId, html);
           cmd.html = html;
         }
@@ -452,18 +478,23 @@ function normalizeHeadingIds(container: HTMLElement): void {
  * @param processor - Markdown processor
  * @param taskManager - Task manager to carry the block's document-level start line
  * @param blockStartLine - 0-based document line where the block begins
+ * @param linkDefinitions - Document-wide `[label]: url` definitions; the ones
+ *   this block references are appended to its parse buffer so references
+ *   resolve even though the definition lives in another block (issue #136)
  */
 async function renderBlockContent(
   content: string,
   processor: Processor,
   taskManager: AsyncTaskManager,
-  blockStartLine: number
+  blockStartLine: number,
+  linkDefinitions: LinkReferenceDefinitionMap
 ): Promise<string> {
   // Block contents are parsed on their own, so remark node positions are
   // block-relative; the task manager offsets them so error reports can name
   // the real document line.
   taskManager.setBlockStartLine(blockStartLine);
-  const normalizedContent = escapePipesInTableCodeSpans(normalizeMathBlocks(content));
+  const withDefinitions = appendDefinitionsForBlock(content, linkDefinitions);
+  const normalizedContent = escapePipesInTableCodeSpans(normalizeMathBlocks(withDefinitions));
   const file = await processor.process(normalizedContent);
   let html = String(file);
   html = sanitizeRenderedHtml(html);

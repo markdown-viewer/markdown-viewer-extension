@@ -1,6 +1,7 @@
 import type { Processor } from 'unified';
 import { normalizeMathBlocks, sanitizeRenderedHtml, escapeHtml } from './markdown-processor';
 import { escapePipesInTableCodeSpans } from '../utils/markdown-table-code';
+import { appendDefinitionsForBlock, type LinkReferenceDefinitionMap } from './link-reference-definitions.ts';
 import type { ParsedFootnotes, FootnoteDefinition } from './footnote-model.ts';
 
 function replaceReferenceTextNodes(container: HTMLElement, definitions: FootnoteDefinition[]): void {
@@ -62,8 +63,15 @@ function replaceReferenceTextNodes(container: HTMLElement, definitions: Footnote
   }
 }
 
-async function renderFootnoteContent(content: string, processor: Processor): Promise<string> {
-  const normalizedContent = escapePipesInTableCodeSpans(normalizeMathBlocks(content));
+async function renderFootnoteContent(
+  content: string,
+  processor: Processor,
+  linkDefinitions: LinkReferenceDefinitionMap,
+): Promise<string> {
+  // Footnote bodies are rendered on their own, so a `[label]: url` definition
+  // they reference has to travel with them (same reason as block rendering).
+  const withDefinitions = appendDefinitionsForBlock(content, linkDefinitions);
+  const normalizedContent = escapePipesInTableCodeSpans(normalizeMathBlocks(withDefinitions));
   const file = await processor.process(normalizedContent);
   return sanitizeRenderedHtml(String(file));
 }
@@ -88,6 +96,7 @@ export async function applyFootnotes(
   container: HTMLElement,
   footnotes: ParsedFootnotes,
   processor: Processor,
+  linkDefinitions: LinkReferenceDefinitionMap,
 ): Promise<void> {
   container.querySelectorAll('.md-footnotes-container').forEach((node) => node.remove());
   if (footnotes.definitions.length === 0) return;
@@ -99,7 +108,7 @@ export async function applyFootnotes(
 
   const itemsHtml: string[] = [];
   for (const def of footnotes.definitions) {
-    const contentHtml = await renderFootnoteContent(def.content, processor);
+    const contentHtml = await renderFootnoteContent(def.content, processor, linkDefinitions);
     itemsHtml.push([
       `  <li class="footnote-item" id="${escapeHtml(def.anchorId)}">`,
       `    <div class="footnote-content">${mergeLabelIntoFirstLine(def.label, contentHtml)}</div>`,

@@ -306,8 +306,20 @@ export class MarkdownDocument {
 
   /**
    * Update document content and return DOM commands for incremental update
+   * @param markdown - New raw markdown
+   * @param options - Optional diff hints
+   * @param options.blockHashInput - Text a block is hashed by instead of its
+   *   own content. Callers whose block rendering depends on document-level
+   *   context pass the block plus that context here, so a change to the context
+   *   alone still rebuilds the blocks that were affected (e.g. link reference
+   *   definitions resolved across blocks, issue #136). Must be a pure function
+   *   of the block content and the incoming context.
    */
-  update(markdown: string): DOMCommandResult {
+  update(
+    markdown: string,
+    options?: { blockHashInput?: (content: string) => string }
+  ): DOMCommandResult {
+    const blockHashInput = options?.blockHashInput;
     const oldBlocks = this.blocks;
     const isFirstRender = oldBlocks.length === 0;
     
@@ -321,7 +333,7 @@ export class MarkdownDocument {
       // Use actual content line count, not distance to next block
       // This avoids counting trailing empty lines that aren't rendered
       const lineCount = block.content.split('\n').length;
-      const blockHash = hashCode(block.content);
+      const blockHash = hashCode(blockHashInput ? blockHashInput(block.content) : block.content);
       
       return {
         id: '', // Will be assigned after diffing

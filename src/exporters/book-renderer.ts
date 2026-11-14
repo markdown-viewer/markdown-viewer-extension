@@ -13,6 +13,7 @@ import { mountOpenapiDocument } from '../core/viewer/openapi-view';
 import { isOpenapiFile } from '../utils/openapi';
 import { parseFootnotes } from '../core/footnote-model.ts';
 import { applyFootnotes } from '../core/footnote-postprocessor.ts';
+import { collectLinkReferenceDefinitions } from '../core/link-reference-definitions.ts';
 import { rewriteObsidianLinks } from '../utils/obsidian-link-rewrite';
 import { preprocessPage } from './book-exporter';
 import type { BookExportProgressHandler, BookPage } from '../types/book-export';
@@ -113,12 +114,13 @@ export async function renderBookForPrint(options: RenderBookForPrintOptions): Pr
         const taskManager = new AsyncTaskManager(translate);
         const processor = createMarkdownProcessor(renderer, taskManager, translate, { tableMergeEmpty });
         const footnotes = parseFootnotes(rewriteObsidianLinks(processed));
+        const linkDefinitions = collectLinkReferenceDefinitions(footnotes.bodyMarkdown);
         const file = await processor.process(footnotes.bodyMarkdown);
         // Sanitize before the chapter reaches the DOM: this is the book export
         // path, which does not go through the block pipeline that sanitizes a
         // single document's rendered HTML.
         chapterContent.innerHTML = sanitizeRenderedHtml(String(file));
-        await applyFootnotes(chapterContent, footnotes, processor);
+        await applyFootnotes(chapterContent, footnotes, processor, linkDefinitions);
         await taskManager.processAll();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

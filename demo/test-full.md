@@ -159,7 +159,20 @@ URLs for the reference above:
 **本地图片（相对路径）：**
 ![Icon](../icons/icon128.png)
 
+**引用式图片（Reference-style Images）：**
+
+![Logo][icon-reference]
+
+**引用式图片作为链接内容（`[![alt][img]][link]`）：**
+
+[![Logo][icon-reference]][github-reference]
+
+图片和链接的定义可以在文档任意位置（下方为定义块）：
+
 *注：SVG 和 Data URL 图片的详细测试在第 8 节*
+
+[icon-reference]: <https://raw.githubusercontent.com/markdown-viewer/markdown-viewer-extension/refs/heads/main/icons/icon48.png>
+[github-reference]: <https://github.com/markdown-viewer/markdown-viewer-extension>
 
 ### 2.3 引用块
 

@@ -11,6 +11,7 @@ import './renderer-page-csp.test.ts';
 import './host-css-scoping.test.js';
 import './browser-render-harness.test.ts';
 import './browser-baseline.test.ts';
+import './reference-links-render.test.ts';
 import './html-export-layout.test.ts';
 import './list-indent-contract.test.ts';
 import './epub-styles-contract.test.ts';
