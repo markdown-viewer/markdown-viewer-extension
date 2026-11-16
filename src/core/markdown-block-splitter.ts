@@ -81,6 +81,36 @@ const HTML_CONTAINER_TAGS = /^<(script|style|pre)(\s|>|\/|$)/i;
 const HTML_BLOCK_TAGS = /^<(address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|section|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(\s|>|\/|$)/i;
 const HTML_RAW_START = /^<(!--|!DOCTYPE|\?|!\[CDATA\[)/i;
 
+// CommonMark HTML block kinds 2-5 end at a closing marker, NOT at a blank line,
+// so a comment such as `<!--\n\nfoo\n\n-->` is a single block.
+const HTML_RAW_END_MARKERS: Array<{ start: RegExp; end: string }> = [
+  { start: /^<!--/, end: '-->' },
+  { start: /^<\?/, end: '?>' },
+  { start: /^<!\[CDATA\[/i, end: ']]>' },
+  { start: /^<!DOCTYPE/i, end: '>' },
+];
+
+/**
+ * If `line` opens a raw HTML block (comment, PI, CDATA, doctype), return the
+ * index of the line containing its closing marker (or the last line when it is
+ * never closed). Returns null for any other line.
+ */
+function findRawHtmlEnd(lines: string[], startIndex: number): number | null {
+  const first = lines[startIndex].trim();
+  const kind = HTML_RAW_END_MARKERS.find((k) => k.start.test(first));
+  if (!kind) return null;
+
+  // The closing marker may be on the opening line, but must come after the opener.
+  const opener = first.match(kind.start)![0];
+  const openerPos = lines[startIndex].indexOf(opener) + opener.length;
+  if (lines[startIndex].indexOf(kind.end, openerPos) !== -1) return startIndex;
+
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (lines[i].includes(kind.end)) return i;
+  }
+  return lines.length - 1;
+}
+
 function getHtmlContainerTagName(line: string): string | null {
   const match = line.trim().match(HTML_CONTAINER_TAGS);
   return match ? match[1].toLowerCase() : null;
@@ -107,6 +137,12 @@ function findContiguousHtmlEnd(lines: string[], startIndex: number): number {
         }
       }
       endIndex = nextEnd < lines.length ? nextEnd : lines.length - 1;
+      continue;
+    }
+
+    const rawEnd = findRawHtmlEnd(lines, nextStart);
+    if (rawEnd !== null) {
+      endIndex = rawEnd;
       continue;
     }
 
@@ -159,6 +195,16 @@ const htmlBlockDetector: BlockDetector = {
         return endIndex + 1;
       }
       return endIndex;
+    }
+
+    // Raw HTML blocks (comments etc.) end at their closing marker
+    const rawEnd = findRawHtmlEnd(lines, startIndex);
+    if (rawEnd !== null) {
+      const contiguousEnd = findContiguousHtmlEnd(lines, rawEnd);
+      if (contiguousEnd + 1 < lines.length && lines[contiguousEnd + 1].trim() === '') {
+        return contiguousEnd + 1; // Include the empty line
+      }
+      return contiguousEnd;
     }
 
     // HTML block ends at empty line or EOF

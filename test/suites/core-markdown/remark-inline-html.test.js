@@ -129,6 +129,16 @@ describe('remarkInlineHtml', () => {
     });
   });
 
+  describe('html comments', () => {
+    it('should drop inline comments instead of showing them as text', () => {
+      assert.strictEqual(transform('before <!-- hidden --> after'), 'before  after');
+    });
+
+    it('should drop inline comments containing markdown', () => {
+      assert.strictEqual(transform('a <!-- **b** `c` --> d'), 'a  d');
+    });
+  });
+
   describe('break tag', () => {
     it('should convert <br> to break', () => {
       const ast = parseToAst('Line1<br>Line2');

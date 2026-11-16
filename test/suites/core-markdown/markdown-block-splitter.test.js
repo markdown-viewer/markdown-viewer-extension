@@ -324,6 +324,30 @@ describe('markdown-block-splitter', () => {
       assert.deepStrictEqual(result, ['<!-- comment -->\n']);
     });
 
+    it('should keep a multi-line comment with blank lines as one block', () => {
+      const md = '<!--\n**bold**\n\n1. item\n2. item\n-->\n\nAfter';
+      const result = splitMarkdownIntoBlocks(md);
+      assert.deepStrictEqual(result, ['<!--\n**bold**\n\n1. item\n2. item\n-->\n', 'After']);
+    });
+
+    it('should keep a comment with a heading and blank lines as one block', () => {
+      const md = 'Intro\n\n<!--\n### 4.5 Title\n\n- a\n\n- b\n-->\n\n---';
+      const result = splitMarkdownIntoBlocks(md);
+      assert.strictEqual(result.length, 3);
+      assert.ok(result[1].startsWith('<!--') && result[1].includes('-->'));
+      assert.strictEqual(result[2], '---');
+    });
+
+    it('should end a single-line comment at the closing marker', () => {
+      const result = splitMarkdownIntoBlocks('<!-- c -->\ntext');
+      assert.deepStrictEqual(result, ['<!-- c -->', 'text']);
+    });
+
+    it('should treat an unclosed comment as running to the end', () => {
+      const result = splitMarkdownIntoBlocks('<!--\na\n\nb');
+      assert.deepStrictEqual(result, ['<!--\na\n\nb']);
+    });
+
     it('should handle nested html', () => {
       const result = splitMarkdownIntoBlocks('<div>\n  <div>\n    Text\n  </div>\n</div>\n');
       assert.deepStrictEqual(result, ['<div>\n  <div>\n    Text\n  </div>\n</div>\n']);
