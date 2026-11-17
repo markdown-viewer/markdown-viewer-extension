@@ -58,6 +58,65 @@ function exec(cmd, options = {}) {
 }
 
 /**
+ * Major Java version of a JDK home (or of `java` on PATH when home is null).
+ * Returns null when the runtime cannot be inspected.
+ */
+function javaMajorVersion(javaHome) {
+  const java = javaHome ? path.join(javaHome, 'bin', 'java') : 'java';
+  try {
+    const output = execSync(`"${java}" -version 2>&1`, { encoding: 'utf8' });
+    const match = output.match(/version "(?:1\.)?(\d+)/);
+    return match ? Number(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The JDK the Android Gradle build must run on.
+ *
+ * AGP 9.3's release lint calls Java 21 APIs (`List.removeLast`), so the Gradle
+ * runtime has to be 21+ even though the app still compiles for Java 17. A
+ * `home` of null means the inherited environment (java on PATH) already
+ * satisfies that, so no JAVA_HOME override is needed.
+ */
+function androidJavaRuntime() {
+  const configured = process.env.JAVA_HOME;
+  const configuredMajor = javaMajorVersion(configured);
+  if (configuredMajor !== null && configuredMajor >= 21) {
+    return { home: configured || null };
+  }
+
+  if (!configured) {
+    const pathMajor = javaMajorVersion(null);
+    if (pathMajor !== null && pathMajor >= 21) {
+      return { home: null };
+    }
+  }
+
+  // macOS keeps all installed JDKs discoverable, so release builds keep working
+  // when the shell default is still 17. Prefer the LTS the CI uses, then newer.
+  if (process.platform === 'darwin') {
+    for (const spec of ['21', '21+']) {
+      try {
+        const home = execSync(`/usr/libexec/java_home -v '${spec}'`, {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+        const major = javaMajorVersion(home);
+        if (major !== null && major >= 21) {
+          return { home };
+        }
+      } catch {
+        // No matching JDK installed; try the next spec.
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Copy directory recursively using system cp command
  * This handles symlinks properly (required for macOS .app bundles)
  */
@@ -352,10 +411,24 @@ const targets = {
 
       const buildModeDisplay = hasKeystore ? 'Release (signed)' : 'Release (unsigned)';
 
+      const javaRuntime = androidJavaRuntime();
+      if (!javaRuntime) {
+        throw new Error(
+          'Android release builds need a JDK 21+ Gradle runtime ' +
+            '(AGP 9.3 lint uses Java 21 APIs). Install Temurin 21 or set JAVA_HOME.'
+        );
+      }
+      const buildOptions = javaRuntime.home
+        ? { cwd: mobileDir, env: { ...process.env, JAVA_HOME: javaRuntime.home } }
+        : { cwd: mobileDir };
+      if (javaRuntime.home && javaRuntime.home !== process.env.JAVA_HOME) {
+        console.log(`  ℹ️  Using JDK 21+ for the Gradle runtime: ${javaRuntime.home}`);
+      }
+
       console.log(`\n🤖 Building Android APK (${buildModeDisplay})...\n`);
 
       // Always build release APK
-      exec('flutter build apk --release', { cwd: mobileDir });
+      exec('flutter build apk --release', buildOptions);
       
       const androidDistDir = path.join(distDir, 'android');
       const apkSrcDir = path.join(mobileDir, `build/app/outputs/flutter-apk`);
@@ -366,7 +439,7 @@ const targets = {
       if (hasKeystore) {
         console.log(`\n🤖 Building Android App Bundle (AAB) (${buildModeDisplay})...\n`);
 
-        exec('flutter build appbundle --release', { cwd: mobileDir });
+        exec('flutter build appbundle --release', buildOptions);
 
         const aabSrcDir = path.join(mobileDir, 'build/app/outputs/bundle/release');
         copyFiles(aabSrcDir, androidDistDir, /\.aab$/);

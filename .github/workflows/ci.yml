@@ -147,10 +147,12 @@ jobs:
           channel: stable
           cache: true
 
+      # AGP 9.3's release lint calls Java 21 APIs (List.removeLast); the app still
+      # compiles for Java 17 (see mobile/android/app/build.gradle.kts).
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Resolve Flutter dependencies
         working-directory: mobile

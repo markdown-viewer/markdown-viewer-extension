@@ -444,10 +444,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # AGP 9.3's release lint calls Java 21 APIs (List.removeLast); the app still
+      # compiles for Java 17 (see mobile/android/app/build.gradle.kts).
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17' # mobile/android/app/build.gradle.kts compiles for Java 17
+          java-version: '21'
 
       # Flutter floats like the rest of the dependency tree (pubspec.lock is
       # gitignored). If a stable bump ever breaks the app build, pin the version
