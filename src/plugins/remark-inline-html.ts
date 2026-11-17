@@ -341,6 +341,12 @@ export default function remarkInlineHtml() {
         if (child.type === 'html') {
           const htmlNode = child as Html;
 
+          // Drop HTML comments entirely (<!-- ... -->)
+          if (/^<!--[\s\S]*-->$/.test(htmlNode.value.trim())) {
+            i++;
+            continue;
+          }
+
           // Handle <br> tags
           if (isSelfClosingBreak(htmlNode.value)) {
             newChildren.push({ type: 'break' } as PhrasingContent);
