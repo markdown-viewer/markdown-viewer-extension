@@ -5,7 +5,7 @@
 import FlutterMacOS
 import Foundation
 
-import file_picker
+import file_picker_darwin
 import package_info_plus
 import path_provider_foundation
 import share_plus

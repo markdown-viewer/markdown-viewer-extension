@@ -396,7 +396,7 @@ per `-verify_arch` call while Flutter ≤ 3.44.7 passed the whole `ARCHS` list
 false alarm — the binary was fat and both slices verified individually — and the
 SDK fixed it by verifying one architecture per call; **Flutter 3.44.8 is the
 first stable with the fix** (commit `879ec7d57`, PR #188625), and the repo now
-pins 3.47.5. Single-architecture builds still work the same way (Flutter forwards
+pins 3.50.0. Single-architecture builds still work the same way (Flutter forwards
 `FLUTTER_XCODE_*` to xcodebuild) and remain the faster local loop:
 
 ```bash

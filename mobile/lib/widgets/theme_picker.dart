@@ -1,5 +1,5 @@
 import '../ant_icons.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../models/theme_info.dart';
 import '../services/localization_service.dart';
 import '../services/theme_registry_service.dart';

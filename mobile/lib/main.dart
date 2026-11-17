@@ -5,7 +5,7 @@ import 'dart:io';
 import 'ant_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -1172,16 +1172,17 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
 
   Future<void> _openFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      // file_picker 13: static API; pickFile() returns null on cancel.
+      final picked = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: settingsService.allowedExtensions,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final filePath = result.files.single.path!;
+      if (picked != null) {
+        final filePath = picked.path!;
         final file = File(filePath);
         final content = await file.readAsString();
-        final filename = result.files.single.name;
+        final filename = picked.name;
 
         // Save the directory and path of the markdown file
         _currentFileDir = file.parent.path;

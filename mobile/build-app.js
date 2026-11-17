@@ -291,7 +291,7 @@ function explainMacosBuildFailure(logPath, { singleArch, arch }) {
  * at the framework check ("does not contain architectures") *after* a successful
  * compile, even though the binary is fat and both slices verify individually.
  * Flutter fixed its call in 3.44.8 (verified one architecture at a time); the
- * repo pins 3.47.5, and the hint below stays for SDKs that predate that.
+ * repo pins 3.50.0, and the hint below stays for SDKs that predate that.
  *
  * Forward-looking, so this variant stays deliberate: Flutter keeps Intel slices in
  * release builds only while `enable-macos-arm64-only` stays off — it is off today

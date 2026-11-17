@@ -1,5 +1,5 @@
 import '../ant_icons.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shared, Material 3 based UI building blocks used across the app.
 ///
