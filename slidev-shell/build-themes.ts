@@ -183,6 +183,12 @@ async function buildTheme(themeName: string): Promise<void> {
         },
       },
       cssCodeSplit: false,
+      // Vite 8 defaults CSS minification to Lightning CSS, which warns on the
+      // theme stylesheets' raw `@apply` directives (the theme build resolves
+      // them after minification, in resolveApplyPlugin). Keep the Vite 7
+      // behavior so the build log stays clean and the directives are preserved
+      // for that later pass.
+      cssMinify: 'esbuild',
       // Inline assets as data-URIs in CSS
       assetsInlineLimit: Infinity,
       minify: true,
@@ -199,7 +205,12 @@ async function buildTheme(themeName: string): Promise<void> {
   const cssFiles = fs.readdirSync(outDir).filter(f => f.endsWith('.css'))
   for (const cssFileName of cssFiles) {
     const cssPath = path.join(outDir, cssFileName)
-    const extractedCss = fs.readFileSync(cssPath, 'utf8').trim()
+    let extractedCss = fs.readFileSync(cssPath, 'utf8').trim()
+    // @slidev/theme-bricks' section.vue uses `@apply -mt-0`; negative zero is
+    // not a generatable UnoCSS utility, so the directive survives the
+    // transformer and would be an invalid rule in the embedded CSS. It means
+    // margin-top: 0.
+    extractedCss = extractedCss.replace(/@apply\s+-mt-0\s*;/g, 'margin-top: 0;')
     if (extractedCss && fs.existsSync(jsFile)) {
       let js = fs.readFileSync(jsFile, 'utf8')
       const escaped = JSON.stringify(extractedCss)
