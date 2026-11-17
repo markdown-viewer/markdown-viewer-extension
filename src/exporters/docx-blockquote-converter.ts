@@ -197,7 +197,9 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
 
     // Create the table cell with blockquote / alert styling
     const cell = new TableCell({
-      children: cellChildren,
+      // Blockquote children are block content only (paragraphs and nested tables);
+      // docx 9.15 narrowed TableCell.children to that union.
+      children: cellChildren as (Paragraph | Table)[],
       margins: cellPadding,
       borders: {
         top: { style: BorderStyle.SINGLE, size: 0, color: hiddenBorderColor },

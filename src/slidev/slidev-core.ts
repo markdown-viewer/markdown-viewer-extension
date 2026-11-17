@@ -9,8 +9,7 @@
 
 import { parseSync } from '@slidev/parser'
 import MarkdownIt from 'markdown-it'
-import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs'
-import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs'
+import type { StateInline, StateBlock } from 'markdown-it'
 import katex from 'katex'
 import { CODE_BLOCK_LANGUAGE_MAP, DIAGRAM_CODE_BLOCK_LANGUAGE_SET } from '../types/formats'
 

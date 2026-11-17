@@ -3,7 +3,7 @@
  * Converts LaTeX math expressions to DOCX-compatible OMML format
  */
 
-import { convertToXmlComponent, XmlComponent } from 'docx';
+import { convertToXmlComponent, type ParagraphChild } from 'docx';
 import { mathjax } from 'mathjax-full/js/mathjax';
 import { TeX } from 'mathjax-full/js/input/tex';
 import { AllPackages } from 'mathjax-full/js/input/tex/AllPackages';
@@ -71,7 +71,7 @@ export function convertMathMl2Omml(mathMlString: string): string {
   return mml2omml(mathMlString, { disableDecode: true });
 }
 
-function convertOmml2Math(ommlString: string): XmlComponent {
+function convertOmml2Math(ommlString: string): ParagraphChild {
   const parsed = xml2js(ommlString, {
     compact: false,
     ignoreDeclaration: true,
@@ -96,10 +96,12 @@ function convertOmml2Math(ommlString: string): XmlComponent {
     throw new Error('Failed to convert OMML element');
   }
 
-  return component;
+  // The component is the Math element (rootKey checked above), which is a
+  // ParagraphChild at runtime; docx 9.15 only widened the base class type.
+  return component as unknown as ParagraphChild;
 }
 
-function convertMathMl2Math(mathMlString: string): XmlComponent {
+function convertMathMl2Math(mathMlString: string): ParagraphChild {
   const ommlString = convertMathMl2Omml(mathMlString);
   return convertOmml2Math(ommlString);
 }
@@ -159,7 +161,7 @@ function latex2MathMl(latexString: string): string {
   return visitor.visitTree(mathNode as any);
 }
 
-export function convertLatex2Math(latexString: string): XmlComponent {
+export function convertLatex2Math(latexString: string): ParagraphChild {
   const mathMlString = latex2MathMl(latexString);
   return convertMathMl2Math(mathMlString);
 }
