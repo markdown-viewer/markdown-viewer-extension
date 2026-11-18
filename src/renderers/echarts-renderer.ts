@@ -135,8 +135,12 @@ export class EchartsRenderer extends BaseRenderer {
     }
     processedOption.textStyle = textStyle;
 
-    // Keep background transparent so the chart blends into any page color
-    processedOption.backgroundColor = 'transparent';
+    // Default to a transparent background so the chart blends into any page
+    // color. An author-specified background (e.g. "white") is respected so
+    // the exported PNG/SVG is fully opaque.
+    if (!processedOption.backgroundColor) {
+      processedOption.backgroundColor = 'transparent';
+    }
 
     try {
       // Wait for the chart to finish rendering before exporting
@@ -156,6 +160,7 @@ export class EchartsRenderer extends BaseRenderer {
         exportBounds,
         width,
         height,
+        processedOption.backgroundColor,
       );
 
       // Calculate scale for PNG dimensions (clamped to canvas limits)
@@ -255,12 +260,17 @@ export class EchartsRenderer extends BaseRenderer {
   /**
    * Expand the exported SVG root box when the rendered content exceeds the
    * requested width/height. This keeps PNG rasterization from clipping.
+   *
+   * When the chart has an opaque background, the expanded area is filled with
+   * that same color: ECharts only emits a background rect for the nominal
+   * canvas, so the padding/overflow region would otherwise stay transparent.
    */
   private expandSvgExport(
     svgContent: string,
     bounds: { minX: number; minY: number; maxX: number; maxY: number },
     fallbackWidth: number,
     fallbackHeight: number,
+    backgroundColor: string | undefined,
   ): { svg: string; width: number; height: number } {
     const padding = EchartsRenderer.EXPORT_PADDING;
     const viewBoxX = Math.floor(Math.min(0, bounds.minX) - padding);
@@ -279,6 +289,42 @@ export class EchartsRenderer extends BaseRenderer {
     svgRoot.setAttribute('width', String(exportWidth));
     svgRoot.setAttribute('height', String(exportHeight));
     svgRoot.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${exportWidth} ${exportHeight}`);
+
+    // Repaint the area added by the expansion with the author's background
+    // color (when opaque). ECharts' own background rect only covers the
+    // nominal canvas, so the padding/overflow region would otherwise stay
+    // transparent. The fill is laid out as four bands around the canvas
+    // instead of one full-box rect so semi-transparent colors (rgba) are not
+    // composited twice over the chart area.
+    const fill = typeof backgroundColor === 'string' ? backgroundColor.trim() : '';
+    if (fill && !/^(transparent|none)$/i.test(fill)) {
+      const bands: Array<[number, number, number, number]> = [];
+      if (viewBoxY < 0) {
+        bands.push([viewBoxX, viewBoxY, exportWidth, -viewBoxY]);
+      }
+      if (maxY > fallbackHeight) {
+        bands.push([viewBoxX, fallbackHeight, exportWidth, maxY - fallbackHeight]);
+      }
+      if (viewBoxX < 0) {
+        bands.push([viewBoxX, 0, -viewBoxX, fallbackHeight]);
+      }
+      if (maxX > fallbackWidth) {
+        bands.push([fallbackWidth, 0, maxX - fallbackWidth, fallbackHeight]);
+      }
+      for (const [x, y, bandWidth, bandHeight] of bands) {
+        if (bandWidth <= 0 || bandHeight <= 0) {
+          continue;
+        }
+        const band = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        band.setAttribute('x', String(x));
+        band.setAttribute('y', String(y));
+        band.setAttribute('width', String(bandWidth));
+        band.setAttribute('height', String(bandHeight));
+        band.setAttribute('fill', fill);
+        // Background must stay behind all rendered chart content.
+        svgRoot.insertBefore(band, svgRoot.firstChild);
+      }
+    }
 
     return {
       svg: new XMLSerializer().serializeToString(doc),
